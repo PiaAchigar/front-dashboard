@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const role =
-    (user?.user_metadata as { role?: string } | undefined)?.role ?? null;
+    (user?.app_metadata as { role?: string } | undefined)?.role ?? null;
 
   const signOut = async () => {
     await supabase.auth.signOut();
