@@ -12,6 +12,7 @@ export function useProviders(serviceId?: string) {
   return useQuery({
     queryKey: ["providers", serviceId ?? "all"],
     queryFn: () => apiFetch<Provider[]>(`/api/agenda/providers${params}`, token),
+    enabled: !!token,
     staleTime: 5 * 60 * 1000,
   });
 }

@@ -10,6 +10,7 @@ export function useCompanyConfig() {
   return useQuery({
     queryKey: ["company-config"],
     queryFn: () => apiFetch<CompanyConfig>("/api/agenda/company-config", token),
+    enabled: !!token,
     staleTime: 10 * 60 * 1000,
   });
 }

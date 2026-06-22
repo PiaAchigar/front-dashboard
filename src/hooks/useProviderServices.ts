@@ -11,7 +11,7 @@ export function useProviderServices(providerId: string | null) {
     queryKey: ["provider-services", providerId],
     queryFn: () =>
       apiFetch<ProviderService[]>(`/api/agenda/providers/${providerId}/services`, token),
-    enabled: !!providerId,
+    enabled: !!providerId && !!token,
     staleTime: 5 * 60 * 1000,
   });
 }

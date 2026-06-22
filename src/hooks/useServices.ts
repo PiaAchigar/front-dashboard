@@ -15,6 +15,7 @@ export function useServices(filters?: { categoryId?: string; q?: string }) {
   return useQuery({
     queryKey: ["services", filters ?? "all"],
     queryFn: () => apiFetch<Service[]>(`/api/agenda/services${qs}`, token),
+    enabled: !!token,
     staleTime: 5 * 60 * 1000,
   });
 }

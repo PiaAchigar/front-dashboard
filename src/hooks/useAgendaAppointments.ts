@@ -15,7 +15,7 @@ export function useAgendaAppointments(date: string) {
     queryKey: appointmentsKey(date),
     queryFn: () =>
       apiFetch<Appointment[]>(`/api/agenda/appointments?date=${date}`, token),
-    enabled: !!date,
+    enabled: !!date && !!token,
     staleTime: 30 * 1000,
   });
 }

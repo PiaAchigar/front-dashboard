@@ -10,6 +10,7 @@ export function usePromotions() {
   return useQuery({
     queryKey: ["promotions"],
     queryFn: () => apiFetch<Promotion[]>("/api/agenda/promotions", token),
+    enabled: !!token,
     staleTime: 5 * 60 * 1000,
   });
 }

@@ -63,7 +63,7 @@ export function DayView({
   }, [appointments]);
 
   return (
-    <div className="flex flex-1 overflow-auto">
+    <div className="flex flex-1 overflow-y-auto">
       {/* Eje de horas */}
       <div
         className="w-14 flex-shrink-0 relative bg-surface-low border-r border-surface-high"
