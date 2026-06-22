@@ -55,7 +55,7 @@ export function ServiciosWebPage() {
   };
 
   return (
-    <div className="p-8 max-w-4xl space-y-12">
+    <div className="p-8 max-w-4xl space-y-12 overflow-y-auto flex-1 min-h-0">
       <div>
         <h1 className="text-2xl font-display text-on-surface">Sitio Web</h1>
         <p className="text-sm text-muted mt-1">
