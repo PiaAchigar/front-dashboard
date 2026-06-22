@@ -41,8 +41,6 @@ export function AgendaHeader({
   const { data: providers = [] } = useProviders();
   const { data: services = [] } = useServices();
 
-  const today = new Date();
-
   function navigate(direction: -1 | 1) {
     if (view === "day") {
       onDateChange(addDays(date, direction));
