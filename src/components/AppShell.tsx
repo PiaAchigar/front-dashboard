@@ -5,6 +5,7 @@ const navItems = [
   { to: "/agenda", label: "Agenda" },
   { to: "/facturacion", label: "Facturación" },
   { to: "/crm", label: "CRM" },
+  { to: "/sitio-web", label: "Sitio Web" },
   { to: "/configuracion", label: "Configuración" },
 ];
 

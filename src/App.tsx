@@ -6,6 +6,7 @@ import { AppShell } from "./components/AppShell";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardHome } from "./pages/DashboardHome";
 import { AgendaPage } from "./pages/AgendaPage";
+import { ServiciosWebPage } from "./pages/ServiciosWebPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -33,6 +34,7 @@ export default function App() {
                 element={<DashboardHome section="Facturación" />}
               />
               <Route path="crm" element={<DashboardHome section="CRM" />} />
+              <Route path="sitio-web" element={<ServiciosWebPage />} />
               <Route
                 path="configuracion"
                 element={<DashboardHome section="Configuración" />}

@@ -23,7 +23,21 @@ export type Service = {
   requiresOperator: boolean | null;
   requiresMachine: boolean | null;
   estimatedDurationMinutes: number | null;
+  isFeatured: boolean | null;
+  isVisible: boolean | null;
+  webSortOrder: number | null;
   categories: { id: string; name: string | null }[];
+};
+
+export type Promotion = {
+  id: string;
+  name: string | null;
+  description: string | null;
+  promotionType: string | null;
+  validFrom: string | null;
+  validUntil: string | null;
+  isFeatured: boolean | null;
+  services: { id: string; name: string | null; unitPriceList: number | null }[];
 };
 
 export type OpenHour = {
