@@ -5,7 +5,7 @@ import { RequireAuth } from "./auth/RequireAuth";
 import { AppShell } from "./components/AppShell";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardHome } from "./pages/DashboardHome";
-import { AgendaPage } from "./pages/AgendaPage";
+import { AgendaFrame } from "./components/AgendaFrame";
 import { ServiciosWebPage } from "./pages/ServiciosWebPage";
 
 const queryClient = new QueryClient({
@@ -28,7 +28,7 @@ export default function App() {
               }
             >
               <Route index element={<Navigate to="/agenda" replace />} />
-              <Route path="agenda" element={<AgendaPage />} />
+              <Route path="agenda" element={<AgendaFrame />} />
               <Route
                 path="facturacion"
                 element={<DashboardHome section="Facturación" />}
