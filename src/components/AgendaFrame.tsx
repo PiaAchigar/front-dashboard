@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useAuth } from "../auth/AuthContext";
 
 /**
@@ -8,7 +8,9 @@ import { useAuth } from "../auth/AuthContext";
  * Protocolo:
  *   iframe → host : { type: "piubella:agenda:ready" }
  *   host  → iframe: { type: "piubella:agenda:token", accessToken }
- * El host responde al "ready" con el token actual y lo re-empuja en cada refresh.
+ * El host SOLO envía el token después del "ready": antes de que el iframe cargue
+ * front-agenda, su `contentWindow` está en `about:blank` (origin del padre) y un
+ * postMessage con targetOrigin de la agenda fallaría.
  */
 const AGENDA_URL = import.meta.env.VITE_AGENDA_URL as string | undefined;
 const READY_MSG = "piubella:agenda:ready";
@@ -30,36 +32,38 @@ export function AgendaFrame() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const agendaOrigin = agendaOriginOf(AGENDA_URL);
 
-  // Token actual accesible dentro del listener sin re-suscribirlo.
-  const tokenRef = useRef(token);
-  tokenRef.current = token;
+  // Flag de "iframe listo" — solo se escribe en el handler, nunca en render.
+  const readyRef = useRef(false);
 
-  // Responder al "ready" del iframe con el token actual.
+  // Envía el token al iframe — solo si ya avisó "ready" y hay token.
+  const sendToken = useCallback(() => {
+    if (!agendaOrigin || !readyRef.current || !token) return;
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: TOKEN_MSG, accessToken: token },
+      agendaOrigin,
+    );
+  }, [agendaOrigin, token]);
+
+  // Escucha el "ready" del iframe y responde con el token actual.
   useEffect(() => {
     if (!agendaOrigin) return;
     function onMessage(e: MessageEvent) {
       if (e.origin !== agendaOrigin) return;
       const data = e.data as { type?: string } | null;
-      if (data?.type === READY_MSG && tokenRef.current) {
-        iframeRef.current?.contentWindow?.postMessage(
-          { type: TOKEN_MSG, accessToken: tokenRef.current },
-          agendaOrigin,
-        );
+      if (data?.type === READY_MSG) {
+        readyRef.current = true;
+        sendToken();
       }
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [agendaOrigin]);
+  }, [agendaOrigin, sendToken]);
 
-  // Empujar el token cuando cambia (login / refresh ~1h). En la carga inicial
-  // el iframe puede no estar listo todavía; para ese caso responde el "ready".
+  // Re-empuja el token cuando cambia (login / refresh ~1h). No hace nada hasta
+  // que el iframe esté listo (readyRef), evitando el postMessage a about:blank.
   useEffect(() => {
-    if (!agendaOrigin || !token) return;
-    iframeRef.current?.contentWindow?.postMessage(
-      { type: TOKEN_MSG, accessToken: token },
-      agendaOrigin,
-    );
-  }, [token, agendaOrigin]);
+    sendToken();
+  }, [sendToken]);
 
   // Sin env válida no hay iframe que mostrar: evita el crash (URL inválida) y
   // explica qué falta en vez de dejar la pantalla en blanco.
