@@ -58,7 +58,7 @@ export function useUpdateServiceAdmin() {
   const token = session?.access_token ?? null;
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: ({ id, ...patch }: ServiceInput & { id: string }) =>
+    mutationFn: ({ id, ...patch }: Partial<ServiceInput> & { id: string }) =>
       apiFetch(`/api/agenda/services/${id}`, token, {
         method: "PATCH",
         body: JSON.stringify(patch),
