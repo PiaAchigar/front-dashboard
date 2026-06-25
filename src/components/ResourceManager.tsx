@@ -58,6 +58,8 @@ type Props<T> = {
   archiving?: boolean;
 
   archiveName?: (row: T) => string;
+  /** Acciones extra por fila (ej. "Mantenimientos"), antes de Editar/Archivar. */
+  rowActions?: (row: T) => ReactNode;
 };
 
 export function ResourceManager<T>({
@@ -81,12 +83,13 @@ export function ResourceManager<T>({
   onRestore,
   archiving = false,
   archiveName,
+  rowActions,
 }: Props<T>) {
   const [toArchive, setToArchive] = useState<T | null>(null);
   const [widths, setWidths] = useState<Record<string, number>>(() => loadWidths(title, columns));
   const [resizing, setResizing] = useState(false);
 
-  const showActions = Boolean(onEdit || (canArchive && (onArchive || onRestore)));
+  const showActions = Boolean(rowActions || onEdit || (canArchive && (onArchive || onRestore)));
   const colWidth = (key: string) => widths[key] ?? DEFAULT_WIDTH;
   const totalWidth =
     columns.reduce((acc, c) => acc + colWidth(c.key), 0) + (showActions ? ACTIONS_WIDTH : 0);
@@ -235,6 +238,7 @@ export function ResourceManager<T>({
                     {showActions && (
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-1">
+                          {rowActions && rowActions(row)}
                           {onEdit && !archived && (
                             <button
                               onClick={() => onEdit(row)}

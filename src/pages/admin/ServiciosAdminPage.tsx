@@ -12,6 +12,7 @@ import {
   useServicesAdmin,
   useUpdateServiceAdmin,
 } from "../../hooks/useServicesAdmin";
+import { useMachinesList } from "../../hooks/useMachinesAdmin";
 
 const STAFF = ["admin", "manager", "operator"];
 const TAX_OPTIONS = [
@@ -31,6 +32,7 @@ type Form = {
   taxCategory: string;
   unitType: string;
   webSortOrder: string;
+  machineId: string;
   requiresOperator: boolean;
   requiresMachine: boolean;
   isVisible: boolean;
@@ -47,6 +49,7 @@ const EMPTY: Form = {
   taxCategory: "",
   unitType: "",
   webSortOrder: "",
+  machineId: "",
   requiresOperator: false,
   requiresMachine: false,
   isVisible: true,
@@ -74,6 +77,7 @@ export function ServiciosAdminPage() {
   const update = useUpdateServiceAdmin();
   const archive = useArchiveService();
   const restore = useRestoreService();
+  const { data: machines = [] } = useMachinesList();
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -106,6 +110,17 @@ export function ServiciosAdminPage() {
     },
     { key: "tax", header: "IVA", width: 90, render: (s) => s.taxCategory ?? "—" },
     {
+      key: "machine",
+      header: "Máquina",
+      width: 160,
+      render: (s) =>
+        s.primaryMachine ? (
+          <span className="text-ink-soft">{s.primaryMachine.name}</span>
+        ) : (
+          <span className="text-ink-soft">{s.requiresMachine ? "Sin asignar" : "—"}</span>
+        ),
+    },
+    {
       key: "cats",
       header: "Categorías",
       width: 240,
@@ -137,6 +152,7 @@ export function ServiciosAdminPage() {
       taxCategory: s.taxCategory ?? "",
       unitType: s.unitType ?? "",
       webSortOrder: s.webSortOrder?.toString() ?? "",
+      machineId: s.primaryMachine?.id ?? "",
       requiresOperator: !!s.requiresOperator,
       requiresMachine: !!s.requiresMachine,
       isVisible: s.isVisible ?? true,
@@ -159,6 +175,8 @@ export function ServiciosAdminPage() {
       webSortOrder: num(form.webSortOrder),
       requiresOperator: form.requiresOperator,
       requiresMachine: form.requiresMachine,
+      // Si no requiere máquina, se desvincula (null); si requiere, manda la elegida.
+      machineId: form.requiresMachine ? form.machineId || null : null,
       isVisible: form.isVisible,
       isFeatured: form.isFeatured,
     };
@@ -304,6 +322,21 @@ export function ServiciosAdminPage() {
             checked={form.requiresMachine}
             onChange={(v) => setForm({ ...form, requiresMachine: v })}
           />
+          {form.requiresMachine && (
+            <Field label="Máquina">
+              <Select
+                value={form.machineId}
+                onChange={(e) => setForm({ ...form, machineId: e.target.value })}
+              >
+                <option value="">— Sin asignar</option>
+                {machines.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <Checkbox
             label="Visible en la web"
             checked={form.isVisible}

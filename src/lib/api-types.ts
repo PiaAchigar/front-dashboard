@@ -43,6 +43,39 @@ export type Service = {
   isVisible: boolean | null;
   webSortOrder: number | null;
   categories: { id: string; name: string | null }[];
+  primaryMachine?: { id: string; name: string | null } | null;
+};
+
+export type Machine = {
+  id: string;
+  name: string | null;
+  description: string | null;
+  equipmentType: string | null;
+  requiresOperator: boolean | null;
+  hourlyCost: number | null;
+  status: string | null;
+  purchaseDate: string | null;
+  weightKg: number | null;
+  dimensions: string | null;
+  quantity: number | null;
+  maintenanceCount: number | null;
+  lastMaintenanceAt: string | null;
+  maintenanceNotes: string | null;
+  supplierInfo: string | null;
+  warrantyCost: number | null;
+  warrantyExpiry: string | null;
+};
+
+export type MaintenanceLog = {
+  id: string;
+  machineId: string | null;
+  maintenanceDate: string | null;
+  maintenanceType: string | null;
+  description: string | null;
+  cost: number | null;
+  performedBy: string | null;
+  notes: string | null;
+  createdAt: string | null;
 };
 
 export type CategoryNode = {

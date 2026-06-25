@@ -12,6 +12,7 @@ import { AdminLayout } from "./pages/admin/AdminLayout";
 import { CategoriasAdminPage } from "./pages/admin/CategoriasAdminPage";
 import { ServiciosAdminPage } from "./pages/admin/ServiciosAdminPage";
 import { ProveedorasAdminPage } from "./pages/admin/ProveedorasAdminPage";
+import { MaquinasAdminPage } from "./pages/admin/MaquinasAdminPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -40,6 +41,7 @@ export default function App() {
                   <Route path="servicios" element={<ServiciosAdminPage />} />
                   <Route path="proveedoras" element={<ProveedorasAdminPage />} />
                   <Route path="categorias" element={<CategoriasAdminPage />} />
+                  <Route path="maquinas" element={<MaquinasAdminPage />} />
                 </Route>
                 <Route
                   path="facturacion"

@@ -5,6 +5,7 @@ const SUBNAV = [
   { to: "/admin/servicios", label: "Servicios" },
   { to: "/admin/proveedoras", label: "Proveedoras" },
   { to: "/admin/categorias", label: "Categorías" },
+  { to: "/admin/maquinas", label: "Máquinas" },
 ];
 
 export function AdminLayout() {
