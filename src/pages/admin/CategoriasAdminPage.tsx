@@ -143,7 +143,7 @@ export function CategoriasAdminPage() {
         loading={isLoading}
         error={error ? (error as Error).message : null}
         rowKey={(c) => c.id}
-        isArchived={(c) => !c.isActive}
+        isArchived={(c) => c.isActive === false}
         search={search}
         onSearch={setSearch}
         searchPlaceholder="Buscar por nombre…"

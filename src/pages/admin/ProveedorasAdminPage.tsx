@@ -149,7 +149,7 @@ export function ProveedorasAdminPage() {
         loading={isLoading}
         error={error ? (error as Error).message : null}
         rowKey={(p) => p.id}
-        isArchived={(p) => p.status !== "active"}
+        isArchived={(p) => p.status === "inactive"}
         search={search}
         onSearch={setSearch}
         searchPlaceholder="Buscar por nombre, email o DNI…"

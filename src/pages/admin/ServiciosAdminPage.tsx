@@ -184,7 +184,7 @@ export function ServiciosAdminPage() {
         loading={isLoading}
         error={error ? (error as Error).message : null}
         rowKey={(s) => s.id}
-        isArchived={(s) => !s.isActive}
+        isArchived={(s) => s.isActive === false}
         search={search}
         onSearch={setSearch}
         searchPlaceholder="Buscar por nombre o código…"

@@ -84,6 +84,7 @@ export function ResourceManager<T>({
 }: Props<T>) {
   const [toArchive, setToArchive] = useState<T | null>(null);
   const [widths, setWidths] = useState<Record<string, number>>(() => loadWidths(title, columns));
+  const [resizing, setResizing] = useState(false);
 
   const showActions = Boolean(onEdit || (canArchive && (onArchive || onRestore)));
   const colWidth = (key: string) => widths[key] ?? DEFAULT_WIDTH;
@@ -95,8 +96,7 @@ export function ResourceManager<T>({
     e.stopPropagation();
     const startX = e.clientX;
     const startW = colWidth(key);
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
+    setResizing(true);
 
     const onMove = (ev: PointerEvent) => {
       const next = Math.max(MIN_WIDTH, startW + (ev.clientX - startX));
@@ -105,8 +105,7 @@ export function ResourceManager<T>({
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      setResizing(false);
       setWidths((prev) => {
         try {
           localStorage.setItem(storageKey(title), JSON.stringify(prev));
@@ -121,9 +120,9 @@ export function ResourceManager<T>({
   }
 
   return (
-    <div className="flex h-full flex-col gap-3 p-2 sm:p-4">
+    <div className="flex h-full flex-col gap-3 p-2 pl-4 sm:p-4">
       {/* Header */}
-      <div className="flex flex-wrap item-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-xl text-ink">{title}</h2>
         {canCreate && onAdd && (
           <button
@@ -174,7 +173,11 @@ export function ResourceManager<T>({
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>}
 
       {/* Tabla con columnas redimensionables */}
-      <div className="modal-scroll min-h-0 flex-1 overflow-auto rounded-xl border border-surface-high">
+      <div
+        className={`modal-scroll min-h-0 flex-1 overflow-auto rounded-xl border border-surface-high ${
+          resizing ? "cursor-col-resize select-none" : ""
+        }`}
+      >
         <table className="text-sm" style={{ tableLayout: "fixed", width: "100%", minWidth: totalWidth }}>
           <colgroup>
             {columns.map((c) => (
@@ -183,12 +186,12 @@ export function ResourceManager<T>({
             {showActions && <col style={{ width: ACTIONS_WIDTH }} />}
           </colgroup>
 
-          <thead className="sticky top-0 bg-surface-container text-xs uppercase tracking-wider text-ink-soft">
+          <thead className="sticky top-0 z-10 text-xs uppercase tracking-wider text-ink-soft">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`relative select-none px-4 py-3 text-left font-medium ${col.className ?? ""}`}
+                  className={`relative select-none border-b border-surface-highest bg-surface-high px-4 py-3 text-left font-medium ${col.className ?? ""}`}
                 >
                   <span className="block truncate pr-2">{col.header}</span>
                   <span
@@ -198,7 +201,11 @@ export function ResourceManager<T>({
                   />
                 </th>
               ))}
-              {showActions && <th className="px-4 py-3 text-right font-medium">Acciones</th>}
+              {showActions && (
+                <th className="border-b border-surface-highest bg-surface-high px-4 py-3 text-right font-medium">
+                  Acciones
+                </th>
+              )}
             </tr>
           </thead>
 
