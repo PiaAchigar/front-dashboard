@@ -4,6 +4,20 @@ export type Provider = {
   specialties: string | null;
 };
 
+export type ProviderAdmin = {
+  id: string;
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
+  dni: string | null;
+  cuit: string | null;
+  specialties: string | null;
+  notes: string | null;
+  address: string | null;
+  postalCode: string | null;
+  status: string | null;
+};
+
 export type ProviderService = {
   id: string;
   name: string | null;
@@ -23,10 +37,21 @@ export type Service = {
   requiresOperator: boolean | null;
   requiresMachine: boolean | null;
   estimatedDurationMinutes: number | null;
+  unitType: string | null;
+  isActive: boolean | null;
   isFeatured: boolean | null;
   isVisible: boolean | null;
   webSortOrder: number | null;
   categories: { id: string; name: string | null }[];
+};
+
+export type CategoryNode = {
+  id: string;
+  name: string | null;
+  description: string | null;
+  displayOrder: number | null;
+  isActive: boolean | null;
+  children: CategoryNode[];
 };
 
 export type Promotion = {

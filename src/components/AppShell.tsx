@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Globe,
+  LayoutGrid,
   LogOut,
   Menu,
   Receipt,
@@ -20,6 +21,7 @@ type NavItem = { to: string; label: string; icon: (p: IconProps) => React.ReactE
 
 const navItems: NavItem[] = [
   { to: "/agenda",        label: "Agenda",        icon: Calendar },
+  { to: "/admin",         label: "Administración", icon: LayoutGrid },
   { to: "/facturacion",   label: "Facturación",   icon: Receipt },
   { to: "/crm",           label: "CRM",           icon: Users },
   { to: "/sitio-web",     label: "Sitio Web",     icon: Globe },
