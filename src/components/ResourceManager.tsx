@@ -121,7 +121,7 @@ export function ResourceManager<T>({
   }
 
   return (
-    <div className="flex h-full flex-col gap-3 p-4 sm:p-6">
+    <div className="flex h-full flex-col gap-3 p-2 sm:p-4">
       {/* Header */}
       <div className="flex flex-wrap item-center justify-between gap-3">
         <h2 className="font-display text-xl text-ink">{title}</h2>
@@ -174,7 +174,7 @@ export function ResourceManager<T>({
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>}
 
       {/* Tabla con columnas redimensionables */}
-      <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-surface-high">
+      <div className="modal-scroll min-h-0 flex-1 overflow-auto rounded-xl border border-surface-high">
         <table className="text-sm" style={{ tableLayout: "fixed", width: "100%", minWidth: totalWidth }}>
           <colgroup>
             {columns.map((c) => (
