@@ -17,7 +17,12 @@ import {
 
 const COLLAPSED_KEY = "dashboard-sidebar-collapsed";
 
-type NavItem = { to: string; label: string; icon: (p: IconProps) => React.ReactElement };
+type NavItem = {
+  to: string;
+  label: string;
+  icon: (p: IconProps) => React.ReactElement;
+  adminOnly?: boolean;
+};
 
 const navItems: NavItem[] = [
   { to: "/agenda",        label: "Agenda",        icon: Calendar },
@@ -25,12 +30,13 @@ const navItems: NavItem[] = [
   { to: "/facturacion",   label: "Facturación",   icon: Receipt },
   { to: "/crm",           label: "CRM",           icon: Users },
   { to: "/sitio-web",     label: "Sitio Web",     icon: Globe },
-  { to: "/configuracion", label: "Configuración", icon: Settings },
+  { to: "/configuracion", label: "Configuración", icon: Settings, adminOnly: true },
 ];
 
 export function AppShell() {
-  const { user, signOut } = useAuth();
+  const { user, role, signOut } = useAuth();
   const navigate = useNavigate();
+  const visibleNavItems = navItems.filter((it) => !it.adminOnly || role === "admin");
 
   // Rail colapsado (solo desktop), persistido. Drawer mobile, efímero.
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === "1");
@@ -93,7 +99,7 @@ export function AppShell() {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-2 py-4">
-          {navItems.map(({ to, label, icon: Icon }) => (
+          {visibleNavItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}

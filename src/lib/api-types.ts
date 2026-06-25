@@ -166,6 +166,14 @@ export type Faq = {
   updatedAt: string | null;
 };
 
+export type AdminUser = {
+  id: string;
+  email: string | null;
+  role: string | null;
+  createdAt: string | null;
+  lastSignInAt: string | null;
+};
+
 export type Customer = {
   id: string;
   contactId: string | null;

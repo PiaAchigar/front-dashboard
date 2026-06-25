@@ -44,3 +44,24 @@ export function useUpdateCompanyConfig() {
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
   });
 }
+
+export type OpenHourInput = {
+  dayOfWeek: number;
+  openingTime?: string | null;
+  closingTime?: string | null;
+  isOpen?: boolean | null;
+};
+
+export function useUpdateOpenHours() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (days: OpenHourInput[]) =>
+      apiFetch("/api/agenda/company-config/open-hours", token, {
+        method: "PATCH",
+        body: JSON.stringify({ days }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
+  });
+}

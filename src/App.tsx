@@ -19,6 +19,9 @@ import { TextosWebPage } from "./pages/web/TextosWebPage";
 import { GaleriaWebPage } from "./pages/web/GaleriaWebPage";
 import { TestimoniosWebPage } from "./pages/web/TestimoniosWebPage";
 import { FaqWebPage } from "./pages/web/FaqWebPage";
+import { ConfiguracionLayout } from "./pages/config/ConfiguracionLayout";
+import { DatosEmpresaPage } from "./pages/config/DatosEmpresaPage";
+import { UsuariosPage } from "./pages/config/UsuariosPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -63,10 +66,11 @@ export default function App() {
                   <Route path="testimonios" element={<TestimoniosWebPage />} />
                   <Route path="faq" element={<FaqWebPage />} />
                 </Route>
-                <Route
-                  path="configuracion"
-                  element={<DashboardHome section="Configuración" />}
-                />
+                <Route path="configuracion" element={<ConfiguracionLayout />}>
+                  <Route index element={<Navigate to="/configuracion/empresa" replace />} />
+                  <Route path="empresa" element={<DatosEmpresaPage />} />
+                  <Route path="usuarios" element={<UsuariosPage />} />
+                </Route>
               </Route>
             </Routes>
           </BrowserRouter>
