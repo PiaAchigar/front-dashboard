@@ -108,7 +108,62 @@ export type OpenHour = {
 export type CompanyConfig = {
   companyName: string;
   companyDescription: string | null;
+  heroTitle: string | null;
+  heroSubtitle: string | null;
+  aboutUs: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  instagram: string | null;
+  facebook: string | null;
+  whatsapp: string | null;
   openHours: OpenHour[];
+};
+
+export type Training = {
+  id: string;
+  name: string | null;
+  description: string | null;
+  modality: string | null;
+  location: string | null;
+  listPrice: number | null;
+  cashPrice: number | null;
+  isVisible: boolean | null;
+  isFeatured: boolean | null;
+  webSortOrder: number | null;
+};
+
+export type WebGalleryItem = {
+  id: string;
+  r2Path: string | null;
+  publicUrl: string | null;
+  alt: string | null;
+  caption: string | null;
+  sortOrder: number | null;
+  isVisible: boolean | null;
+  createdAt: string | null;
+};
+
+export type WebTestimonial = {
+  id: string;
+  authorName: string | null;
+  body: string | null;
+  rating: number | null;
+  isVisible: boolean | null;
+  createdAt: string | null;
+};
+
+export type Faq = {
+  id: string;
+  question: string | null;
+  answer: string | null;
+  category: string | null;
+  isActive: boolean | null;
+  displayOrder: number | null;
+  keywords: string[] | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 };
 
 export type Customer = {
