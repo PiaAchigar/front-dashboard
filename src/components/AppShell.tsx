@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Globe,
+  HelpCircle,
   LayoutGrid,
   LogOut,
   Menu,
@@ -31,6 +32,7 @@ const navItems: NavItem[] = [
   { to: "/crm",           label: "CRM",           icon: Users },
   { to: "/sitio-web",     label: "Sitio Web",     icon: Globe },
   { to: "/configuracion", label: "Configuración", icon: Settings, adminOnly: true },
+  { to: "/ayuda",         label: "Ayuda",         icon: HelpCircle },
 ];
 
 export function AppShell() {

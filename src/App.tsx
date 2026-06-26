@@ -5,6 +5,7 @@ import { RequireAuth } from "./auth/RequireAuth";
 import { AppShell } from "./components/AppShell";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardHome } from "./pages/DashboardHome";
+import { AyudaPage } from "./pages/AyudaPage";
 import { AgendaFrame } from "./components/AgendaFrame";
 import { ToastProvider } from "./components/ui/Toast";
 import { AdminLayout } from "./pages/admin/AdminLayout";
@@ -12,6 +13,7 @@ import { CategoriasAdminPage } from "./pages/admin/CategoriasAdminPage";
 import { ServiciosAdminPage } from "./pages/admin/ServiciosAdminPage";
 import { ProveedorasAdminPage } from "./pages/admin/ProveedorasAdminPage";
 import { MaquinasAdminPage } from "./pages/admin/MaquinasAdminPage";
+import { PromosAdminPage } from "./pages/admin/PromosAdminPage";
 import { SitioWebLayout } from "./pages/web/SitioWebLayout";
 import { VisiblesWebPage } from "./pages/web/VisiblesWebPage";
 import { DestacadosWebPage } from "./pages/web/DestacadosWebPage";
@@ -51,6 +53,7 @@ export default function App() {
                   <Route path="proveedoras" element={<ProveedorasAdminPage />} />
                   <Route path="categorias" element={<CategoriasAdminPage />} />
                   <Route path="maquinas" element={<MaquinasAdminPage />} />
+                  <Route path="promos" element={<PromosAdminPage />} />
                 </Route>
                 <Route
                   path="facturacion"
@@ -71,6 +74,7 @@ export default function App() {
                   <Route path="empresa" element={<DatosEmpresaPage />} />
                   <Route path="usuarios" element={<UsuariosPage />} />
                 </Route>
+                <Route path="ayuda" element={<AyudaPage />} />
               </Route>
             </Routes>
           </BrowserRouter>

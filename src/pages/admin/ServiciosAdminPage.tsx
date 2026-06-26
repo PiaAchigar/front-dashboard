@@ -1,18 +1,24 @@
-import { useMemo, useState } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
 import { Checkbox, Field, Select, TextArea, TextInput } from "../../components/form";
+import { Plus, Trash } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
-import type { Service } from "../../lib/api-types";
+import type { CategoryNode, ProviderAdmin, Service } from "../../lib/api-types";
 import {
   useArchiveService,
   useCreateService,
   useRestoreService,
   useServicesAdmin,
+  useSetServiceAgreements,
+  useSetServiceCategories,
   useUpdateServiceAdmin,
 } from "../../hooks/useServicesAdmin";
 import { useMachinesList } from "../../hooks/useMachinesAdmin";
+import { useCategoriesAdmin } from "../../hooks/useCategoriesAdmin";
+import { useProvidersAdmin } from "../../hooks/useProvidersAdmin";
+import { useServiceAgreements } from "../../hooks/useServiceAgreements";
 
 const STAFF = ["admin", "manager", "operator"];
 const TAX_OPTIONS = [
@@ -21,6 +27,140 @@ const TAX_OPTIONS = [
   { value: "VAT10.5", label: "IVA 10.5%" },
   { value: "exempt", label: "Exento" },
 ];
+const PAYMENT_TYPES = [
+  { value: "", label: "—" },
+  { value: "per_hour", label: "Por hora" },
+  { value: "percentage", label: "Porcentaje (%)" },
+  { value: "fixed_per_service", label: "Fijo por servicio" },
+];
+
+type AgreementForm = { serviceProviderId: string; paymentType: string; rate: string };
+
+/** Aplana el árbol de categorías para un multi-select, con sangría por nivel. */
+function flattenCategories(nodes: CategoryNode[], depth = 0): { id: string; label: string }[] {
+  const out: { id: string; label: string }[] = [];
+  for (const n of nodes) {
+    out.push({ id: n.id, label: `${"— ".repeat(depth)}${n.name ?? "—"}` });
+    if (n.children?.length) out.push(...flattenCategories(n.children, depth + 1));
+  }
+  return out;
+}
+
+export type AgreementsHandle = { getAgreements: () => AgreementForm[] };
+
+/** Editor de acuerdos proveedora↔servicio. Mantiene su propio estado (sembrado por
+ *  el inicializador de useState) y el padre lee el valor actual vía ref en save().
+ *  No usa effects: se re-monta por `key` cuando cambia el servicio. */
+const AgreementsEditor = forwardRef<
+  AgreementsHandle,
+  { initial: AgreementForm[]; providers: ProviderAdmin[] }
+>(function AgreementsEditor({ initial, providers }, ref) {
+  const [rows, setRows] = useState<AgreementForm[]>(initial);
+  useImperativeHandle(ref, () => ({ getAgreements: () => rows }), [rows]);
+
+  const patch = (i: number, p: Partial<AgreementForm>) =>
+    setRows((rs) => rs.map((x, idx) => (idx === i ? { ...x, ...p } : x)));
+
+  return (
+    <div className="space-y-2 rounded-xl border border-surface-high p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+        Proveedoras y tarifa
+      </p>
+      {rows.length === 0 ? (
+        <p className="text-sm text-ink-soft">Sin proveedoras asignadas.</p>
+      ) : (
+        <ul className="space-y-2">
+          {rows.map((a, i) => (
+            <li
+              key={i}
+              className="flex items-end gap-2 rounded-lg border border-surface-high bg-white p-2.5"
+            >
+              <Field label="Proveedora">
+                <Select
+                  value={a.serviceProviderId}
+                  onChange={(e) => patch(i, { serviceProviderId: e.target.value })}
+                >
+                  <option value="">Elegí proveedora…</option>
+                  {providers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.fullName ?? "—"}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Tipo de pago">
+                <Select value={a.paymentType} onChange={(e) => patch(i, { paymentType: e.target.value })}>
+                  {PAYMENT_TYPES.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label={a.paymentType === "percentage" ? "Tarifa (%)" : "Tarifa ($)"}>
+                <TextInput
+                  inputMode="numeric"
+                  value={a.rate}
+                  onChange={(e) => patch(i, { rate: e.target.value })}
+                  placeholder="0"
+                />
+              </Field>
+              <button
+                type="button"
+                title="Quitar proveedora"
+                onClick={() => setRows((rs) => rs.filter((_, idx) => idx !== i))}
+                className="mb-1.5 shrink-0 rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700"
+              >
+                <Trash size={15} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() =>
+            setRows((rs) => [...rs, { serviceProviderId: "", paymentType: "", rate: "" }])
+          }
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+        >
+          <Plus size={15} />
+          Agregar proveedora
+        </button>
+      </div>
+    </div>
+  );
+});
+
+/** Carga los acuerdos vigentes y re-monta el editor (key) cuando cambia el servicio. */
+function AgreementsSection({
+  serviceId,
+  providers,
+  editorRef,
+}: {
+  serviceId: string | null;
+  providers: ProviderAdmin[];
+  editorRef: React.Ref<AgreementsHandle>;
+}) {
+  const { data, isLoading } = useServiceAgreements(serviceId);
+  if (serviceId && isLoading) {
+    return <p className="text-sm text-ink-soft">Cargando proveedoras…</p>;
+  }
+  const initial: AgreementForm[] = (data ?? []).map((a) => ({
+    serviceProviderId: a.serviceProviderId,
+    paymentType: a.paymentType ?? "",
+    rate: a.rate != null ? String(a.rate) : "",
+  }));
+  return (
+    <AgreementsEditor
+      key={serviceId ?? "new"}
+      ref={editorRef}
+      initial={initial}
+      providers={providers}
+    />
+  );
+}
 
 type Form = {
   name: string;
@@ -37,6 +177,7 @@ type Form = {
   requiresMachine: boolean;
   isVisible: boolean;
   isFeatured: boolean;
+  categoryIds: string[];
 };
 
 const EMPTY: Form = {
@@ -54,6 +195,7 @@ const EMPTY: Form = {
   requiresMachine: false,
   isVisible: true,
   isFeatured: false,
+  categoryIds: [],
 };
 
 const money = (n: number | null) => (n != null ? `$${n.toLocaleString("es-AR")}` : "—");
@@ -77,7 +219,15 @@ export function ServiciosAdminPage() {
   const update = useUpdateServiceAdmin();
   const archive = useArchiveService();
   const restore = useRestoreService();
+  const setCategories = useSetServiceCategories();
+  const setAgreements = useSetServiceAgreements();
   const { data: machines = [] } = useMachinesList();
+  const { data: categoryTree = [] } = useCategoriesAdmin(false);
+  const { data: providersAll = [] } = useProvidersAdmin(false);
+  const categoryOptions = useMemo(() => flattenCategories(categoryTree), [categoryTree]);
+
+  // El editor de acuerdos mantiene su propio estado; lo leemos al guardar.
+  const agreementsRef = useRef<AgreementsHandle>(null);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -157,12 +307,13 @@ export function ServiciosAdminPage() {
       requiresMachine: !!s.requiresMachine,
       isVisible: s.isVisible ?? true,
       isFeatured: !!s.isFeatured,
+      categoryIds: s.categories.map((c) => c.id),
     });
     setFormError(null);
     setDrawerOpen(true);
   }
 
-  function save() {
+  async function save() {
     const payload = {
       name: form.name.trim(),
       code: form.code.trim() || null,
@@ -180,18 +331,46 @@ export function ServiciosAdminPage() {
       isVisible: form.isVisible,
       isFeatured: form.isFeatured,
     };
-    const handlers = {
-      onSuccess: () => {
-        toast.success(editing ? "Servicio actualizado" : "Servicio creado");
-        setDrawerOpen(false);
-      },
-      onError: (e: Error) => setFormError(e.message),
-    };
-    if (editing) update.mutate({ id: editing.id, ...payload }, handlers);
-    else create.mutate(payload, handlers);
+    // Solo acuerdos con proveedora elegida; tarifa/tipo opcionales.
+    const agreements = (agreementsRef.current?.getAgreements() ?? [])
+      .filter((a) => a.serviceProviderId)
+      .map((a) => ({
+        serviceProviderId: a.serviceProviderId,
+        paymentType: a.paymentType || null,
+        rate: a.rate.trim() === "" ? null : Number(a.rate),
+      }));
+
+    setFormError(null);
+    try {
+      // 1) Servicio (alta u edición) → obtener el id. 2) Categorías. 3) Acuerdos.
+      let serviceId = editing?.id;
+      if (editing) {
+        await update.mutateAsync({ id: editing.id, ...payload });
+      } else {
+        const created = (await create.mutateAsync(payload)) as { id: string };
+        serviceId = created.id;
+      }
+      if (!serviceId) throw new Error("No se pudo guardar el servicio.");
+      await setCategories.mutateAsync({ id: serviceId, categoryIds: form.categoryIds });
+      await setAgreements.mutateAsync({ id: serviceId, agreements });
+      toast.success(editing ? "Servicio actualizado" : "Servicio creado");
+      setDrawerOpen(false);
+    } catch (e) {
+      setFormError((e as Error).message);
+    }
   }
 
-  const saving = create.isPending || update.isPending;
+  const saving =
+    create.isPending || update.isPending || setCategories.isPending || setAgreements.isPending;
+
+  function toggleCategory(id: string) {
+    setForm((f) => ({
+      ...f,
+      categoryIds: f.categoryIds.includes(id)
+        ? f.categoryIds.filter((x) => x !== id)
+        : [...f.categoryIds, id],
+    }));
+  }
 
   return (
     <>
@@ -234,6 +413,7 @@ export function ServiciosAdminPage() {
         error={formError}
         busy={saving}
         canSubmit={form.name.trim().length >= 1}
+        widthClass="max-w-2xl"
         onSubmit={save}
         onClose={() => setDrawerOpen(false)}
       >
@@ -295,7 +475,10 @@ export function ServiciosAdminPage() {
           </Field>
         </div>
         <div className="flex gap-3">
-          <Field label="Unidad">
+          <Field
+            label="Unidad"
+            help="Unidad de medida/cobro del servicio: cómo se cuenta lo que se vende. Ej: sesión, hora, zona. Es informativo y aparece en presupuestos."
+          >
             <TextInput
               value={form.unitType}
               onChange={(e) => setForm({ ...form, unitType: e.target.value })}
@@ -348,6 +531,32 @@ export function ServiciosAdminPage() {
             onChange={(v) => setForm({ ...form, isFeatured: v })}
           />
         </div>
+
+        {/* Categorías (M:N) */}
+        <div className="space-y-2 rounded-xl border border-surface-high p-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">Categorías</p>
+          {categoryOptions.length === 0 ? (
+            <p className="text-sm text-ink-soft">No hay categorías cargadas.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              {categoryOptions.map((c) => (
+                <Checkbox
+                  key={c.id}
+                  label={c.label}
+                  checked={form.categoryIds.includes(c.id)}
+                  onChange={() => toggleCategory(c.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Proveedoras que ofrecen el servicio + su acuerdo (tipo de pago + tarifa) */}
+        <AgreementsSection
+          serviceId={editing?.id ?? null}
+          providers={providersAll}
+          editorRef={agreementsRef}
+        />
       </EntityDrawer>
     </>
   );

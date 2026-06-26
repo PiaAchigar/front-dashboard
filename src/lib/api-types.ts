@@ -98,6 +98,43 @@ export type Promotion = {
   services: { id: string; name: string | null; unitPriceList: number | null }[];
 };
 
+// Acuerdo vigente proveedora↔servicio (service_provider_service)
+export type ServiceAgreement = {
+  serviceProviderId: string;
+  providerName: string | null;
+  paymentType: string | null; // per_hour | percentage | fixed_per_service
+  rate: number | null;
+};
+
+// ── Promos en Administración (CRUD con líneas servicio/proveedora/pago + snapshot) ──
+export type PromoLineAdmin = {
+  id: string;
+  serviceId: string | null;
+  serviceName: string | null;
+  serviceProviderId: string | null;
+  serviceProviderName: string | null;
+  servicePrice: number | null;
+  providerPayment: number | null;
+};
+
+export type PromotionAdmin = {
+  id: string;
+  name: string | null;
+  description: string | null;
+  promotionType: string | null; // 'percentage' | 'fixed_amount'
+  discountPercentage: number | null;
+  discountAmount: number | null;
+  servicesSubtotal: number | null;
+  finalAmount: number | null;
+  validFrom: string | null;
+  validUntil: string | null;
+  status: string | null; // active | inactive
+  isFeatured: boolean | null;
+  usageLimit: number | null;
+  notes: string | null;
+  lines: PromoLineAdmin[];
+};
+
 export type OpenHour = {
   dayOfWeek: number | null;
   openingTime: string | null;

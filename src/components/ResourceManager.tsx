@@ -89,6 +89,11 @@ export function ResourceManager<T>({
   const [widths, setWidths] = useState<Record<string, number>>(() => loadWidths(title, columns));
   const [resizing, setResizing] = useState(false);
 
+  // Archivados: mostrar SOLO los archivados; Activos: SOLO los activos.
+  // isArchived es estricto (isActive===false / status==='inactive'), así que los
+  // registros legacy con el flag en null caen como "activos".
+  const visibleRows = rows.filter((r) => isArchived(r) === showArchived);
+
   const showActions = Boolean(rowActions || onEdit || (canArchive && (onArchive || onRestore)));
   const colWidth = (key: string) => widths[key] ?? DEFAULT_WIDTH;
   const totalWidth =
@@ -219,14 +224,14 @@ export function ResourceManager<T>({
                   Cargando…
                 </td>
               </tr>
-            ) : rows.length === 0 ? (
+            ) : visibleRows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length + 1} className="px-4 py-10 text-center text-ink-soft">
                   {showArchived ? "No hay elementos archivados." : "No hay elementos."}
                 </td>
               </tr>
             ) : (
-              rows.map((row) => {
+              visibleRows.map((row) => {
                 const archived = isArchived(row);
                 return (
                   <tr key={rowKey(row)} className={archived ? "opacity-60" : ""}>

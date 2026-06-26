@@ -67,6 +67,45 @@ export function useUpdateServiceAdmin() {
   });
 }
 
+export type AgreementInput = {
+  serviceProviderId: string;
+  paymentType?: string | null;
+  rate?: number | null;
+};
+
+/** Reemplaza las categorías de un servicio (M:N). */
+export function useSetServiceCategories() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, categoryIds }: { id: string; categoryIds: string[] }) =>
+      apiFetch(`/api/agenda/services/${id}/categories`, token, {
+        method: "PUT",
+        body: JSON.stringify({ categoryIds }),
+      }),
+    onSuccess: invalidate,
+  });
+}
+
+/** Reconcilia los acuerdos proveedora↔servicio (cierra viejo + crea nuevo, §4). */
+export function useSetServiceAgreements() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, agreements }: { id: string; agreements: AgreementInput[] }) =>
+      apiFetch(`/api/agenda/services/${id}/agreements`, token, {
+        method: "PUT",
+        body: JSON.stringify({ agreements }),
+      }),
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: ["service-agreements", id] });
+      qc.invalidateQueries({ queryKey: ["providers-by-service"] });
+    },
+  });
+}
+
 export function useArchiveService() {
   const { session } = useAuth();
   const token = session?.access_token ?? null;

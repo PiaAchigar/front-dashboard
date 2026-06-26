@@ -12,6 +12,7 @@ export function EntityDrawer({
   busy = false,
   canSubmit = true,
   submitLabel = "Guardar",
+  widthClass = "max-w-md",
   onSubmit,
   onClose,
 }: {
@@ -22,6 +23,9 @@ export function EntityDrawer({
   busy?: boolean;
   canSubmit?: boolean;
   submitLabel?: string;
+  /** Ancho máximo del panel (clase Tailwind). Default angosto; formularios con
+   *  más campos pueden pedir uno más ancho para mejor UX. */
+  widthClass?: string;
   onSubmit: () => void;
   onClose: () => void;
 }) {
@@ -29,7 +33,7 @@ export function EntityDrawer({
   return (
     <div className="modal-scroll fixed inset-0 z-50 flex justify-end bg-ink/40" onClick={onClose}>
       <div
-        className="flex h-full w-full max-w-md flex-col bg-surface-low shadow-xl"
+        className={`flex h-full w-full ${widthClass} flex-col bg-surface-low shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 border-b border-surface-high px-6 py-4">
