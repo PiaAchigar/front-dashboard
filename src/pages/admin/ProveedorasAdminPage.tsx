@@ -4,6 +4,7 @@ import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
 import { Field, TextArea, TextInput } from "../../components/form";
 import { useToast } from "../../components/ui/Toast";
+import { MpAccountsSection, MpAccountsDraftSection, type DraftMpAccount } from "./MpAccountsSection";
 import type { ProviderAdmin } from "../../lib/api-types";
 import {
   useArchiveProvider,
@@ -12,6 +13,7 @@ import {
   useRestoreProvider,
   useUpdateProvider,
 } from "../../hooks/useProvidersAdmin";
+import { useCreateMpAccountForProvider } from "../../hooks/useProviderMpAccounts";
 
 const STAFF = ["admin", "manager", "operator"];
 
@@ -51,12 +53,15 @@ export function ProveedorasAdminPage() {
   const [editing, setEditing] = useState<ProviderAdmin | null>(null);
   const [form, setForm] = useState<Form>(EMPTY);
   const [formError, setFormError] = useState<string | null>(null);
+  const [draftAccounts, setDraftAccounts] = useState<DraftMpAccount[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
   const { data: providers = [], isLoading, error } = useProvidersAdmin(showArchived);
   const create = useCreateProvider();
   const update = useUpdateProvider();
   const archive = useArchiveProvider();
   const restore = useRestoreProvider();
+  const createMpForProvider = useCreateMpAccountForProvider();
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -72,7 +77,7 @@ export function ProveedorasAdminPage() {
   const columns: Column<ProviderAdmin>[] = [
     {
       key: "name",
-      header: "Proveedora",
+      header: "Proveedor",
       width: 220,
       render: (p) => <span className="font-medium text-ink">{p.fullName ?? "—"}</span>,
     },
@@ -94,6 +99,7 @@ export function ProveedorasAdminPage() {
   function openCreate() {
     setEditing(null);
     setForm(EMPTY);
+    setDraftAccounts([]);
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -115,7 +121,7 @@ export function ProveedorasAdminPage() {
     setDrawerOpen(true);
   }
 
-  function save() {
+  async function save() {
     const payload = {
       fullName: form.fullName.trim(),
       email: form.email.trim() || null,
@@ -127,23 +133,38 @@ export function ProveedorasAdminPage() {
       address: form.address.trim() || null,
       postalCode: form.postalCode.trim() || null,
     };
-    const handlers = {
-      onSuccess: () => {
-        toast.success(editing ? "Proveedora actualizada" : "Proveedora creada");
-        setDrawerOpen(false);
-      },
-      onError: (e: Error) => setFormError(e.message),
-    };
-    if (editing) update.mutate({ id: editing.id, ...payload }, handlers);
-    else create.mutate(payload, handlers);
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      if (editing) {
+        await update.mutateAsync({ id: editing.id, ...payload });
+        toast.success("Proveedor actualizado");
+      } else {
+        // 1) Crear la proveedora y obtener su UUID. 2) Persistir las cuentas en borrador.
+        const created = await create.mutateAsync(payload);
+        for (const a of draftAccounts) {
+          await createMpForProvider.mutateAsync({
+            providerId: created.id,
+            alias: a.alias || null,
+            cvu: a.cvu || null,
+          });
+        }
+        toast.success("Proveedor creado");
+      }
+      setDrawerOpen(false);
+    } catch (e) {
+      setFormError((e as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  const saving = create.isPending || update.isPending;
+  const saving = submitting || create.isPending || update.isPending;
 
   return (
     <>
       <ResourceManager<ProviderAdmin>
-        title="Proveedoras de servicio"
+        title="Proveedor de servicio"
         rows={rows}
         columns={columns}
         loading={isLoading}
@@ -160,16 +181,16 @@ export function ProveedorasAdminPage() {
         onAdd={openCreate}
         onEdit={isStaff ? openEdit : undefined}
         archiving={archive.isPending}
-        archiveName={(p) => p.fullName ?? "esta proveedora"}
+        archiveName={(p) => p.fullName ?? "este proveedor"}
         onArchive={(p) =>
           archive.mutate(p.id, {
-            onSuccess: () => toast.success("Proveedora archivada"),
+            onSuccess: () => toast.success("Proveedor archivado"),
             onError: (e: Error) => toast.error(e.message),
           })
         }
         onRestore={(p) =>
           restore.mutate(p.id, {
-            onSuccess: () => toast.success("Proveedora restaurada"),
+            onSuccess: () => toast.success("Proveedor restaurado"),
             onError: (e: Error) => toast.error(e.message),
           })
         }
@@ -177,7 +198,7 @@ export function ProveedorasAdminPage() {
 
       <EntityDrawer
         open={drawerOpen}
-        title={editing ? "Editar proveedora" : "Nueva proveedora"}
+        title={editing ? "Editar proveedor" : "Nuevo proveedor"}
         error={formError}
         busy={saving}
         canSubmit={form.fullName.trim().length >= 1}
@@ -243,6 +264,12 @@ export function ProveedorasAdminPage() {
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
           />
         </Field>
+
+        {editing ? (
+          <MpAccountsSection providerId={editing.id} />
+        ) : (
+          <MpAccountsDraftSection value={draftAccounts} onChange={setDraftAccounts} />
+        )}
       </EntityDrawer>
     </>
   );

@@ -44,7 +44,10 @@ export function useCreateProvider() {
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: (data: ProviderInput) =>
-      apiFetch("/api/agenda/providers", token, { method: "POST", body: JSON.stringify(data) }),
+      apiFetch<ProviderAdmin>("/api/agenda/providers", token, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     onSuccess: invalidate,
   });
 }

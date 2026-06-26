@@ -22,7 +22,7 @@ export function Toggle({
     >
       <span
         className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
-          active ? "translate-x-5" : "translate-x-1"
+          active ? "translate-x-4" : "translate-x-1"
         }`}
       />
     </button>

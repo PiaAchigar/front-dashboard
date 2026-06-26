@@ -166,6 +166,17 @@ export type Faq = {
   updatedAt: string | null;
 };
 
+export type MpAccount = {
+  id: string;
+  serviceProviderId: string | null;
+  accountOwnerName: string | null;
+  accountEmail: string | null;
+  alias: string | null;
+  cvu: string | null;
+  status: string | null;
+  createdAt: string | null;
+};
+
 export type AdminUser = {
   id: string;
   email: string | null;
