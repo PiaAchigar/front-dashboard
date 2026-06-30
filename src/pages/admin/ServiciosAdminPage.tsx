@@ -6,6 +6,7 @@ import { Checkbox, Field, Select, TextArea, TextInput } from "../../components/f
 import { Plus, Trash } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
 import type { CategoryNode, ProviderAdmin, Service } from "../../lib/api-types";
+import { can, type Role } from "../../lib/permissions";
 import {
   useArchiveService,
   useCreateService,
@@ -20,7 +21,6 @@ import { useCategoriesAdmin } from "../../hooks/useCategoriesAdmin";
 import { useProvidersAdmin } from "../../hooks/useProvidersAdmin";
 import { useServiceAgreements } from "../../hooks/useServiceAgreements";
 
-const STAFF = ["admin", "manager", "operator"];
 const TAX_OPTIONS = [
   { value: "", label: "—" },
   { value: "VAT21", label: "IVA 21%" },
@@ -203,8 +203,9 @@ const num = (s: string) => (s.trim() === "" ? null : Number(s));
 
 export function ServiciosAdminPage() {
   const { role } = useAuth();
-  const isStaff = STAFF.includes(role ?? "");
-  const isAdmin = role === "admin";
+  const r = role as Role | null;
+  const canEdit = can(r, "catalogo", "edit");
+  const canManage = can(r, "catalogo", "manage");
   const toast = useToast();
 
   const [search, setSearch] = useState("");
@@ -387,10 +388,10 @@ export function ServiciosAdminPage() {
         searchPlaceholder="Buscar por nombre o código…"
         showArchived={showArchived}
         onToggleArchived={setShowArchived}
-        canCreate={isAdmin}
-        canArchive={isAdmin}
+        canCreate={canManage}
+        canArchive={canManage}
         onAdd={openCreate}
-        onEdit={isStaff ? openEdit : undefined}
+        onEdit={canEdit ? openEdit : undefined}
         archiving={archive.isPending}
         archiveName={(s) => s.name ?? "este servicio"}
         onArchive={(s) =>

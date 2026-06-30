@@ -2,10 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch } from "../lib/api-client";
 import type { AdminUser } from "../lib/api-types";
+import type { Role } from "../lib/permissions";
+
+export type { Role } from "../lib/permissions";
 
 const KEY = "admin-users";
-
-export type Role = "admin" | "manager" | "operator";
 
 function useToken() {
   const { session } = useAuth();

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
+import { can, type Role } from "../../lib/permissions";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
 import { Field, Select, TextArea, TextInput } from "../../components/form";
@@ -16,8 +17,6 @@ import {
   type PromotionInput,
 } from "../../hooks/usePromotionsAdmin";
 import type { PromotionAdmin } from "../../lib/api-types";
-
-const STAFF = ["admin", "manager", "operator"];
 
 const money = (n: number | null | undefined) =>
   n == null ? "—" : `$${n.toLocaleString("es-AR")}`;
@@ -145,8 +144,9 @@ function LineRow({
 
 export function PromosAdminPage() {
   const { role } = useAuth();
-  const isStaff = STAFF.includes(role ?? "");
-  const isAdmin = role === "admin";
+  const r = role as Role | null;
+  const canEdit = can(r, "catalogo", "edit");
+  const canManage = can(r, "catalogo", "manage");
   const toast = useToast();
 
   const [search, setSearch] = useState("");
@@ -315,10 +315,10 @@ export function PromosAdminPage() {
         searchPlaceholder="Buscar por nombre…"
         showArchived={showArchived}
         onToggleArchived={setShowArchived}
-        canCreate={isAdmin}
-        canArchive={isAdmin}
+        canCreate={canManage}
+        canArchive={canManage}
         onAdd={openCreate}
-        onEdit={isStaff ? openEdit : undefined}
+        onEdit={canEdit ? openEdit : undefined}
         archiving={archive.isPending}
         archiveName={(p) => p.name ?? "esta promo"}
         onArchive={(p) =>

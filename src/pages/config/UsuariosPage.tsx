@@ -6,6 +6,7 @@ import { Field, Select, TextInput } from "../../components/form";
 import { Plus, Search, Trash } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
 import type { AdminUser } from "../../lib/api-types";
+import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLE_ORDER } from "../../lib/roles";
 import {
   useCreateUser,
   useDeleteUser,
@@ -13,12 +14,6 @@ import {
   useUsers,
   type Role,
 } from "../../hooks/useUsers";
-
-const ROLES: { value: Role; label: string }[] = [
-  { value: "admin", label: "Administrador" },
-  { value: "manager", label: "Encargado" },
-  { value: "operator", label: "Operador" },
-];
 
 export function UsuariosPage() {
   const { user } = useAuth();
@@ -142,9 +137,9 @@ export function UsuariosPage() {
                         className="w-40"
                       >
                         {!u.role && <option value="">— Sin rol</option>}
-                        {ROLES.map((r) => (
-                          <option key={r.value} value={r.value}>
-                            {r.label}
+                        {ROLE_ORDER.map((r) => (
+                          <option key={r} value={r}>
+                            {ROLE_LABELS[r]}
                           </option>
                         ))}
                       </Select>
@@ -210,12 +205,13 @@ export function UsuariosPage() {
             value={form.role}
             onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
           >
-            {ROLES.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
+            {ROLE_ORDER.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
               </option>
             ))}
           </Select>
+          <p className="mt-1 text-xs text-ink-soft">{ROLE_DESCRIPTIONS[form.role]}</p>
         </Field>
       </EntityDrawer>
 

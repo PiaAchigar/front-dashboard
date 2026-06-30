@@ -4,8 +4,8 @@ import { useToast } from "../../components/ui/Toast";
 import type { CompanyConfig } from "../../lib/api-types";
 import {
   useCompanyConfig,
-  useUpdateCompanyConfig,
-  type CompanyConfigPatch,
+  useUpdateBranding,
+  type BrandingPatch,
 } from "../../hooks/useCompanyConfig";
 
 export function TextosWebPage() {
@@ -37,7 +37,7 @@ type Form = {
 
 function TextosForm({ config }: { config: CompanyConfig }) {
   const toast = useToast();
-  const update = useUpdateCompanyConfig();
+  const update = useUpdateBranding();
 
   const [form, setForm] = useState<Form>(() => ({
     heroTitle: config.heroTitle ?? "",
@@ -47,7 +47,7 @@ function TextosForm({ config }: { config: CompanyConfig }) {
   }));
 
   function save() {
-    const patch: CompanyConfigPatch = {
+    const patch: BrandingPatch = {
       heroTitle: form.heroTitle.trim() || null,
       heroSubtitle: form.heroSubtitle.trim() || null,
       companyDescription: form.companyDescription.trim() || null,

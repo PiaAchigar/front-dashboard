@@ -5,7 +5,8 @@ import { useToast } from "../../components/ui/Toast";
 import type { CompanyConfig } from "../../lib/api-types";
 import {
   useCompanyConfig,
-  useUpdateCompanyConfig,
+  useUpdateBranding,
+  useUpdateDatos,
   useUpdateOpenHours,
   type OpenHourInput,
 } from "../../hooks/useCompanyConfig";
@@ -44,7 +45,8 @@ type DayState = { isOpen: boolean; open: string; close: string };
 
 function EmpresaForm({ config }: { config: CompanyConfig }) {
   const toast = useToast();
-  const updateConfig = useUpdateCompanyConfig();
+  const updateDatos = useUpdateDatos();
+  const updateBranding = useUpdateBranding();
   const updateHours = useUpdateOpenHours();
 
   const [form, setForm] = useState(() => ({
@@ -71,15 +73,17 @@ function EmpresaForm({ config }: { config: CompanyConfig }) {
     return map;
   });
 
-  const saving = updateConfig.isPending || updateHours.isPending;
+  const saving = updateDatos.isPending || updateBranding.isPending || updateHours.isPending;
 
   async function save() {
     try {
-      await updateConfig.mutateAsync({
+      await updateDatos.mutateAsync({
         companyName: form.companyName.trim() || null,
         address: form.address.trim() || null,
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
+      });
+      await updateBranding.mutateAsync({
         whatsapp: form.whatsapp.trim() || null,
         instagram: form.instagram.trim() || null,
         facebook: form.facebook.trim() || null,

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
+import { can, type Role } from "../../lib/permissions";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
 import { Field, Select, TextArea, TextInput } from "../../components/form";
@@ -44,14 +45,14 @@ function flatten(
   return acc;
 }
 
-const STAFF = ["admin", "manager", "operator"];
 type Form = { name: string; description: string; parentCategoryId: string; displayOrder: string };
 const EMPTY: Form = { name: "", description: "", parentCategoryId: "", displayOrder: "" };
 
 export function CategoriasAdminPage() {
   const { role } = useAuth();
-  const isStaff = STAFF.includes(role ?? "");
-  const isAdmin = role === "admin";
+  const r = role as Role | null;
+  const canEdit = can(r, "catalogo", "edit");
+  const canManage = can(r, "catalogo", "manage");
   const toast = useToast();
 
   const [search, setSearch] = useState("");
@@ -149,10 +150,10 @@ export function CategoriasAdminPage() {
         searchPlaceholder="Buscar por nombre…"
         showArchived={showArchived}
         onToggleArchived={setShowArchived}
-        canCreate={isAdmin}
-        canArchive={isAdmin}
+        canCreate={canManage}
+        canArchive={canManage}
         onAdd={openCreate}
-        onEdit={isStaff ? openEdit : undefined}
+        onEdit={canEdit ? openEdit : undefined}
         archiving={archive.isPending}
         archiveName={(c) => c.name ?? "esta categoría"}
         onArchive={(c) =>

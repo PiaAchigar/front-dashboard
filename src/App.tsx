@@ -25,6 +25,7 @@ import { FaqWebPage } from "./pages/web/FaqWebPage";
 import { ConfiguracionLayout } from "./pages/config/ConfiguracionLayout";
 import { DatosEmpresaPage } from "./pages/config/DatosEmpresaPage";
 import { UsuariosPage } from "./pages/config/UsuariosPage";
+import { PermisosPage } from "./pages/config/PermisosPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -71,6 +72,7 @@ export default function App() {
                   <Route index element={<Navigate to="/configuracion/empresa" replace />} />
                   <Route path="empresa" element={<DatosEmpresaPage />} />
                   <Route path="usuarios" element={<UsuariosPage />} />
+                  <Route path="permisos" element={<PermisosPage />} />
                 </Route>
                 <Route path="ayuda" element={<AyudaPage />} />
               </Route>

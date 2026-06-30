@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
+import { can, type Role } from "../../lib/permissions";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
 import { Field, TextArea, TextInput } from "../../components/form";
@@ -13,9 +14,8 @@ import {
   useRestoreProvider,
   useUpdateProvider,
 } from "../../hooks/useProvidersAdmin";
-import { useCreateMpAccountForProvider } from "../../hooks/useProviderMpAccounts";
-
-const STAFF = ["admin", "manager", "operator"];
+import { useCreateMpAccountForProvider, useProviderMpAccounts } from "../../hooks/useProviderMpAccounts";
+import { useProviderServices } from "../../hooks/useProviderServices";
 
 type Form = {
   fullName: string;
@@ -41,16 +41,80 @@ const EMPTY: Form = {
   postalCode: "",
 };
 
+type Mode = "view" | "edit" | "create";
+
+function FichaRow({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="flex justify-between gap-4 py-1 text-sm">
+      <span className="text-ink-soft">{label}</span>
+      <span className="text-right text-ink">{value || "—"}</span>
+    </div>
+  );
+}
+
+function ProviderFicha({ provider }: { provider: ProviderAdmin }) {
+  const { data: mp = [] } = useProviderMpAccounts(provider.id);
+  const { data: services = [] } = useProviderServices(provider.id);
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-surface-high p-3">
+        <FichaRow label="Email" value={provider.email} />
+        <FichaRow label="Teléfono" value={provider.phone} />
+        <FichaRow label="DNI" value={provider.dni} />
+        <FichaRow label="CUIT" value={provider.cuit} />
+        <FichaRow label="Dirección" value={provider.address} />
+        <FichaRow label="Código postal" value={provider.postalCode} />
+        <FichaRow label="Especialidades" value={provider.specialties} />
+        <FichaRow label="Notas" value={provider.notes} />
+      </div>
+      <div className="rounded-xl border border-surface-high p-3">
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-soft">
+          Servicios que ofrece
+        </p>
+        {services.length === 0 ? (
+          <p className="text-sm text-ink-soft">Sin servicios asignados.</p>
+        ) : (
+          <ul className="text-sm text-ink">
+            {services.map((s) => (
+              <li key={s.id}>{s.name ?? "—"}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div className="rounded-xl border border-surface-high p-3">
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-soft">
+          Cuentas de MercadoPago
+        </p>
+        {mp.length === 0 ? (
+          <p className="text-sm text-ink-soft">Sin cuentas cargadas.</p>
+        ) : (
+          <ul className="text-sm text-ink">
+            {mp.map((a) => (
+              <li key={a.id}>
+                {a.alias ?? "—"}
+                {a.cvu ? ` · CVU ${a.cvu}` : ""}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function ProveedorasAdminPage() {
   const { role } = useAuth();
-  const isStaff = STAFF.includes(role ?? "");
-  const isAdmin = role === "admin";
+  const r = role as Role | null;
+  const canEdit = can(r, "proveedoras", "edit");
+  const canManage = can(r, "proveedoras", "manage");
   const toast = useToast();
 
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ProviderAdmin | null>(null);
+  const [mode, setMode] = useState<Mode>("create");
   const [form, setForm] = useState<Form>(EMPTY);
   const [formError, setFormError] = useState<string | null>(null);
   const [draftAccounts, setDraftAccounts] = useState<DraftMpAccount[]>([]);
@@ -101,10 +165,11 @@ export function ProveedorasAdminPage() {
     setForm(EMPTY);
     setDraftAccounts([]);
     setFormError(null);
+    setMode("create");
     setDrawerOpen(true);
   }
 
-  function openEdit(p: ProviderAdmin) {
+  function openFicha(p: ProviderAdmin) {
     setEditing(p);
     setForm({
       fullName: p.fullName ?? "",
@@ -118,6 +183,25 @@ export function ProveedorasAdminPage() {
       postalCode: p.postalCode ?? "",
     });
     setFormError(null);
+    setMode("view");
+    setDrawerOpen(true);
+  }
+
+  function openEditDrawer(p: ProviderAdmin) {
+    setEditing(p);
+    setForm({
+      fullName: p.fullName ?? "",
+      email: p.email ?? "",
+      phone: p.phone ?? "",
+      dni: p.dni ?? "",
+      cuit: p.cuit ?? "",
+      specialties: p.specialties ?? "",
+      notes: p.notes ?? "",
+      address: p.address ?? "",
+      postalCode: p.postalCode ?? "",
+    });
+    setFormError(null);
+    setMode("edit");
     setDrawerOpen(true);
   }
 
@@ -176,10 +260,11 @@ export function ProveedorasAdminPage() {
         searchPlaceholder="Buscar por nombre, email o DNI…"
         showArchived={showArchived}
         onToggleArchived={setShowArchived}
-        canCreate={isAdmin}
-        canArchive={isAdmin}
+        canCreate={canManage}
+        canArchive={canManage}
         onAdd={openCreate}
-        onEdit={isStaff ? openEdit : undefined}
+        onRowClick={openFicha}
+        onEdit={canEdit ? openEditDrawer : undefined}
         archiving={archive.isPending}
         archiveName={(p) => p.fullName ?? "este proveedor"}
         onArchive={(p) =>
@@ -198,77 +283,95 @@ export function ProveedorasAdminPage() {
 
       <EntityDrawer
         open={drawerOpen}
-        title={editing ? "Editar proveedor" : "Nuevo proveedor"}
+        title={mode === "create" ? "Nuevo proveedor" : (editing?.fullName ?? "Proveedor")}
+        readOnly={mode === "view"}
+        headerAction={
+          mode === "view" && canEdit ? (
+            <button
+              type="button"
+              onClick={() => setMode("edit")}
+              className="rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-dark"
+            >
+              Editar
+            </button>
+          ) : null
+        }
         error={formError}
         busy={saving}
         canSubmit={form.fullName.trim().length >= 1}
         onSubmit={save}
         onClose={() => setDrawerOpen(false)}
       >
-        <Field label="Nombre completo *">
-          <TextInput
-            value={form.fullName}
-            onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-            autoFocus
-          />
-        </Field>
-        <div className="flex gap-3">
-          <Field label="Email">
-            <TextInput
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-          </Field>
-          <Field label="Teléfono">
-            <TextInput value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          </Field>
-        </div>
-        <div className="flex gap-3">
-          <Field label="DNI">
-            <TextInput
-              inputMode="numeric"
-              value={form.dni}
-              onChange={(e) => setForm({ ...form, dni: e.target.value })}
-            />
-          </Field>
-          <Field label="CUIT">
-            <TextInput value={form.cuit} onChange={(e) => setForm({ ...form, cuit: e.target.value })} />
-          </Field>
-        </div>
-        <Field label="Especialidades">
-          <TextArea
-            rows={2}
-            value={form.specialties}
-            onChange={(e) => setForm({ ...form, specialties: e.target.value })}
-          />
-        </Field>
-        <div className="flex gap-3">
-          <Field label="Dirección">
-            <TextInput
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-            />
-          </Field>
-          <Field label="Código postal">
-            <TextInput
-              value={form.postalCode}
-              onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
-            />
-          </Field>
-        </div>
-        <Field label="Notas">
-          <TextArea
-            rows={2}
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          />
-        </Field>
-
-        {editing ? (
-          <MpAccountsSection providerId={editing.id} />
+        {mode === "view" && editing ? (
+          <ProviderFicha provider={editing} />
         ) : (
-          <MpAccountsDraftSection value={draftAccounts} onChange={setDraftAccounts} />
+          <>
+            <Field label="Nombre completo *">
+              <TextInput
+                value={form.fullName}
+                onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                autoFocus
+              />
+            </Field>
+            <div className="flex gap-3">
+              <Field label="Email">
+                <TextInput
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
+              </Field>
+              <Field label="Teléfono">
+                <TextInput value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </Field>
+            </div>
+            <div className="flex gap-3">
+              <Field label="DNI">
+                <TextInput
+                  inputMode="numeric"
+                  value={form.dni}
+                  onChange={(e) => setForm({ ...form, dni: e.target.value })}
+                />
+              </Field>
+              <Field label="CUIT">
+                <TextInput value={form.cuit} onChange={(e) => setForm({ ...form, cuit: e.target.value })} />
+              </Field>
+            </div>
+            <Field label="Especialidades">
+              <TextArea
+                rows={2}
+                value={form.specialties}
+                onChange={(e) => setForm({ ...form, specialties: e.target.value })}
+              />
+            </Field>
+            <div className="flex gap-3">
+              <Field label="Dirección">
+                <TextInput
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                />
+              </Field>
+              <Field label="Código postal">
+                <TextInput
+                  value={form.postalCode}
+                  onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
+                />
+              </Field>
+            </div>
+            <Field label="Notas">
+              <TextArea
+                rows={2}
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              />
+            </Field>
+
+            {editing ? (
+              <MpAccountsSection providerId={editing.id} />
+            ) : (
+              <MpAccountsDraftSection value={draftAccounts} onChange={setDraftAccounts} />
+            )}
+          </>
         )}
       </EntityDrawer>
     </>

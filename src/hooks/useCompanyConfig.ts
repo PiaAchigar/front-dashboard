@@ -5,19 +5,22 @@ import type { CompanyConfig } from "../lib/api-types";
 
 const KEY = "company-config";
 
-export type CompanyConfigPatch = {
-  companyName?: string | null;
-  companyDescription?: string | null;
+export type BrandingPatch = {
   heroTitle?: string | null;
   heroSubtitle?: string | null;
+  companyDescription?: string | null;
   aboutUs?: string | null;
-  address?: string | null;
-  phone?: string | null;
-  email?: string | null;
-  website?: string | null;
   instagram?: string | null;
   facebook?: string | null;
   whatsapp?: string | null;
+  website?: string | null;
+};
+
+export type DatosPatch = {
+  companyName?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
 };
 
 export function useCompanyConfig() {
@@ -31,13 +34,27 @@ export function useCompanyConfig() {
   });
 }
 
-export function useUpdateCompanyConfig() {
+export function useUpdateBranding() {
   const { session } = useAuth();
   const token = session?.access_token ?? null;
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (patch: CompanyConfigPatch) =>
-      apiFetch("/api/agenda/company-config", token, {
+    mutationFn: (patch: BrandingPatch) =>
+      apiFetch("/api/agenda/company-config/branding", token, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
+  });
+}
+
+export function useUpdateDatos() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: DatosPatch) =>
+      apiFetch("/api/agenda/company-config/datos", token, {
         method: "PATCH",
         body: JSON.stringify(patch),
       }),

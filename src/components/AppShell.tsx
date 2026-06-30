@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { can, type Section } from "../lib/permissions";
 import {
   Calendar,
   ChevronLeft,
@@ -22,23 +23,25 @@ type NavItem = {
   to: string;
   label: string;
   icon: (p: IconProps) => React.ReactElement;
-  adminOnly?: boolean;
+  section?: Section;
 };
 
 const navItems: NavItem[] = [
-  { to: "/agenda",        label: "Agenda",        icon: Calendar },
-  { to: "/admin",         label: "Administración", icon: LayoutGrid },
-  { to: "/facturacion",   label: "Facturación",   icon: Receipt },
-  { to: "/crm",           label: "CRM",           icon: Users },
-  { to: "/sitio-web",     label: "Sitio Web",     icon: Globe },
-  { to: "/configuracion", label: "Configuración", icon: Settings, adminOnly: true },
+  { to: "/agenda",        label: "Agenda",        icon: Calendar,    section: "agenda" },
+  { to: "/admin",         label: "Administración", icon: LayoutGrid, section: "catalogo" },
+  { to: "/facturacion",   label: "Facturación",   icon: Receipt,     section: "facturacion" },
+  { to: "/crm",           label: "CRM",           icon: Users,       section: "crm" },
+  { to: "/sitio-web",     label: "Sitio Web",     icon: Globe,       section: "sitio-web" },
+  { to: "/configuracion", label: "Configuración", icon: Settings,    section: "usuarios" },
   { to: "/ayuda",         label: "Ayuda",         icon: HelpCircle },
 ];
 
 export function AppShell() {
   const { user, role, signOut } = useAuth();
   const navigate = useNavigate();
-  const visibleNavItems = navItems.filter((it) => !it.adminOnly || role === "admin");
+  const visibleNavItems = navItems.filter(
+    (it) => !it.section || can(role as Parameters<typeof can>[0], it.section, "view"),
+  );
 
   // Rail colapsado (solo desktop), persistido. Drawer mobile, efímero.
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === "1");

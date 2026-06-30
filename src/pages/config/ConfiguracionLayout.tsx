@@ -5,6 +5,7 @@ import { SectionSubnav } from "../../components/SectionSubnav";
 const SUBNAV = [
   { to: "/configuracion/empresa", label: "Datos de empresa" },
   { to: "/configuracion/usuarios", label: "Usuarios" },
+  { to: "/configuracion/permisos", label: "Permisos" },
 ];
 
 export function ConfiguracionLayout() {

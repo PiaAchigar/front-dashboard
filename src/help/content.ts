@@ -114,4 +114,24 @@ export const HELP_ARTICLES: HelpArticle[] = [
     tags: ["agenda", "reserva", "expira", "vencimiento", "turno", "cancelar"],
     section: "Agenda",
   },
+  {
+    id: "roles-que-hace-cada-uno",
+    title: "¿Qué puede hacer cada rol?",
+    body:
+      "Administrador: acceso total, incluida la gestión de usuarios, acuerdos de pago y la configuración del local.\n" +
+      "Encargado: todo lo operativo (agenda, facturación, CRM, catálogo y proveedoras); no toca usuarios ni configuración del local.\n" +
+      "Operador: recepción y staff diario (agenda, crear facturas, CRM, editar catálogo y sitio web); sin proveedoras ni configuración.\n" +
+      "Ventas: solo CRM (contactos, clientes y oportunidades).\n" +
+      "Contador: solo lectura y descarga de facturas.",
+    tags: ["rol", "permiso", "acceso", "admin", "encargado", "operador", "ventas", "contador"],
+    section: "Configuración",
+  },
+  {
+    id: "auth-id-usuarios",
+    title: "Usuarios del sistema y su identidad",
+    body:
+      "Cada usuario del staff inicia sesión con Supabase. Al crearlo desde Configuración → Usuarios se genera su acceso y se le asigna un rol. Internamente, el sistema vincula ese acceso con una ficha local de usuario (campo auth_id) que se usa para registrar quién hizo cada acción.",
+    tags: ["usuario", "auth", "identidad", "auth_id", "login"],
+    section: "Configuración",
+  },
 ];

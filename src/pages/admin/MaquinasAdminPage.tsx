@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
+import { can, type Role } from "../../lib/permissions";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
 import { Checkbox, Field, Select, TextArea, TextInput } from "../../components/form";
@@ -15,7 +16,6 @@ import {
 } from "../../hooks/useMachinesAdmin";
 import { MachineLogsDrawer } from "./MachineLogsDrawer";
 
-const STAFF = ["admin", "manager", "operator"];
 const STATUS_LABELS: Record<string, string> = {
   active: "Activa",
   inactive: "Inactiva",
@@ -60,8 +60,9 @@ const num = (s: string) => (s.trim() === "" ? null : Number(s));
 
 export function MaquinasAdminPage() {
   const { role } = useAuth();
-  const isStaff = STAFF.includes(role ?? "");
-  const isAdmin = role === "admin";
+  const r = role as Role | null;
+  const canEdit = can(r, "catalogo", "edit");
+  const canManage = can(r, "catalogo", "manage");
   const toast = useToast();
 
   const [search, setSearch] = useState("");
@@ -197,10 +198,10 @@ export function MaquinasAdminPage() {
         searchPlaceholder="Buscar por nombre o tipo…"
         showArchived={showArchived}
         onToggleArchived={setShowArchived}
-        canCreate={isAdmin}
-        canArchive={isAdmin}
+        canCreate={canManage}
+        canArchive={canManage}
         onAdd={openCreate}
-        onEdit={isStaff ? openEdit : undefined}
+        onEdit={canEdit ? openEdit : undefined}
         archiving={archive.isPending}
         archiveName={(m) => m.name ?? "esta máquina"}
         rowActions={(m) => (

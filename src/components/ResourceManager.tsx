@@ -60,6 +60,8 @@ type Props<T> = {
   archiveName?: (row: T) => string;
   /** Acciones extra por fila (ej. "Mantenimientos"), antes de Editar/Archivar. */
   rowActions?: (row: T) => ReactNode;
+  /** Click en la fila (opcional). Los botones de acciones hacen stopPropagation. */
+  onRowClick?: (row: T) => void;
 };
 
 export function ResourceManager<T>({
@@ -84,6 +86,7 @@ export function ResourceManager<T>({
   archiving = false,
   archiveName,
   rowActions,
+  onRowClick,
 }: Props<T>) {
   const [toArchive, setToArchive] = useState<T | null>(null);
   const [widths, setWidths] = useState<Record<string, number>>(() => loadWidths(title, columns));
@@ -234,14 +237,18 @@ export function ResourceManager<T>({
               visibleRows.map((row) => {
                 const archived = isArchived(row);
                 return (
-                  <tr key={rowKey(row)} className={archived ? "opacity-60" : ""}>
+                  <tr
+                    key={rowKey(row)}
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    className={`${archived ? "opacity-60" : ""} ${onRowClick ? "cursor-pointer hover:bg-surface-low" : ""}`.trim()}
+                  >
                     {columns.map((col) => (
                       <td key={col.key} className="overflow-hidden px-4 py-3 text-ink">
                         <div className={`truncate ${col.className ?? ""}`}>{col.render(row)}</div>
                       </td>
                     ))}
                     {showActions && (
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-1">
                           {rowActions && rowActions(row)}
                           {onEdit && !archived && (
