@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { useCheckoutHandoff } from "../lib/checkout-handoff";
 
 /**
  * Embebe la app `front-biller` (módulo de facturación) por <iframe> y le pasa
@@ -34,6 +35,16 @@ export function BillerFrame() {
   const token = session?.access_token ?? null;
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const billerOrigin = originOf(BILLER_URL);
+
+  // Turno que la agenda pidió cobrar (si vinimos de un "Cobrar"): se captura
+  // una sola vez al montar y se limpia del contexto para no reusarlo si el
+  // staff vuelve a esta ruta después.
+  const { pending, clear } = useCheckoutHandoff();
+  const [handoff] = useState(pending);
+  useEffect(() => {
+    if (pending) clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Flag de "iframe listo" — solo se escribe en el handler, nunca en render.
   const readyRef = useRef(false);
@@ -82,10 +93,14 @@ export function BillerFrame() {
     );
   }
 
+  const handoffParams = handoff
+    ? `&appointmentId=${encodeURIComponent(handoff.appointmentId)}&customerId=${encodeURIComponent(handoff.customerId)}`
+    : "";
+
   return (
     <iframe
       ref={iframeRef}
-      src={`${BILLER_URL}/?embed=1`}
+      src={`${BILLER_URL}/?embed=1${handoffParams}`}
       title="Facturación"
       className="h-full w-full border-0"
     />

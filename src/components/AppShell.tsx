@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { CheckoutHandoffProvider } from "../lib/checkout-handoff";
 import { can, type Section } from "../lib/permissions";
 import {
   Calendar,
@@ -160,7 +161,9 @@ export function AppShell() {
         </header>
 
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface">
-          <Outlet />
+          <CheckoutHandoffProvider>
+            <Outlet />
+          </CheckoutHandoffProvider>
         </main>
       </div>
     </div>
