@@ -6,6 +6,7 @@ import { EntityDrawer } from "../../components/EntityDrawer";
 import { Field, TextArea, TextInput } from "../../components/form";
 import { useToast } from "../../components/ui/Toast";
 import { MpAccountsSection, MpAccountsDraftSection, type DraftMpAccount } from "./MpAccountsSection";
+import { AvailabilityPanel } from "./AvailabilityPanel";
 import type { ProviderAdmin } from "../../lib/api-types";
 import {
   useArchiveProvider,
@@ -119,6 +120,7 @@ export function ProveedorasAdminPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [draftAccounts, setDraftAccounts] = useState<DraftMpAccount[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [availabilityOpen, setAvailabilityOpen] = useState(false);
 
   const { data: providers = [], isLoading, error } = useProvidersAdmin(showArchived);
   const create = useCreateProvider();
@@ -286,14 +288,25 @@ export function ProveedorasAdminPage() {
         title={mode === "create" ? "Nuevo proveedor" : (editing?.fullName ?? "Proveedor")}
         readOnly={mode === "view"}
         headerAction={
-          mode === "view" && canEdit ? (
-            <button
-              type="button"
-              onClick={() => setMode("edit")}
-              className="rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-dark"
-            >
-              Editar
-            </button>
+          mode !== "create" && editing ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAvailabilityOpen(true)}
+                className="rounded-full border border-surface-highest px-4 py-1.5 text-sm font-medium text-ink transition-colors hover:bg-surface-high"
+              >
+                Ver disponibilidad →
+              </button>
+              {mode === "view" && canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setMode("edit")}
+                  className="rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-dark"
+                >
+                  Editar
+                </button>
+              )}
+            </div>
           ) : null
         }
         error={formError}
@@ -374,6 +387,16 @@ export function ProveedorasAdminPage() {
           </>
         )}
       </EntityDrawer>
+
+      {editing && (
+        <AvailabilityPanel
+          open={availabilityOpen}
+          providerId={editing.id}
+          providerName={editing.fullName ?? "Proveedor"}
+          readOnly={!canEdit}
+          onClose={() => setAvailabilityOpen(false)}
+        />
+      )}
     </>
   );
 }
