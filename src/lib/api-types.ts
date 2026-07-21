@@ -255,3 +255,48 @@ export type Appointment = {
   machineId: string | null;
   machineName: string | null;
 };
+
+export type WeeklyAvailabilityRow = {
+  id: string;
+  dayOfWeek: number;
+  workStartTime: string;
+  workEndTime: string;
+};
+
+export type SaturdayOverride = {
+  id: string;
+  saturdayDate: string;
+  isWorking: boolean;
+  workStartTime: string | null;
+  workEndTime: string | null;
+  notes: string | null;
+};
+
+export type AvailabilityExceptionType =
+  | "unavailable"
+  | "sick_leave"
+  | "vacation"
+  | "reduced_hours"
+  | "not_coming"
+  | "other";
+
+export type AvailabilityException = {
+  id: string;
+  dateException: string | null;
+  dateStart: string | null;
+  dateEnd: string | null;
+  timeOverrideStart: string | null;
+  timeOverrideEnd: string | null;
+  exceptionType: AvailabilityExceptionType;
+  reason: string | null;
+  isWorking: boolean;
+};
+
+export type ConflictingAppointment = {
+  id: string;
+  appointmentStart: string;
+  appointmentEnd: string;
+  status: string | null;
+  customerName: string | null;
+  serviceName: string | null;
+};
