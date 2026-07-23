@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch } from "../lib/api-client";
 import type { Service } from "../lib/api-types";
+import type { DeleteImpact } from "../components/ResourceManager";
 
 export type ServiceInput = {
   name: string;
@@ -123,6 +124,27 @@ export function useRestoreService() {
   return useMutation({
     mutationFn: (id: string) =>
       apiFetch(`/api/agenda/services/${id}/restore`, token, { method: "POST" }),
+    onSuccess: invalidate,
+  });
+}
+
+/** Preview de impacto antes del hard-delete: no es una query cacheada, se llama
+ *  on-demand vía mutateAsync justo antes de mostrar la confirmación. */
+export function useServiceDeleteImpact() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<DeleteImpact>(`/api/agenda/services/${id}/delete-impact`, token),
+  });
+}
+
+export function useHardDeleteService() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch(`/api/agenda/services/${id}/permanent`, token, { method: "DELETE" }),
     onSuccess: invalidate,
   });
 }

@@ -10,7 +10,9 @@ import { can, type Role } from "../../lib/permissions";
 import {
   useArchiveService,
   useCreateService,
+  useHardDeleteService,
   useRestoreService,
+  useServiceDeleteImpact,
   useServicesAdmin,
   useSetServiceAgreements,
   useSetServiceCategories,
@@ -206,6 +208,7 @@ export function ServiciosAdminPage() {
   const r = role as Role | null;
   const canEdit = can(r, "catalogo", "edit");
   const canManage = can(r, "catalogo", "manage");
+  const isAdmin = r === "admin";
   const toast = useToast();
 
   const [search, setSearch] = useState("");
@@ -220,6 +223,8 @@ export function ServiciosAdminPage() {
   const update = useUpdateServiceAdmin();
   const archive = useArchiveService();
   const restore = useRestoreService();
+  const deleteImpact = useServiceDeleteImpact();
+  const hardDelete = useHardDeleteService();
   const setCategories = useSetServiceCategories();
   const setAgreements = useSetServiceAgreements();
   const { data: machines = [] } = useMachinesList();
@@ -403,6 +408,15 @@ export function ServiciosAdminPage() {
         onRestore={(s) =>
           restore.mutate(s.id, {
             onSuccess: () => toast.success("Servicio restaurado"),
+            onError: (e: Error) => toast.error(e.message),
+          })
+        }
+        canHardDelete={isAdmin}
+        onHardDeletePreview={(s) => deleteImpact.mutateAsync(s.id)}
+        hardDeleteName={(s) => s.name ?? "este servicio"}
+        onHardDelete={(s) =>
+          hardDelete.mutate(s.id, {
+            onSuccess: () => toast.success("Servicio eliminado definitivamente"),
             onError: (e: Error) => toast.error(e.message),
           })
         }
