@@ -1,6 +1,6 @@
 import { useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { Archive, Pencil, Plus, RotateCcw, Search } from "./icons";
+import { Archive, Pencil, Plus, RotateCcw, Search, Trash } from "./icons";
 
 export type Column<T> = {
   key: string;
@@ -10,6 +10,12 @@ export type Column<T> = {
   width?: number;
   /** Clase extra para la celda (ej: alineación). */
   className?: string;
+};
+
+export type DeleteImpact = {
+  blocked: boolean;
+  blockReason?: string;
+  cascade: Record<string, number>;
 };
 
 const DEFAULT_WIDTH = 180;
@@ -58,6 +64,13 @@ type Props<T> = {
   archiving?: boolean;
 
   archiveName?: (row: T) => string;
+
+  /** Hard-delete real (irreversible), separado de Archivar. Solo admin. */
+  canHardDelete?: boolean;
+  onHardDeletePreview?: (row: T) => Promise<DeleteImpact>;
+  onHardDelete?: (row: T) => void;
+  hardDeleteName?: (row: T) => string;
+
   /** Acciones extra por fila (ej. "Mantenimientos"), antes de Editar/Archivar. */
   rowActions?: (row: T) => ReactNode;
   /** Click en la fila (opcional). Los botones de acciones hacen stopPropagation. */
@@ -85,10 +98,17 @@ export function ResourceManager<T>({
   onRestore,
   archiving = false,
   archiveName,
+  canHardDelete = false,
+  onHardDeletePreview,
+  onHardDelete,
+  hardDeleteName,
   rowActions,
   onRowClick,
 }: Props<T>) {
   const [toArchive, setToArchive] = useState<T | null>(null);
+  const [hardDeleteRow, setHardDeleteRow] = useState<T | null>(null);
+  const [hardDeleteImpact, setHardDeleteImpact] = useState<DeleteImpact | null>(null);
+  const [previewingHardDelete, setPreviewingHardDelete] = useState(false);
   const [widths, setWidths] = useState<Record<string, number>>(() => loadWidths(title, columns));
   const [resizing, setResizing] = useState(false);
 
@@ -97,7 +117,9 @@ export function ResourceManager<T>({
   // registros legacy con el flag en null caen como "activos".
   const visibleRows = rows.filter((r) => isArchived(r) === showArchived);
 
-  const showActions = Boolean(rowActions || onEdit || (canArchive && (onArchive || onRestore)));
+  const showActions = Boolean(
+    rowActions || onEdit || (canArchive && (onArchive || onRestore)) || canHardDelete,
+  );
   const colWidth = (key: string) => widths[key] ?? DEFAULT_WIDTH;
   const totalWidth =
     columns.reduce((acc, c) => acc + colWidth(c.key), 0) + (showActions ? ACTIONS_WIDTH : 0);
@@ -128,6 +150,46 @@ export function ResourceManager<T>({
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+  }
+
+  async function startHardDelete(row: T) {
+    if (!onHardDeletePreview) return;
+    setHardDeleteRow(row);
+    setPreviewingHardDelete(true);
+    try {
+      const impact = await onHardDeletePreview(row);
+      setHardDeleteImpact(impact);
+    } catch {
+      setHardDeleteImpact({
+        blocked: true,
+        blockReason: "No se pudo verificar. Probá de nuevo.",
+        cascade: {},
+      });
+    } finally {
+      setPreviewingHardDelete(false);
+    }
+  }
+
+  function closeHardDelete() {
+    setHardDeleteRow(null);
+    setHardDeleteImpact(null);
+  }
+
+  function cascadeMessage(cascade: Record<string, number>): string {
+    const labels: Record<string, string> = {
+      agreements: "acuerdo(s) con proveedoras",
+      categories: "categoría(s) asignada(s)",
+      machines: "máquina(s) vinculada(s)",
+      promotions: "promoción(es) asociada(s)",
+      weeklyAvailability: "franja(s) de disponibilidad semanal",
+      saturdaySchedule: "sábado(s) puntuales cargados",
+      exceptions: "excepción(es) de disponibilidad",
+      mpAccounts: "cuenta(s) de MercadoPago",
+    };
+    const parts = Object.entries(cascade)
+      .filter(([, count]) => count > 0)
+      .map(([key, count]) => `${count} ${labels[key] ?? key}`);
+    return parts.length > 0 ? ` y también ${parts.join(", ")}` : "";
   }
 
   return (
@@ -278,6 +340,16 @@ export function ResourceManager<T>({
                               <RotateCcw size={16} />
                             </button>
                           )}
+                          {canHardDelete && onHardDeletePreview && onHardDelete && (
+                            <button
+                              onClick={() => startHardDelete(row)}
+                              disabled={previewingHardDelete && hardDeleteRow === row}
+                              title="Eliminar definitivamente"
+                              className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700 disabled:opacity-50"
+                            >
+                              <Trash size={16} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     )}
@@ -309,6 +381,32 @@ export function ResourceManager<T>({
           setToArchive(null);
         }}
       />
+
+      {/* Hard-delete: si está bloqueado, ambos botones solo cierran (nada que confirmar). */}
+      {hardDeleteRow && hardDeleteImpact && (
+        <ConfirmDialog
+          open={true}
+          title={hardDeleteImpact.blocked ? "No se puede eliminar" : "Eliminar definitivamente"}
+          danger={!hardDeleteImpact.blocked}
+          confirmLabel={hardDeleteImpact.blocked ? "Entendido" : "Eliminar"}
+          message={
+            hardDeleteImpact.blocked
+              ? hardDeleteImpact.blockReason
+              : `¿Seguro que querés eliminar definitivamente${
+                  hardDeleteName ? ` "${hardDeleteName(hardDeleteRow)}"` : " este elemento"
+                }${cascadeMessage(hardDeleteImpact.cascade)}? Esta acción NO se puede deshacer.`
+          }
+          onCancel={closeHardDelete}
+          onConfirm={() => {
+            if (hardDeleteImpact.blocked) {
+              closeHardDelete();
+              return;
+            }
+            if (onHardDelete) onHardDelete(hardDeleteRow);
+            closeHardDelete();
+          }}
+        />
+      )}
     </div>
   );
 }
