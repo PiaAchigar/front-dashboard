@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch } from "../lib/api-client";
 import type { ProviderAdmin } from "../lib/api-types";
+import type { DeleteImpact } from "../components/ResourceManager";
 
 export type ProviderInput = {
   fullName: string;
@@ -83,6 +84,26 @@ export function useRestoreProvider() {
   return useMutation({
     mutationFn: (id: string) =>
       apiFetch(`/api/agenda/providers/${id}/restore`, token, { method: "POST" }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useProviderDeleteImpact() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<DeleteImpact>(`/api/agenda/providers/${id}/delete-impact`, token),
+  });
+}
+
+export function useHardDeleteProvider() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch(`/api/agenda/providers/${id}/permanent`, token, { method: "DELETE" }),
     onSuccess: invalidate,
   });
 }

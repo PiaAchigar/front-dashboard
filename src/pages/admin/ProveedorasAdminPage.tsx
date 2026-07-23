@@ -11,6 +11,8 @@ import type { ProviderAdmin } from "../../lib/api-types";
 import {
   useArchiveProvider,
   useCreateProvider,
+  useHardDeleteProvider,
+  useProviderDeleteImpact,
   useProvidersAdmin,
   useRestoreProvider,
   useUpdateProvider,
@@ -109,6 +111,7 @@ export function ProveedorasAdminPage() {
   const r = role as Role | null;
   const canEdit = can(r, "proveedoras", "edit");
   const canManage = can(r, "proveedoras", "manage");
+  const isAdmin = r === "admin";
   const toast = useToast();
 
   const [search, setSearch] = useState("");
@@ -127,6 +130,8 @@ export function ProveedorasAdminPage() {
   const update = useUpdateProvider();
   const archive = useArchiveProvider();
   const restore = useRestoreProvider();
+  const deleteImpact = useProviderDeleteImpact();
+  const hardDelete = useHardDeleteProvider();
   const createMpForProvider = useCreateMpAccountForProvider();
 
   const rows = useMemo(() => {
@@ -278,6 +283,15 @@ export function ProveedorasAdminPage() {
         onRestore={(p) =>
           restore.mutate(p.id, {
             onSuccess: () => toast.success("Proveedor restaurado"),
+            onError: (e: Error) => toast.error(e.message),
+          })
+        }
+        canHardDelete={isAdmin}
+        onHardDeletePreview={(p) => deleteImpact.mutateAsync(p.id)}
+        hardDeleteName={(p) => p.fullName ?? "este proveedor"}
+        onHardDelete={(p) =>
+          hardDelete.mutate(p.id, {
+            onSuccess: () => toast.success("Proveedor eliminado definitivamente"),
             onError: (e: Error) => toast.error(e.message),
           })
         }
