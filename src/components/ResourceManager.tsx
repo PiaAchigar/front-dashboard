@@ -178,9 +178,9 @@ export function ResourceManager<T>({
   function cascadeMessage(cascade: Record<string, number>): string {
     const labels: Record<string, string> = {
       agreements: "acuerdo(s) con proveedoras",
-      categories: "categoría(s) asignada(s)",
-      machines: "máquina(s) vinculada(s)",
-      promotions: "promoción(es) asociada(s)",
+      categories: "categoría(s)",
+      machines: "máquina(s)",
+      promotions: "promoción(es)",
       weeklyAvailability: "franja(s) de disponibilidad semanal",
       saturdaySchedule: "sábado(s) puntuales cargados",
       exceptions: "excepción(es) de disponibilidad",
@@ -189,7 +189,7 @@ export function ResourceManager<T>({
     const parts = Object.entries(cascade)
       .filter(([, count]) => count > 0)
       .map(([key, count]) => `${count} ${labels[key] ?? key}`);
-    return parts.length > 0 ? ` y también ${parts.join(", ")}` : "";
+    return parts.length > 0 ? ` También se van a desvincular: ${parts.join(", ")}.` : "";
   }
 
   return (
@@ -394,7 +394,7 @@ export function ResourceManager<T>({
               ? hardDeleteImpact.blockReason
               : `¿Seguro que querés eliminar definitivamente${
                   hardDeleteName ? ` "${hardDeleteName(hardDeleteRow)}"` : " este elemento"
-                }${cascadeMessage(hardDeleteImpact.cascade)}? Esta acción NO se puede deshacer.`
+                }?${cascadeMessage(hardDeleteImpact.cascade)} Esta acción NO se puede deshacer.`
           }
           onCancel={closeHardDelete}
           onConfirm={() => {
