@@ -4,10 +4,10 @@ import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
 import { AppShell } from "./components/AppShell";
 import { LoginPage } from "./pages/LoginPage";
-import { DashboardHome } from "./pages/DashboardHome";
 import { AyudaPage } from "./pages/AyudaPage";
 import { AgendaFrame } from "./components/AgendaFrame";
 import { BillerFrame } from "./components/BillerFrame";
+import { CrmFrame } from "./components/CrmFrame";
 import { ToastProvider } from "./components/ui/Toast";
 import { AdminLayout } from "./pages/admin/AdminLayout";
 import { CategoriasAdminPage } from "./pages/admin/CategoriasAdminPage";
@@ -58,7 +58,7 @@ export default function App() {
                   <Route path="promos" element={<PromosAdminPage />} />
                 </Route>
                 <Route path="facturacion" element={<BillerFrame />} />
-                <Route path="crm" element={<DashboardHome section="CRM" />} />
+                <Route path="crm" element={<CrmFrame />} />
                 <Route path="sitio-web" element={<SitioWebLayout />}>
                   <Route index element={<Navigate to="/sitio-web/visibles" replace />} />
                   <Route path="visibles" element={<VisiblesWebPage />} />
