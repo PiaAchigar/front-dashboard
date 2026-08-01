@@ -2,6 +2,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "reac
 import { useAuth } from "../../auth/AuthContext";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
+import { BenefitsInput } from "../../components/Services/BenefitsInput";
 import { Checkbox, Field, Select, TextArea, TextInput } from "../../components/form";
 import { Plus, Trash } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
@@ -180,6 +181,9 @@ type Form = {
   isVisible: boolean;
   isFeatured: boolean;
   categoryIds: string[];
+  benefits: string;
+  contraindications: string;
+  specialAttentionNotes: string;
 };
 
 const EMPTY: Form = {
@@ -198,6 +202,9 @@ const EMPTY: Form = {
   isVisible: true,
   isFeatured: false,
   categoryIds: [],
+  benefits: "",
+  contraindications: "",
+  specialAttentionNotes: "",
 };
 
 const money = (n: number | null) => (n != null ? `$${n.toLocaleString("es-AR")}` : "—");
@@ -314,6 +321,9 @@ export function ServiciosAdminPage() {
       isVisible: s.isVisible ?? true,
       isFeatured: !!s.isFeatured,
       categoryIds: s.categories.map((c) => c.id),
+      benefits: s.benefits ?? "",
+      contraindications: s.contraindications ?? "",
+      specialAttentionNotes: s.specialAttentionNotes ?? "",
     });
     setFormError(null);
     setDrawerOpen(true);
@@ -336,6 +346,9 @@ export function ServiciosAdminPage() {
       machineId: form.requiresMachine ? form.machineId || null : null,
       isVisible: form.isVisible,
       isFeatured: form.isFeatured,
+      benefits: form.benefits.trim() || null,
+      contraindications: form.contraindications.trim() || null,
+      specialAttentionNotes: form.specialAttentionNotes.trim() || null,
     };
     // Solo acuerdos con proveedora elegida; tarifa/tipo opcionales.
     const agreements = (agreementsRef.current?.getAgreements() ?? [])
@@ -572,6 +585,37 @@ export function ServiciosAdminPage() {
           providers={providersAll}
           editorRef={agreementsRef}
         />
+
+        {/* Contenido RAG: alimenta la búsqueda de tratamientos y el chatbot (migración 1.4.0) */}
+        <div className="space-y-1 rounded-xl border border-surface-high p-3">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-soft">
+            Contenido para búsqueda de tratamientos
+          </p>
+          <BenefitsInput
+            label="Beneficios"
+            description="Ej: Reduce vello en 80%, efecto duradero por 4-6 semanas"
+            value={form.benefits}
+            onChange={(value) => setForm({ ...form, benefits: value })}
+            placeholder="Beneficios principales del tratamiento"
+            hasExistingDescription={!!form.description}
+          />
+          <BenefitsInput
+            label="Contraindicaciones"
+            description="Ej: No apto si hay dermatitis activa, heridas abiertas"
+            value={form.contraindications}
+            onChange={(value) => setForm({ ...form, contraindications: value })}
+            placeholder="Restricciones y contraindicaciones"
+            hasExistingDescription={!!form.description}
+          />
+          <BenefitsInput
+            label="Instrucciones Especiales"
+            description="Ej: Llevar protector solar, evitar sol 48h, usar ropa clara"
+            value={form.specialAttentionNotes}
+            onChange={(value) => setForm({ ...form, specialAttentionNotes: value })}
+            placeholder="Recomendaciones antes/después del tratamiento"
+            hasExistingDescription={!!form.description}
+          />
+        </div>
       </EntityDrawer>
     </>
   );

@@ -18,6 +18,12 @@ export type ServiceInput = {
   isVisible?: boolean | null;
   isFeatured?: boolean | null;
   webSortOrder?: number | null;
+  /** Contenido RAG (búsqueda de tratamientos / chatbot) — ver migración 1.4.0.
+   *  Nota: el backend (schema/repo/route) todavía no persiste estos campos;
+   *  se envían igual para que el guardado funcione en cuanto se agregue esa pieza. */
+  benefits?: string | null;
+  contraindications?: string | null;
+  specialAttentionNotes?: string | null;
 };
 
 const KEY = "services-admin";

@@ -42,6 +42,10 @@ export type Service = {
   isFeatured: boolean | null;
   isVisible: boolean | null;
   webSortOrder: number | null;
+  /** Contenido RAG (búsqueda de tratamientos / chatbot) — opcional, ver migración 1.4.0. */
+  benefits?: string | null;
+  contraindications?: string | null;
+  specialAttentionNotes?: string | null;
   categories: { id: string; name: string | null }[];
   primaryMachine?: { id: string; name: string | null } | null;
 };
