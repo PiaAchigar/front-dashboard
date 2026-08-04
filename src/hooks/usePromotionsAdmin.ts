@@ -95,3 +95,14 @@ export function useRestorePromotion() {
     onSuccess: invalidate,
   });
 }
+
+export function useDeletePromotion() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch(`/api/agenda/promotions/admin/${id}/delete`, token, { method: "DELETE" }),
+    onSuccess: invalidate,
+  });
+}

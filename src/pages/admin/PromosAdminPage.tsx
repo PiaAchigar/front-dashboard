@@ -11,6 +11,7 @@ import { useProvidersByService } from "../../hooks/useProvidersByService";
 import {
   useArchivePromotion,
   useCreatePromotion,
+  useDeletePromotion,
   usePromotionsAdmin,
   useRestorePromotion,
   useUpdatePromotionAdmin,
@@ -162,6 +163,7 @@ export function PromosAdminPage() {
   const update = useUpdatePromotionAdmin();
   const archive = useArchivePromotion();
   const restore = useRestorePromotion();
+  const hardDelete = useDeletePromotion();
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -317,10 +319,12 @@ export function PromosAdminPage() {
         onToggleArchived={setShowArchived}
         canCreate={canManage}
         canArchive={canManage}
+        canHardDelete={canManage}
         onAdd={openCreate}
         onEdit={canEdit ? openEdit : undefined}
         archiving={archive.isPending}
         archiveName={(p) => p.name ?? "esta promo"}
+        hardDeleteName={(p) => p.name ?? "esta promo"}
         onArchive={(p) =>
           archive.mutate(p.id, {
             onSuccess: () => toast.success("Promo archivada"),
@@ -330,6 +334,13 @@ export function PromosAdminPage() {
         onRestore={(p) =>
           restore.mutate(p.id, {
             onSuccess: () => toast.success("Promo restaurada"),
+            onError: (e: Error) => toast.error(e.message),
+          })
+        }
+        onHardDeletePreview={async () => ({ blocked: false, cascade: {} })}
+        onHardDelete={(p) =>
+          hardDelete.mutate(p.id, {
+            onSuccess: () => toast.success("Promo eliminada definitivamente"),
             onError: (e: Error) => toast.error(e.message),
           })
         }
