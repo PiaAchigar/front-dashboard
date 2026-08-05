@@ -5,6 +5,7 @@ import { RequireAuth } from "./auth/RequireAuth";
 import { AppShell } from "./components/AppShell";
 import { LoginPage } from "./pages/LoginPage";
 import { AyudaPage } from "./pages/AyudaPage";
+import { SubscriptionManagement } from "./pages/SubscriptionManagement";
 import { AgendaFrame } from "./components/AgendaFrame";
 import { BillerFrame } from "./components/BillerFrame";
 import { CrmFrame } from "./components/CrmFrame";
@@ -60,6 +61,7 @@ export default function App() {
                 </Route>
                 <Route path="facturacion" element={<BillerFrame />} />
                 <Route path="crm" element={<CrmFrame />} />
+                <Route path="subscriptions" element={<SubscriptionManagement />} />
                 <Route path="sitio-web" element={<SitioWebLayout />}>
                   <Route index element={<Navigate to="/sitio-web/visibles" replace />} />
                   <Route path="visibles" element={<VisiblesWebPage />} />
