@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useToast } from "../../components/ui/Toast";
 import { Checkbox, Field, TextArea, TextInput } from "../../components/form";
 import { Trash, Archive, Pencil } from "../../components/icons";
+import { apiFetch } from "../../lib/api-client";
 
 interface Activity {
   id: string;
@@ -57,15 +58,8 @@ export function ActividadesAdminPage() {
 
   const fetchServiceProviders = async () => {
     try {
-      const response = await fetch("/api/agenda/providers", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setServiceProviders(data.data || []);
-      }
+      const data = await apiFetch<{ data: ServiceProvider[] }>("/api/agenda/providers", token);
+      setServiceProviders(data.data || []);
     } catch (err) {
       console.error("Error loading service providers:", err);
     }
@@ -74,17 +68,7 @@ export function ActividadesAdminPage() {
   const fetchActivities = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/activities", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: No se pudieron cargar las actividades`);
-      }
-
-      const data = await response.json();
+      const data = await apiFetch<{ data: Activity[] }>("/api/activities", token);
       setActivities(data.data || []);
       setError(null);
     } catch (err) {
@@ -169,19 +153,10 @@ export function ActividadesAdminPage() {
         monthlyBasePrice: price,
       };
 
-      const response = await fetch(url, {
+      await apiFetch<Activity>(url, token, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || `Error ${response.status}`);
-      }
 
       toast.success(editing ? "Actividad actualizada" : "Actividad creada");
       closeDrawer();
@@ -198,16 +173,9 @@ export function ActividadesAdminPage() {
     if (!confirm("¿Archivar esta actividad?")) return;
 
     try {
-      const response = await fetch(`/api/activities/${id}`, {
+      await apiFetch<Activity>(`/api/activities/${id}`, token, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}`);
-      }
 
       toast.success("Actividad archivada");
       await fetchActivities();
@@ -224,16 +192,9 @@ export function ActividadesAdminPage() {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/activities/${id}/hard`, {
+      await apiFetch<{ id: string }>(`/api/activities/${id}/hard`, token, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}`);
-      }
 
       toast.success("Actividad eliminada permanentemente");
       await fetchActivities();
