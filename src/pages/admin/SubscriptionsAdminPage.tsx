@@ -3,6 +3,8 @@ import { useToast } from "../../components/ui/Toast";
 import { SubscriptionTable } from "../../components/SubscriptionTable";
 import { SubscriptionDetailsModal } from "../../components/SubscriptionDetailsModal";
 import { SubscriptionForm } from "../../components/SubscriptionForm";
+import { CustomerPicker } from "../../components/CustomerPicker";
+import type { CustomerOption } from "../../hooks/useCustomerSearch";
 import { apiFetch } from "../../lib/api-client";
 import { useToken } from "../../hooks/useToken";
 
@@ -33,17 +35,11 @@ export interface SubscriptionWithAttendance {
   customerName: string;
 }
 
-interface Customer {
-  id: string;
-  name: string;
-  dni: string;
-  phone: string | null;
-  email: string | null;
-}
-
 interface Activity {
   id: string;
   name: string;
+  /** Precio mensual del catálogo — prellena el monto en el alta */
+  monthlyBasePrice: number | string | null;
 }
 
 interface SubscriptionFilters {
@@ -66,8 +62,10 @@ const SELECT_CLASSNAME =
 export function SubscriptionsAdminPage() {
   const toast = useToast();
   const [subscriptions, setSubscriptions] = useState<SubscriptionWithAttendance[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  // El cliente del filtro se guarda entero (no solo el id) para poder mostrar
+  // su nombre sin volver a consultarlo.
+  const [filterCustomer, setFilterCustomer] = useState<CustomerOption | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<SubscriptionFilters>(EMPTY_FILTERS);
@@ -76,18 +74,6 @@ export function SubscriptionsAdminPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const token = useToken();
-
-  const fetchCustomers = async () => {
-    try {
-      // Sin ?limit la API devuelve solo los 20 clientes más recientes (default
-      // pensado para el autocompletar del facturador). Acá el selector tiene que
-      // listarlos a todos.
-      const data = await apiFetch<Customer[]>("/api/billing/customers/?limit=1000", token);
-      setCustomers(data || []);
-    } catch (err) {
-      console.error("Error loading customers:", err);
-    }
-  };
 
   const fetchActivities = async () => {
     try {
@@ -133,7 +119,6 @@ export function SubscriptionsAdminPage() {
   // `token` va en las deps: RequireAuth ya garantiza sesión antes de montar
   // esta página, pero Supabase renueva el token cada hora y ahí el valor cambia.
   useEffect(() => {
-    fetchCustomers();
     fetchActivities();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
@@ -183,24 +168,31 @@ export function SubscriptionsAdminPage() {
 
       {/* Subnav de filtros — separado de la tabla */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-surface-high bg-surface-low p-3">
-        <select
-          value={filters.clientId}
+        <CustomerPicker
+          className="w-72"
+          selected={filterCustomer}
           disabled={Boolean(filters.activityId)}
-          onChange={(e) => handleFilterChange("clientId", e.target.value)}
-          className={SELECT_CLASSNAME}
-          title={filters.activityId ? "Deseleccioná Actividad para filtrar por Cliente" : undefined}
-        >
-          <option value="">Cliente: todos</option>
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          placeholder="Cliente: todos"
+          onSelect={(customer) => {
+            setFilterCustomer(customer);
+            handleFilterChange("clientId", customer?.id ?? "");
+          }}
+        />
 
         <select
           value={filters.activityId}
-          onChange={(e) => handleFilterChange("activityId", e.target.value)}
+          onChange={(e) => {
+            const activityId = e.target.value;
+            // Se filtra por cliente O por actividad, no por los dos. Al elegir
+            // actividad se limpia el cliente: si quedara seleccionado y además
+            // deshabilitado, no habría forma de sacarlo.
+            if (activityId) setFilterCustomer(null);
+            setFilters((prev) => ({
+              ...prev,
+              activityId,
+              clientId: activityId ? "" : prev.clientId,
+            }));
+          }}
           className={SELECT_CLASSNAME}
         >
           <option value="">Actividad: todas</option>
@@ -256,7 +248,6 @@ export function SubscriptionsAdminPage() {
 
       {drawerOpen && (
         <SubscriptionForm
-          customers={customers}
           activities={activities}
           onSuccess={handleCreateSuccess}
           onClose={() => setDrawerOpen(false)}

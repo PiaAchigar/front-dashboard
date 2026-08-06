@@ -1,27 +1,28 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useToast } from "./ui/Toast";
 import { Field, TextInput, TextArea, Select } from "./form";
+import { CustomerPicker } from "./CustomerPicker";
+import type { CustomerOption } from "../hooks/useCustomerSearch";
 import { apiFetch } from "../lib/api-client";
 import { useToken } from "../hooks/useToken";
 
 /**
  * Alta de suscripción de un cliente a una actividad (Task 7 de
  * planning/subscriptions_admin.md). Se abre como drawer desde
- * SubscriptionsAdminPage, que ya tiene cargados clientes y actividades
- * para los filtros — por eso llegan por props en vez de re-fetchearlos.
+ * SubscriptionsAdminPage, que ya tiene cargadas las actividades para los
+ * filtros — por eso llegan por props en vez de re-fetchearlas.
+ *
+ * El cliente NO llega por props: con 5600+ clientes la lista completa no es
+ * navegable, así que se busca contra la API (ver CustomerPicker).
  */
-interface Customer {
-  id: string;
-  name: string;
-}
-
 interface Activity {
   id: string;
   name: string;
+  /** Precio mensual del catálogo — prellena el monto al elegir la actividad */
+  monthlyBasePrice: number | string | null;
 }
 
 interface SubscriptionFormProps {
-  customers: Customer[];
   activities: Activity[];
   onSuccess: () => void;
   onClose: () => void;
@@ -32,7 +33,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const todayIso = () => new Date().toISOString().split("T")[0];
 
 const buildEmptyForm = () => ({
-  customerId: "",
   activityId: "",
   subscriptionStartDate: todayIso(),
   subscriptionEndDate: "",
@@ -40,16 +40,12 @@ const buildEmptyForm = () => ({
   notes: "",
 });
 
-export function SubscriptionForm({
-  customers,
-  activities,
-  onSuccess,
-  onClose,
-}: SubscriptionFormProps) {
+export function SubscriptionForm({ activities, onSuccess, onClose }: SubscriptionFormProps) {
   const toast = useToast();
   const token = useToken();
 
   const [formData, setFormData] = useState(buildEmptyForm());
+  const [customer, setCustomer] = useState<CustomerOption | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -60,8 +56,27 @@ export function SubscriptionForm({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  /**
+   * Al elegir actividad, prellena el monto con el precio mensual del catálogo.
+   * Queda editable: el precio pactado con una clienta puede diferir del de
+   * lista, y el que manda es el que se guarda en la suscripción.
+   */
+  const handleActivityChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const activityId = e.target.value;
+    const activity = activities.find((a) => a.id === activityId);
+    const basePrice = activity?.monthlyBasePrice;
+    setFormData((prev) => ({
+      ...prev,
+      activityId,
+      monthlyAmount:
+        basePrice === null || basePrice === undefined || basePrice === ""
+          ? prev.monthlyAmount
+          : String(Number(basePrice)),
+    }));
+  };
+
   const validate = (): string | null => {
-    if (!formData.customerId || !UUID_RE.test(formData.customerId)) {
+    if (!customer?.id || !UUID_RE.test(customer.id)) {
       return "Seleccioná un cliente";
     }
     if (!formData.activityId || !UUID_RE.test(formData.activityId)) {
@@ -103,7 +118,7 @@ export function SubscriptionForm({
       await apiFetch("/api/training-subscriptions", token, {
         method: "POST",
         body: JSON.stringify({
-          customerId: formData.customerId,
+          customerId: customer!.id,
           activityId: formData.activityId,
           subscriptionStartDate: formData.subscriptionStartDate,
           // El backend valida /^\d{4}-\d{2}-\d{2}$/ o null: nunca mandar "".
@@ -144,26 +159,14 @@ export function SubscriptionForm({
           )}
 
           <Field label="Cliente *">
-            <Select
-              name="customerId"
-              value={formData.customerId}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Seleccionar cliente</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                </option>
-              ))}
-            </Select>
+            <CustomerPicker selected={customer} onSelect={setCustomer} />
           </Field>
 
           <Field label="Actividad *">
             <Select
               name="activityId"
               value={formData.activityId}
-              onChange={handleChange}
+              onChange={handleActivityChange}
               required
             >
               <option value="">Seleccionar actividad</option>
@@ -205,6 +208,10 @@ export function SubscriptionForm({
               min="0"
               required
             />
+            <p className="mt-1 text-xs text-ink-soft">
+              Se completa con el precio mensual de la actividad. Podés cambiarlo si
+              acordaste otro precio con esta clienta.
+            </p>
           </Field>
 
           <Field label="Notas">
