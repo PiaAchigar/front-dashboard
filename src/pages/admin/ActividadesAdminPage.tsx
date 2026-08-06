@@ -223,7 +223,7 @@ export function ActividadesAdminPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="flex h-full flex-col gap-3 p-2 pl-4 sm:p-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-ink">Actividades</h2>
