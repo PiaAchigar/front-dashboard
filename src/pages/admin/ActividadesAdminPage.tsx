@@ -275,10 +275,10 @@ export function ActividadesAdminPage() {
                     </span>
                   </td>
                   <td className="px-6 py-3 text-ink-soft">
-                    {activity.activity_type === "machine" ? "—" : activity.classes_per_month}
+                    {activity.activity_type === "machine" ? "—" : activity.classes_per_month ?? "—"}
                   </td>
                   <td className="px-6 py-3 text-ink-soft">
-                    ${activity.monthly_base_price.toLocaleString("es-AR")}
+                    ${activity.monthly_base_price != null ? activity.monthly_base_price.toLocaleString("es-AR") : "—"}
                   </td>
                   <td className="px-6 py-3">
                     <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
