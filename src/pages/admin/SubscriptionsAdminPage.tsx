@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useToast } from "../../components/ui/Toast";
+import { SubscriptionTable } from "../../components/SubscriptionTable";
 import { apiFetch } from "../../lib/api-client";
 
 /**
@@ -56,51 +57,12 @@ const SELECT_CLASSNAME =
   "rounded-lg border border-surface-high px-3 py-2 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-50";
 
 /* -------------------------------------------------------------------------------------------
- * Placeholders — reemplazar por los componentes reales en las tasks 6 (SubscriptionTable),
- * 7 (SubscriptionForm) y 8 (SubscriptionDetailsModal) del plan subscriptions_admin.md.
+ * Placeholders — reemplazar por los componentes reales en las tasks 7 (SubscriptionForm) y
+ * 8 (SubscriptionDetailsModal) del plan subscriptions_admin.md. SubscriptionTable (Task 6) ya
+ * es el componente real, importado arriba desde ../../components/SubscriptionTable.
  * Se definen acá con la misma forma de props que van a tener los componentes finales para que
  * el swap sea directo (crear el archivo real en src/components/ y cambiar el import).
  * ---------------------------------------------------------------------------------------- */
-
-interface SubscriptionTablePlaceholderProps {
-  subscriptions: SubscriptionWithAttendance[];
-  onSelectSubscription: (sub: SubscriptionWithAttendance) => void;
-  onRefresh: () => void;
-}
-
-function SubscriptionTablePlaceholder({
-  subscriptions,
-  onSelectSubscription,
-}: SubscriptionTablePlaceholderProps) {
-  if (subscriptions.length === 0) {
-    return (
-      <div className="p-6 text-center text-ink-soft">
-        No hay suscripciones que coincidan con los filtros.
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-6 text-sm text-ink-soft">
-      <p className="mb-3">
-        SubscriptionTable pendiente (Task 6) — mostrando {subscriptions.length}{" "}
-        suscripción{subscriptions.length === 1 ? "" : "es"} sin formato de tabla final.
-      </p>
-      <ul className="space-y-1">
-        {subscriptions.map((sub) => (
-          <li key={sub.id}>
-            <button
-              onClick={() => onSelectSubscription(sub)}
-              className="text-left text-primary hover:underline"
-            >
-              {sub.customerName} — {sub.activityName} ({sub.status})
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
 
 interface SubscriptionDetailsModalPlaceholderProps {
   subscription: SubscriptionWithAttendance;
@@ -344,7 +306,7 @@ export function SubscriptionsAdminPage() {
         {loading ? (
           <div className="p-6 text-center text-ink-soft">Cargando suscripciones...</div>
         ) : (
-          <SubscriptionTablePlaceholder
+          <SubscriptionTable
             subscriptions={subscriptions}
             onSelectSubscription={handleSelectSubscription}
             onRefresh={fetchSubscriptions}

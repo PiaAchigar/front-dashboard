@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { SubscriptionForm } from "../components/SubscriptionForm";
-import { SubscriptionTable } from "../components/SubscriptionTable";
+import { CustomerSubscriptionTable } from "../components/CustomerSubscriptionTable";
 import { AttendanceTracker } from "../components/AttendanceTracker";
 
 export function SubscriptionManagement() {
@@ -42,7 +42,7 @@ export function SubscriptionManagement() {
         <div className="space-y-6 lg:col-span-2">
           <div>
             <h2 className="mb-4 text-xl font-semibold text-ink">Suscripciones activas</h2>
-            <SubscriptionTable
+            <CustomerSubscriptionTable
               customerId={customerId}
               refreshTrigger={refreshCount}
               onSelectSubscription={setSelectedSubscriptionId}

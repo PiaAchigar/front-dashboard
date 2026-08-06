@@ -1,134 +1,114 @@
-import { useState, useEffect } from "react";
+import type { SubscriptionWithAttendance } from "../pages/admin/SubscriptionsAdminPage";
 
-interface Subscription {
-  id: string;
-  activityId: string;
-  customerId: string;
-  subscriptionStartDate: string;
-  subscriptionEndDate?: string | null;
-  status: "active" | "paused" | "cancelled";
-  monthlyAmount: string;
-  notes?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
+/**
+ * Tabla admin de suscripciones a actividades/capacitaciones (Task 6 de
+ * planning/subscriptions_admin.md). Reemplaza al placeholder que vivía en
+ * SubscriptionsAdminPage. Solo lectura + selección por ahora: editar inline
+ * y archivar/soft-delete quedan para tasks posteriores.
+ */
 interface SubscriptionTableProps {
-  customerId: string;
-  refreshTrigger?: number;
-  onSelectSubscription?: (subscriptionId: string) => void;
+  subscriptions: SubscriptionWithAttendance[];
+  onSelectSubscription: (sub: SubscriptionWithAttendance) => void;
+  onRefresh: () => void;
 }
 
-export function SubscriptionTable({
-  customerId,
-  refreshTrigger = 0,
-  onSelectSubscription,
-}: SubscriptionTableProps) {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+const STATUS_LABELS: Record<SubscriptionWithAttendance["status"], string> = {
+  active: "Activa",
+  paused: "Pausada",
+  cancelled: "Cancelada",
+};
 
-  useEffect(() => {
-    const fetchSubscriptions = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const apiUrl = import.meta.env.VITE_API_URL as string;
-        const response = await fetch(
-          `${apiUrl}/api/training-subscriptions?customerId=${encodeURIComponent(customerId)}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
-            },
-          }
-        );
+const STATUS_BADGE_CLASSES: Record<SubscriptionWithAttendance["status"], string> = {
+  active: "bg-green-100 text-green-700",
+  paused: "bg-orange-100 text-orange-700",
+  cancelled: "bg-red-100 text-red-700",
+};
 
-        if (!response.ok) throw new Error("Failed to fetch subscriptions");
+const PAID_STATUS_ICON: Record<SubscriptionWithAttendance["paidStatus"], string> = {
+  paid: "✅",
+  pending: "⏳",
+  overdue: "🔴",
+};
 
-        const json = await response.json();
-        setSubscriptions(json.data || []);
-      } catch (err) {
-        console.error("Error fetching subscriptions:", err);
-        setError("Could not load subscriptions");
-      } finally {
-        setLoading(false);
-      }
-    };
+const PAID_STATUS_LABEL: Record<SubscriptionWithAttendance["paidStatus"], string> = {
+  paid: "Pagado",
+  pending: "Pendiente",
+  overdue: "Vencido",
+};
 
-    fetchSubscriptions();
-  }, [customerId, refreshTrigger]);
-
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800";
-      case "paused":
-        return "bg-yellow-100 text-yellow-800";
-      case "cancelled":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  if (loading) {
-    return <div className="rounded-lg bg-white p-6 text-center text-ink-soft">Cargando...</div>;
-  }
-
-  if (error) {
-    return <div className="rounded-lg bg-red-50 p-6 text-sm text-red-700">{error}</div>;
-  }
-
+export function SubscriptionTable({ subscriptions, onSelectSubscription }: SubscriptionTableProps) {
   if (subscriptions.length === 0) {
     return (
-      <div className="rounded-lg bg-white p-6 text-center text-ink-soft">
-        Sin suscripciones activas
-      </div>
+      <div className="p-6 text-center text-ink-soft">No hay suscripciones registradas.</div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-surface-highest bg-white">
-      <table className="w-full text-sm">
-        <thead className="border-b border-surface-highest bg-surface-high">
-          <tr>
-            <th className="px-4 py-3 text-left font-semibold text-ink">Actividad ID</th>
-            <th className="px-4 py-3 text-left font-semibold text-ink">Fecha de inicio</th>
-            <th className="px-4 py-3 text-left font-semibold text-ink">Estado</th>
-            <th className="px-4 py-3 text-left font-semibold text-ink">Monto mensual</th>
-            <th className="px-4 py-3 text-left font-semibold text-ink">Notas</th>
-            <th className="px-4 py-3 text-center font-semibold text-ink">Acciones</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-surface-highest">
-          {subscriptions.map((subscription) => (
-            <tr key={subscription.id} className="hover:bg-surface-high">
-              <td className="px-4 py-3 font-mono text-xs text-ink-soft">
-                {subscription.activityId.slice(0, 8)}...
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="sticky top-0 border-b border-surface-high bg-surface-low">
+          <th className="px-6 py-3 text-left font-medium text-ink">Cliente</th>
+          <th className="px-6 py-3 text-left font-medium text-ink">Actividad</th>
+          <th className="px-6 py-3 text-left font-medium text-ink">Período</th>
+          <th className="px-6 py-3 text-left font-medium text-ink">Monto</th>
+          <th className="px-6 py-3 text-left font-medium text-ink">Asistencias/Mes</th>
+          <th className="px-6 py-3 text-left font-medium text-ink">Restantes</th>
+          <th className="px-6 py-3 text-left font-medium text-ink">Pagado</th>
+          <th className="px-6 py-3 text-left font-medium text-ink">Estado</th>
+          <th className="px-6 py-3 text-left font-medium text-ink">Acciones</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-surface-high">
+        {subscriptions.map((sub) => {
+          const isMachine = sub.activityType === "machine";
+
+          return (
+            <tr
+              key={sub.id}
+              onClick={() => onSelectSubscription(sub)}
+              className="cursor-pointer hover:bg-surface-low"
+            >
+              <td className="px-6 py-3 font-medium text-ink">{sub.customerName}</td>
+              <td className="px-6 py-3 text-ink">{sub.activityName}</td>
+              <td className="whitespace-nowrap px-6 py-3 text-ink-soft">
+                {sub.subscriptionStartDate} - {sub.subscriptionEndDate || "∞"}
               </td>
-              <td className="px-4 py-3 text-ink">{subscription.subscriptionStartDate}</td>
-              <td className="px-4 py-3">
-                <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClass(subscription.status)}`}>
-                  {subscription.status}
+              <td className="whitespace-nowrap px-6 py-3 text-ink-soft">
+                ${sub.monthlyAmount.toLocaleString("es-AR")}
+              </td>
+              <td className="px-6 py-3 text-ink-soft">
+                {isMachine ? "—" : `${sub.attendanceThisMonth}/${sub.classesPerMonth || "—"}`}
+              </td>
+              <td className="px-6 py-3 text-ink-soft">
+                {isMachine ? "—" : sub.classesRemainingThisMonth}
+              </td>
+              <td className="px-6 py-3 text-center">
+                <span title={PAID_STATUS_LABEL[sub.paidStatus]} aria-label={PAID_STATUS_LABEL[sub.paidStatus]}>
+                  {PAID_STATUS_ICON[sub.paidStatus]}
                 </span>
               </td>
-              <td className="px-4 py-3 text-ink">${parseFloat(subscription.monthlyAmount).toFixed(2)}</td>
-              <td className="px-4 py-3 text-ink-soft text-xs max-w-xs truncate">
-                {subscription.notes || "-"}
-              </td>
-              <td className="px-4 py-3 text-center">
-                <button
-                  onClick={() => onSelectSubscription?.(subscription.id)}
-                  className="text-primary hover:underline text-xs font-medium"
+              <td className="px-6 py-3">
+                <span
+                  className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${STATUS_BADGE_CLASSES[sub.status]}`}
                 >
-                  Ver asistencia
+                  {STATUS_LABELS[sub.status]}
+                </span>
+              </td>
+              <td className="px-6 py-3">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectSubscription(sub);
+                  }}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Ver
                 </button>
               </td>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
