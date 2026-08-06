@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/ui/Toast";
 import { Checkbox, Field, TextArea, TextInput } from "../../components/form";
-import { Edit, Trash, Archive } from "../../components/icons";
+import { Edit, Trash, Archive, X } from "../../components/icons";
 
 interface Activity {
   id: string;
@@ -187,6 +187,32 @@ export function ActividadesAdminPage() {
     }
   };
 
+  const handleHardDelete = async (id: string, name: string) => {
+    const confirmed = window.confirm(
+      `⚠️ ELIMINAR PERMANENTEMENTE\n\n"${name}"\n\nEsta acción NO se puede deshacer. ¿Estás seguro?`
+    );
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/activities/${id}/hard`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}`);
+      }
+
+      toast.success("Actividad eliminada permanentemente");
+      await fetchActivities();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error desconocido";
+      toast.error(`Error al eliminar: ${message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6 p-6">
@@ -287,6 +313,13 @@ export function ActividadesAdminPage() {
                         className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-orange-700"
                       >
                         <Archive size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleHardDelete(activity.id, activity.name)}
+                        title="Eliminar permanentemente"
+                        className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700"
+                      >
+                        <Trash size={16} />
                       </button>
                     </div>
                   </td>
