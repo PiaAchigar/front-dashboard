@@ -8,13 +8,13 @@ interface Activity {
   id: string;
   name: string;
   description: string | null;
-  activity_type: "class" | "machine";
-  service_provider_id: string | null;
-  classes_per_month: number;
-  monthly_base_price: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  activityType: "class" | "machine";
+  serviceProviderId: string | null;
+  classesPerMonth: number;
+  monthlyBasePrice: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 type Form = {
@@ -97,11 +97,11 @@ export function ActividadesAdminPage() {
     setForm({
       name: activity.name,
       description: activity.description || "",
-      activity_type: activity.activity_type,
-      service_provider_id: activity.service_provider_id,
-      classes_per_month: String(activity.classes_per_month),
-      monthly_base_price: String(activity.monthly_base_price),
-      is_active: activity.is_active,
+      activity_type: activity.activityType,
+      service_provider_id: activity.serviceProviderId,
+      classes_per_month: String(activity.classesPerMonth),
+      monthly_base_price: String(activity.monthlyBasePrice),
+      is_active: activity.isActive,
     });
     setFormError(null);
     setDrawerOpen(true);
@@ -239,7 +239,7 @@ export function ActividadesAdminPage() {
         </button>
       </div>
 
-      <div className="rounded-lg border border-surface-high bg-white overflow-hidden">
+      <div className="modal-scroll min-h-0 flex-1 overflow-auto rounded-lg border border-surface-high bg-white">
         {activities.length === 0 ? (
           <div className="p-6 text-center text-ink-soft">
             No hay actividades registradas.
@@ -247,7 +247,7 @@ export function ActividadesAdminPage() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-surface-high bg-surface-low">
+              <tr className="border-b border-surface-high bg-surface-low sticky top-0">
                 <th className="px-6 py-3 text-left font-medium text-ink">Actividad</th>
                 <th className="px-6 py-3 text-left font-medium text-ink">Tipo</th>
                 <th className="px-6 py-3 text-left font-medium text-ink">Clases/Mes</th>
@@ -256,9 +256,9 @@ export function ActividadesAdminPage() {
                 <th className="px-6 py-3 text-left font-medium text-ink">Acciones</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-surface-high">
               {activities.map((activity) => (
-                <tr key={activity.id} className="border-b border-surface-high hover:bg-surface-low">
+                <tr key={activity.id} className="hover:bg-surface-low">
                   <td className="px-6 py-3">
                     <span className="font-medium text-ink">{activity.name}</span>
                     {activity.description && (
@@ -267,26 +267,26 @@ export function ActividadesAdminPage() {
                   </td>
                   <td className="px-6 py-3">
                     <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                      activity.activity_type === "class"
+                      activity.activityType === "class"
                         ? "bg-blue-100 text-blue-700"
                         : "bg-purple-100 text-purple-700"
                     }`}>
-                      {activity.activity_type === "class" ? "Clase" : "Máquina"}
+                      {activity.activityType === "class" ? "Clase" : "Máquina"}
                     </span>
                   </td>
                   <td className="px-6 py-3 text-ink-soft">
-                    {activity.activity_type === "machine" ? "—" : activity.classes_per_month ?? "—"}
+                    {activity.activityType === "machine" ? "—" : activity.classesPerMonth ?? "—"}
                   </td>
                   <td className="px-6 py-3 text-ink-soft">
-                    ${activity.monthly_base_price != null ? activity.monthly_base_price.toLocaleString("es-AR") : "—"}
+                    ${activity.monthlyBasePrice != null ? activity.monthlyBasePrice.toLocaleString("es-AR") : "—"}
                   </td>
                   <td className="px-6 py-3">
                     <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                      activity.is_active
+                      activity.isActive
                         ? "bg-green-100 text-green-700"
                         : "bg-gray-100 text-gray-700"
                     }`}>
-                      {activity.is_active ? "Activa" : "Inactiva"}
+                      {activity.isActive ? "Activa" : "Inactiva"}
                     </span>
                   </td>
                   <td className="px-6 py-3">
