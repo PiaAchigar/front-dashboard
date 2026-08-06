@@ -1,140 +1,188 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "../auth/AuthContext";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useToast } from "./ui/Toast";
 import { Field, TextInput, TextArea, Select } from "./form";
+import { apiFetch } from "../lib/api-client";
+
+interface Customer {
+  id: string;
+  name: string;
+  dni: string;
+  phone: string | null;
+  email: string | null;
+}
 
 interface Activity {
   id: string;
   name: string;
-  description?: string | null;
 }
 
 interface SubscriptionFormProps {
   onSuccess: () => void;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const todayIso = () => new Date().toISOString().split("T")[0];
+
+const buildEmptyForm = () => ({
+  customerId: "",
+  activityId: "",
+  subscriptionStartDate: todayIso(),
+  subscriptionEndDate: "",
+  monthlyAmount: "",
+  notes: "",
+});
+
 export function SubscriptionForm({ onSuccess }: SubscriptionFormProps) {
-  const { user } = useAuth();
+  const toast = useToast();
+  const token = localStorage.getItem("access_token") || "";
+
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [formData, setFormData] = useState(buildEmptyForm());
+  const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState({
-    activityId: "",
-    subscriptionStartDate: new Date().toISOString().split("T")[0],
-    subscriptionEndDate: "",
-    monthlyAmount: "",
-    notes: "",
-  });
-
-  // Fetch activities on mount
   useEffect(() => {
-    const fetchActivities = async () => {
+    const loadOptions = async () => {
       try {
-        setLoading(true);
-        const apiUrl = import.meta.env.VITE_API_URL as string;
-        const response = await fetch(`${apiUrl}/api/activities`, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
-          },
-        });
-
-        if (!response.ok) throw new Error("Failed to fetch activities");
-
-        const json = await response.json();
-        setActivities(json.data || []);
+        setLoadingOptions(true);
+        const [customersData, activitiesData] = await Promise.all([
+          apiFetch<Customer[]>("/api/billing/customers/", token),
+          apiFetch<{ data: Activity[] }>("/api/activities", token),
+        ]);
+        setCustomers(customersData || []);
+        setActivities(activitiesData.data || []);
       } catch (err) {
-        console.error("Error fetching activities:", err);
-        setError("Could not load activities");
+        const message = err instanceof Error ? err.message : "Error desconocido";
+        toast.error(`No se pudieron cargar clientes/actividades: ${message}`);
       } finally {
-        setLoading(false);
+        setLoadingOptions(false);
       }
     };
 
-    fetchActivities();
+    loadOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setFormData(buildEmptyForm());
+    setFormError(null);
+  };
+
+  const validate = (): string | null => {
+    if (!formData.customerId || !UUID_RE.test(formData.customerId)) {
+      return "Seleccioná un cliente";
+    }
+    if (!formData.activityId || !UUID_RE.test(formData.activityId)) {
+      return "Seleccioná una actividad";
+    }
+    if (!formData.subscriptionStartDate) {
+      return "La fecha de inicio es obligatoria";
+    }
+    if (!formData.monthlyAmount) {
+      return "El monto mensual es obligatorio";
+    }
+    const amount = parseFloat(formData.monthlyAmount);
+    if (isNaN(amount) || amount <= 0) {
+      return "El monto mensual debe ser mayor a 0";
+    }
+    if (
+      formData.subscriptionEndDate &&
+      formData.subscriptionEndDate < formData.subscriptionStartDate
+    ) {
+      return "La fecha de fin no puede ser anterior a la fecha de inicio";
+    }
+    return null;
+  };
+
+  const validationError = validate();
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
 
-    if (!user?.id) {
-      setError("Not authenticated. Please log in.");
+    if (validationError) {
+      setFormError(validationError);
       return;
     }
 
-    if (!formData.activityId || !formData.monthlyAmount) {
-      setError("Activity and monthly amount are required");
-      return;
-    }
+    setFormError(null);
+    setSubmitting(true);
 
     try {
-      setSubmitting(true);
-      const apiUrl = import.meta.env.VITE_API_URL as string;
-
-      const body = {
-        activityId: formData.activityId,
-        customerId: user.id,
-        subscriptionStartDate: formData.subscriptionStartDate,
-        subscriptionEndDate: formData.subscriptionEndDate ? formData.subscriptionEndDate : null,
-        monthlyAmount: parseFloat(formData.monthlyAmount),
-        notes: formData.notes || null,
-      };
-
-      const response = await fetch(`${apiUrl}/api/training-subscriptions`, {
+      await apiFetch("/api/training-subscriptions", token, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
-        },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          customerId: formData.customerId,
+          activityId: formData.activityId,
+          subscriptionStartDate: formData.subscriptionStartDate,
+          subscriptionEndDate: formData.subscriptionEndDate || null,
+          monthlyAmount: parseFloat(formData.monthlyAmount),
+          notes: formData.notes.trim() || null,
+        }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create subscription");
-      }
-
-      // Reset form
-      setFormData({
-        activityId: "",
-        subscriptionStartDate: new Date().toISOString().split("T")[0],
-        subscriptionEndDate: "",
-        monthlyAmount: "",
-        notes: "",
-      });
-
+      toast.success("Suscripción creada");
+      resetForm();
       onSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      const message = err instanceof Error ? err.message : "Error desconocido";
+      setFormError(message);
+      toast.error(`Error al crear suscripción: ${message}`);
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-surface-highest bg-white p-6">
-      <h2 className="text-lg font-semibold text-ink">Nueva Suscripción</h2>
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-lg border border-surface-highest bg-white p-6"
+    >
+      <h2 className="text-lg font-semibold text-ink">Nueva suscripción</h2>
 
-      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+      {formError && (
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{formError}</div>
+      )}
+
+      <Field label="Cliente *">
+        <Select
+          name="customerId"
+          value={formData.customerId}
+          onChange={handleChange}
+          disabled={loadingOptions}
+          required
+        >
+          <option value="">
+            {loadingOptions ? "Cargando clientes..." : "Seleccionar cliente"}
+          </option>
+          {customers.map((customer) => (
+            <option key={customer.id} value={customer.id}>
+              {customer.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
 
       <Field label="Actividad *">
         <Select
           name="activityId"
           value={formData.activityId}
-          onChange={handleInputChange}
-          disabled={loading}
+          onChange={handleChange}
+          disabled={loadingOptions}
           required
         >
-          <option value="">Seleccionar actividad</option>
+          <option value="">
+            {loadingOptions ? "Cargando actividades..." : "Seleccionar actividad"}
+          </option>
           {activities.map((activity) => (
             <option key={activity.id} value={activity.id}>
               {activity.name}
@@ -148,7 +196,7 @@ export function SubscriptionForm({ onSuccess }: SubscriptionFormProps) {
           type="date"
           name="subscriptionStartDate"
           value={formData.subscriptionStartDate}
-          onChange={handleInputChange}
+          onChange={handleChange}
           required
         />
       </Field>
@@ -158,7 +206,7 @@ export function SubscriptionForm({ onSuccess }: SubscriptionFormProps) {
           type="date"
           name="subscriptionEndDate"
           value={formData.subscriptionEndDate}
-          onChange={handleInputChange}
+          onChange={handleChange}
         />
       </Field>
 
@@ -167,7 +215,7 @@ export function SubscriptionForm({ onSuccess }: SubscriptionFormProps) {
           type="number"
           name="monthlyAmount"
           value={formData.monthlyAmount}
-          onChange={handleInputChange}
+          onChange={handleChange}
           placeholder="0.00"
           step="0.01"
           min="0"
@@ -179,19 +227,29 @@ export function SubscriptionForm({ onSuccess }: SubscriptionFormProps) {
         <TextArea
           name="notes"
           value={formData.notes}
-          onChange={handleInputChange}
+          onChange={handleChange}
           placeholder="Notas adicionales (opcional)"
           rows={3}
         />
       </Field>
 
-      <button
-        type="submit"
-        disabled={submitting || loading}
-        className="w-full rounded-lg bg-primary px-4 py-2 text-white hover:bg-primary/90 disabled:bg-surface-highest disabled:text-ink-soft"
-      >
-        {submitting ? "Guardando..." : "Crear suscripción"}
-      </button>
+      <div className="flex gap-3 border-t border-surface-high pt-6">
+        <button
+          type="button"
+          onClick={resetForm}
+          disabled={submitting}
+          className="flex-1 rounded-lg border border-surface-high px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface-low disabled:opacity-50"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          disabled={submitting || loadingOptions || Boolean(validationError)}
+          className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+        >
+          {submitting ? "Guardando..." : "Crear suscripción"}
+        </button>
+      </div>
     </form>
   );
 }
