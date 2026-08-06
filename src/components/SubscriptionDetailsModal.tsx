@@ -65,9 +65,11 @@ export function SubscriptionDetailsModal({
   const isMachine = subscription.activityType === "machine";
   const currentMonthLabel = MONTH_NAMES[new Date().getMonth()];
   const classesPerMonth = subscription.classesPerMonth || 0;
+  // La barra mide asistencia REAL sobre el plan; las agendadas se muestran
+  // aparte como referencia de cuánto cupo ya comprometió.
   const progressPct =
     !isMachine && classesPerMonth > 0
-      ? Math.min(100, Math.round((subscription.attendanceThisMonth / classesPerMonth) * 100))
+      ? Math.min(100, Math.round((subscription.attendedThisMonth / classesPerMonth) * 100))
       : 0;
 
   const handleSave = async () => {
@@ -213,9 +215,15 @@ export function SubscriptionDetailsModal({
             ) : (
               <div className="space-y-2 text-sm text-ink-soft">
                 <p>
-                  {subscription.attendanceThisMonth}/{classesPerMonth || "—"} asistencias
+                  <strong className="text-ink">
+                    {subscription.attendedThisMonth}/{classesPerMonth || "—"}
+                  </strong>{" "}
+                  asistió
                 </p>
-                <p>{subscription.classesRemainingThisMonth} clases restantes</p>
+                <p>
+                  {subscription.scheduledThisMonth}/{classesPerMonth || "—"} agendadas
+                </p>
+                <p>{subscription.classesRemainingThisMonth} clases por agendar</p>
                 <div
                   className="h-2 w-full overflow-hidden rounded-full bg-surface-high"
                   role="progressbar"

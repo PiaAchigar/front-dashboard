@@ -21,7 +21,11 @@ export interface SubscriptionWithAttendance {
   monthlyAmount: number;
   status: "active" | "paused" | "cancelled";
   notes: string | null;
-  attendanceThisMonth: number;
+  /** Clases a las que el cliente realmente fue (tildadas desde la Agenda) */
+  attendedThisMonth: number;
+  /** Clases agendadas vigentes este mes — consumen cupo aunque no hayan ocurrido */
+  scheduledThisMonth: number;
+  /** Cupo del plan que queda por agendar: classesPerMonth - scheduledThisMonth */
   classesRemainingThisMonth: number;
   paidDate: string | null;
   paidStatus: "paid" | "pending" | "overdue";

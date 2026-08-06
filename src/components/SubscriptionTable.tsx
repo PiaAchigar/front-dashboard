@@ -51,8 +51,24 @@ export function SubscriptionTable({ subscriptions, onSelectSubscription }: Subsc
           <th className="px-6 py-3 text-left font-medium text-ink">Actividad</th>
           <th className="px-6 py-3 text-left font-medium text-ink">Período</th>
           <th className="px-6 py-3 text-left font-medium text-ink">Monto</th>
-          <th className="px-6 py-3 text-left font-medium text-ink">Asistencias/Mes</th>
-          <th className="px-6 py-3 text-left font-medium text-ink">Restantes</th>
+          <th
+            className="px-6 py-3 text-left font-medium text-ink"
+            title="Clases a las que el cliente realmente fue, tildadas desde la Agenda"
+          >
+            Asistió
+          </th>
+          <th
+            className="px-6 py-3 text-left font-medium text-ink"
+            title="Clases agendadas vigentes este mes (consumen cupo aunque todavía no hayan ocurrido)"
+          >
+            Agendadas
+          </th>
+          <th
+            className="px-6 py-3 text-left font-medium text-ink"
+            title="Cupo del plan que queda por agendar este mes"
+          >
+            Restantes
+          </th>
           <th className="px-6 py-3 text-left font-medium text-ink">Pagado</th>
           <th className="px-6 py-3 text-left font-medium text-ink">Estado</th>
           <th className="px-6 py-3 text-left font-medium text-ink">Acciones</th>
@@ -77,7 +93,10 @@ export function SubscriptionTable({ subscriptions, onSelectSubscription }: Subsc
                 ${sub.monthlyAmount.toLocaleString("es-AR")}
               </td>
               <td className="px-6 py-3 text-ink-soft">
-                {isMachine ? "—" : `${sub.attendanceThisMonth}/${sub.classesPerMonth || "—"}`}
+                {isMachine ? "—" : `${sub.attendedThisMonth}/${sub.classesPerMonth || "—"}`}
+              </td>
+              <td className="px-6 py-3 text-ink-soft">
+                {isMachine ? "—" : `${sub.scheduledThisMonth}/${sub.classesPerMonth || "—"}`}
               </td>
               <td className="px-6 py-3 text-ink-soft">
                 {isMachine ? "—" : sub.classesRemainingThisMonth}
