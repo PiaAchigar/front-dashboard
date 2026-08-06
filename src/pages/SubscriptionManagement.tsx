@@ -1,18 +1,29 @@
 import { useState } from "react";
+import { useAuth } from "../auth/AuthContext";
 import { SubscriptionForm } from "../components/SubscriptionForm";
 import { SubscriptionTable } from "../components/SubscriptionTable";
 import { AttendanceTracker } from "../components/AttendanceTracker";
 
 export function SubscriptionManagement() {
+  const { user } = useAuth();
   const [refreshCount, setRefreshCount] = useState(0);
   const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<string | null>(null);
 
-  // TODO: Get customerId from auth context or URL params
-  const customerId = "test-customer-id";
+  const customerId = user?.id;
 
   const handleFormSuccess = () => {
     setRefreshCount((prev) => prev + 1);
   };
+
+  if (!customerId) {
+    return (
+      <div className="space-y-6 p-6">
+        <div className="rounded-lg bg-red-50 p-6 text-red-900">
+          Error: No customer ID found. Please ensure you are logged in.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-6">
