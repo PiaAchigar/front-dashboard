@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "../auth/AuthContext";
 import { Field, TextInput, TextArea, Select } from "./form";
 
 interface Activity {
@@ -12,6 +13,7 @@ interface SubscriptionFormProps {
 }
 
 export function SubscriptionForm({ onSuccess }: SubscriptionFormProps) {
+  const { user } = useAuth();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +21,6 @@ export function SubscriptionForm({ onSuccess }: SubscriptionFormProps) {
 
   const [formData, setFormData] = useState({
     activityId: "",
-    customerId: "test-customer-id", // TODO: Get from auth context
     subscriptionStartDate: new Date().toISOString().split("T")[0],
     subscriptionEndDate: "",
     monthlyAmount: "",
@@ -65,7 +66,11 @@ export function SubscriptionForm({ onSuccess }: SubscriptionFormProps) {
     e.preventDefault();
     setError(null);
 
-    // Validate required fields
+    if (!user?.id) {
+      setError("Not authenticated. Please log in.");
+      return;
+    }
+
     if (!formData.activityId || !formData.monthlyAmount) {
       setError("Activity and monthly amount are required");
       return;
@@ -77,9 +82,9 @@ export function SubscriptionForm({ onSuccess }: SubscriptionFormProps) {
 
       const body = {
         activityId: formData.activityId,
-        customerId: formData.customerId,
+        customerId: user.id,
         subscriptionStartDate: formData.subscriptionStartDate,
-        subscriptionEndDate: formData.subscriptionEndDate || null,
+        subscriptionEndDate: formData.subscriptionEndDate ? formData.subscriptionEndDate : null,
         monthlyAmount: parseFloat(formData.monthlyAmount),
         notes: formData.notes || null,
       };
@@ -101,7 +106,6 @@ export function SubscriptionForm({ onSuccess }: SubscriptionFormProps) {
       // Reset form
       setFormData({
         activityId: "",
-        customerId: "test-customer-id",
         subscriptionStartDate: new Date().toISOString().split("T")[0],
         subscriptionEndDate: "",
         monthlyAmount: "",
