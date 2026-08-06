@@ -16,6 +16,7 @@ import { ProveedorasAdminPage } from "./pages/admin/ProveedorasAdminPage";
 import { MaquinasAdminPage } from "./pages/admin/MaquinasAdminPage";
 import { PromosAdminPage } from "./pages/admin/PromosAdminPage";
 import { ActividadesAdminPage } from "./pages/admin/ActividadesAdminPage";
+import { SubscriptionsAdminPage } from "./pages/admin/SubscriptionsAdminPage";
 import { SitioWebLayout } from "./pages/web/SitioWebLayout";
 import { VisiblesWebPage } from "./pages/web/VisiblesWebPage";
 import { DestacadosWebPage } from "./pages/web/DestacadosWebPage";
@@ -59,6 +60,7 @@ export default function App() {
                   <Route path="maquinas" element={<MaquinasAdminPage />} />
                   <Route path="promos" element={<PromosAdminPage />} />
                   <Route path="actividades" element={<ActividadesAdminPage />} />
+                  <Route path="suscripciones" element={<SubscriptionsAdminPage />} />
                 </Route>
                 <Route path="facturacion" element={<BillerFrame />} />
                 <Route path="crm" element={<CrmFrame />} />

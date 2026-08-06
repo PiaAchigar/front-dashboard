@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useToast } from "../../components/ui/Toast";
 import { SubscriptionTable } from "../../components/SubscriptionTable";
 import { SubscriptionDetailsModal } from "../../components/SubscriptionDetailsModal";
+import { SubscriptionForm } from "../../components/SubscriptionForm";
 import { apiFetch } from "../../lib/api-client";
 
 /**
@@ -56,54 +57,6 @@ const EMPTY_FILTERS: SubscriptionFilters = {
 
 const SELECT_CLASSNAME =
   "rounded-lg border border-surface-high px-3 py-2 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-50";
-
-/* -------------------------------------------------------------------------------------------
- * Placeholder — reemplazar por el componente real en la task 7 (SubscriptionForm) del plan
- * subscriptions_admin.md. SubscriptionTable (Task 6) y SubscriptionDetailsModal (Task 8) ya
- * son los componentes reales, importados arriba.
- * Se define acá con la misma forma de props que va a tener el componente final para que
- * el swap sea directo (crear el archivo real en src/components/ y cambiar el import).
- * ---------------------------------------------------------------------------------------- */
-
-interface SubscriptionFormPlaceholderProps {
-  onSuccess: () => void;
-  onClose: () => void;
-}
-
-function SubscriptionFormPlaceholder({ onSuccess, onClose }: SubscriptionFormPlaceholderProps) {
-  return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} aria-hidden />
-      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto bg-white shadow-lg">
-        <div className="flex items-center justify-between border-b border-surface-high px-6 py-4">
-          <h2 className="text-lg font-semibold text-ink">Nueva suscripción</h2>
-          <button onClick={onClose} className="text-ink-soft transition-colors hover:text-ink">
-            ✕
-          </button>
-        </div>
-        <div className="space-y-4 p-6">
-          <p className="text-sm text-ink-soft">SubscriptionForm pendiente (Task 7).</p>
-          <div className="flex gap-3 border-t border-surface-high pt-6">
-            <button
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-surface-high px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface-low"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={onSuccess}
-              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
-            >
-              Guardar
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-/* ------------------------------------------------------------------------------------------ */
 
 export function SubscriptionsAdminPage() {
   const toast = useToast();
@@ -292,7 +245,9 @@ export function SubscriptionsAdminPage() {
       )}
 
       {drawerOpen && (
-        <SubscriptionFormPlaceholder
+        <SubscriptionForm
+          customers={customers}
+          activities={activities}
           onSuccess={handleCreateSuccess}
           onClose={() => setDrawerOpen(false)}
         />
