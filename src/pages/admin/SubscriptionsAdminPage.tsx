@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useToast } from "../../components/ui/Toast";
 import { SubscriptionTable } from "../../components/SubscriptionTable";
+import { SubscriptionDetailsModal } from "../../components/SubscriptionDetailsModal";
 import { apiFetch } from "../../lib/api-client";
 
 /**
@@ -57,44 +58,12 @@ const SELECT_CLASSNAME =
   "rounded-lg border border-surface-high px-3 py-2 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-50";
 
 /* -------------------------------------------------------------------------------------------
- * Placeholders — reemplazar por los componentes reales en las tasks 7 (SubscriptionForm) y
- * 8 (SubscriptionDetailsModal) del plan subscriptions_admin.md. SubscriptionTable (Task 6) ya
- * es el componente real, importado arriba desde ../../components/SubscriptionTable.
- * Se definen acá con la misma forma de props que van a tener los componentes finales para que
+ * Placeholder — reemplazar por el componente real en la task 7 (SubscriptionForm) del plan
+ * subscriptions_admin.md. SubscriptionTable (Task 6) y SubscriptionDetailsModal (Task 8) ya
+ * son los componentes reales, importados arriba.
+ * Se define acá con la misma forma de props que va a tener el componente final para que
  * el swap sea directo (crear el archivo real en src/components/ y cambiar el import).
  * ---------------------------------------------------------------------------------------- */
-
-interface SubscriptionDetailsModalPlaceholderProps {
-  subscription: SubscriptionWithAttendance;
-  onClose: () => void;
-  onUpdate: () => void;
-}
-
-function SubscriptionDetailsModalPlaceholder({
-  subscription,
-  onClose,
-}: SubscriptionDetailsModalPlaceholderProps) {
-  return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} aria-hidden />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-ink">Detalle de suscripción</h2>
-            <button onClick={onClose} className="text-ink-soft transition-colors hover:text-ink">
-              ✕
-            </button>
-          </div>
-          <p className="text-sm text-ink-soft">
-            SubscriptionDetailsModal pendiente (Task 8). Suscripción de{" "}
-            <span className="font-medium text-ink">{subscription.customerName}</span> a{" "}
-            <span className="font-medium text-ink">{subscription.activityName}</span>.
-          </p>
-        </div>
-      </div>
-    </>
-  );
-}
 
 interface SubscriptionFormPlaceholderProps {
   onSuccess: () => void;
@@ -315,7 +284,7 @@ export function SubscriptionsAdminPage() {
       </div>
 
       {selectedSubscription && (
-        <SubscriptionDetailsModalPlaceholder
+        <SubscriptionDetailsModal
           subscription={selectedSubscription}
           onClose={() => setSelectedSubscription(null)}
           onUpdate={fetchSubscriptions}
