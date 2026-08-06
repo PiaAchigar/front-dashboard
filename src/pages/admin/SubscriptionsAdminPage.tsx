@@ -74,7 +74,10 @@ export function SubscriptionsAdminPage() {
 
   const fetchCustomers = async () => {
     try {
-      const data = await apiFetch<Customer[]>("/api/billing/customers/", token);
+      // Sin ?limit la API devuelve solo los 20 clientes más recientes (default
+      // pensado para el autocompletar del facturador). Acá el selector tiene que
+      // listarlos a todos.
+      const data = await apiFetch<Customer[]>("/api/billing/customers/?limit=1000", token);
       setCustomers(data || []);
     } catch (err) {
       console.error("Error loading customers:", err);
