@@ -3,6 +3,7 @@ import { useToast } from "../../components/ui/Toast";
 import { Checkbox, Field, TextArea, TextInput } from "../../components/form";
 import { Trash, Archive, Pencil } from "../../components/icons";
 import { apiFetch } from "../../lib/api-client";
+import { useToken } from "../../hooks/useToken";
 
 interface Activity {
   id: string;
@@ -54,7 +55,7 @@ export function ActividadesAdminPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const token = localStorage.getItem("access_token") || "";
+  const token = useToken();
 
   const fetchServiceProviders = async () => {
     try {
@@ -83,7 +84,8 @@ export function ActividadesAdminPage() {
   useEffect(() => {
     fetchServiceProviders();
     fetchActivities();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const openCreate = () => {
     setEditing(null);

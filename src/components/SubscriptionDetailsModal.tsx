@@ -3,6 +3,7 @@ import type { SubscriptionWithAttendance } from "../pages/admin/SubscriptionsAdm
 import { useToast } from "./ui/Toast";
 import { Field, Select, TextArea, TextInput, Checkbox } from "./form";
 import { apiFetch } from "../lib/api-client";
+import { useToken } from "../hooks/useToken";
 
 /**
  * Modal/drawer de detalle de suscripción (Task 8 de planning/subscriptions_admin.md).
@@ -60,7 +61,7 @@ export function SubscriptionDetailsModal({
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const token = localStorage.getItem("access_token") || "";
+  const token = useToken();
 
   const isMachine = subscription.activityType === "machine";
   const currentMonthLabel = MONTH_NAMES[new Date().getMonth()];

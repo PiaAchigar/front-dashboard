@@ -4,6 +4,7 @@ import { SubscriptionTable } from "../../components/SubscriptionTable";
 import { SubscriptionDetailsModal } from "../../components/SubscriptionDetailsModal";
 import { SubscriptionForm } from "../../components/SubscriptionForm";
 import { apiFetch } from "../../lib/api-client";
+import { useToken } from "../../hooks/useToken";
 
 /**
  * Fila de la tabla admin de suscripciones a actividades/capacitaciones.
@@ -74,7 +75,7 @@ export function SubscriptionsAdminPage() {
     useState<SubscriptionWithAttendance | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const token = localStorage.getItem("access_token") || "";
+  const token = useToken();
 
   const fetchCustomers = async () => {
     try {
@@ -129,16 +130,18 @@ export function SubscriptionsAdminPage() {
     }
   };
 
+  // `token` va en las deps: RequireAuth ya garantiza sesión antes de montar
+  // esta página, pero Supabase renueva el token cada hora y ahí el valor cambia.
   useEffect(() => {
     fetchCustomers();
     fetchActivities();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     fetchSubscriptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, [filters, token]);
 
   const handleFilterChange = (filterName: keyof SubscriptionFilters, value: string) => {
     setFilters((prev) => ({ ...prev, [filterName]: value }));

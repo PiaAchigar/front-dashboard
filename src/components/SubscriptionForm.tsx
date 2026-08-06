@@ -2,6 +2,7 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useToast } from "./ui/Toast";
 import { Field, TextInput, TextArea, Select } from "./form";
 import { apiFetch } from "../lib/api-client";
+import { useToken } from "../hooks/useToken";
 
 /**
  * Alta de suscripción de un cliente a una actividad (Task 7 de
@@ -46,7 +47,7 @@ export function SubscriptionForm({
   onClose,
 }: SubscriptionFormProps) {
   const toast = useToast();
-  const token = localStorage.getItem("access_token") || "";
+  const token = useToken();
 
   const [formData, setFormData] = useState(buildEmptyForm());
   const [formError, setFormError] = useState<string | null>(null);
