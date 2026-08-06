@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../components/ui/Toast";
 import { Checkbox, Field, TextArea, TextInput } from "../../components/form";
-import { Edit, Trash, Archive, X } from "../../components/icons";
+import { Trash, Archive, Pencil } from "../../components/icons";
 
 interface Activity {
   id: string;
@@ -43,7 +42,6 @@ const EMPTY_FORM: Form = {
 };
 
 export function ActividadesAdminPage() {
-  const { user } = useAuth();
   const toast = useToast();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [serviceProviders, setServiceProviders] = useState<ServiceProvider[]>([]);
@@ -337,7 +335,7 @@ export function ActividadesAdminPage() {
                         title="Editar"
                         className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-blue-700"
                       >
-                        <Edit size={16} />
+                        <Pencil size={16} />
                       </button>
                       <button
                         onClick={() => handleArchive(activity.id)}
@@ -480,13 +478,10 @@ export function ActividadesAdminPage() {
 
               <div className="flex items-center gap-3">
                 <Checkbox
+                  label="Activa"
                   checked={form.is_active}
-                  onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-                  id="is_active"
+                  onChange={(checked) => setForm({ ...form, is_active: checked })}
                 />
-                <label htmlFor="is_active" className="text-sm text-ink">
-                  Activa
-                </label>
               </div>
 
               <div className="flex gap-3 border-t border-surface-high pt-6">
