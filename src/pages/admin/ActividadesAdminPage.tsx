@@ -21,15 +21,22 @@ type Form = {
   name: string;
   description: string;
   activity_type: "class" | "machine";
+  service_provider_id: string | null;
   classes_per_month: string;
   monthly_base_price: string;
   is_active: boolean;
 };
 
+interface ServiceProvider {
+  id: string;
+  name: string;
+}
+
 const EMPTY_FORM: Form = {
   name: "",
   description: "",
   activity_type: "class",
+  service_provider_id: null,
   classes_per_month: "0",
   monthly_base_price: "0",
   is_active: true,
@@ -39,6 +46,7 @@ export function ActividadesAdminPage() {
   const { user } = useAuth();
   const toast = useToast();
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [serviceProviders, setServiceProviders] = useState<ServiceProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -49,9 +57,21 @@ export function ActividadesAdminPage() {
 
   const token = localStorage.getItem("access_token") || "";
 
-  useEffect(() => {
-    fetchActivities();
-  }, []);
+  const fetchServiceProviders = async () => {
+    try {
+      const response = await fetch("/api/agenda/providers", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setServiceProviders(data.data || []);
+      }
+    } catch (err) {
+      console.error("Error loading service providers:", err);
+    }
+  };
 
   const fetchActivities = async () => {
     try {
@@ -78,6 +98,11 @@ export function ActividadesAdminPage() {
     }
   };
 
+  useEffect(() => {
+    fetchServiceProviders();
+    fetchActivities();
+  }, []);
+
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
@@ -91,6 +116,7 @@ export function ActividadesAdminPage() {
       name: activity.name,
       description: activity.description || "",
       activity_type: activity.activity_type,
+      service_provider_id: activity.service_provider_id,
       classes_per_month: String(activity.classes_per_month),
       monthly_base_price: String(activity.monthly_base_price),
       is_active: activity.is_active,
@@ -127,6 +153,11 @@ export function ActividadesAdminPage() {
       return;
     }
 
+    if (form.activity_type === "class" && !form.service_provider_id) {
+      setFormError("Debes seleccionar una proveedora para actividades de tipo clase");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const url = editing ? `/api/activities/${editing.id}` : "/api/activities";
@@ -134,9 +165,10 @@ export function ActividadesAdminPage() {
       const payload = {
         name: form.name.trim(),
         description: form.description.trim() || null,
-        activity_type: form.activity_type,
-        classes_per_month: classesPerMonth,
-        monthly_base_price: price,
+        activityType: form.activity_type,
+        serviceProviderId: form.service_provider_id || null,
+        classesPerMonth: classesPerMonth,
+        monthlyBasePrice: price,
       };
 
       const response = await fetch(url, {
@@ -380,8 +412,10 @@ export function ActividadesAdminPage() {
 
               <Field label="Tipo *">
                 {editing ? (
-                  <div className="rounded-lg border border-surface-high bg-surface-low px-4 py-2 text-sm text-ink-soft">
-                    {form.activity_type === "class" ? "Clase" : "Máquina"}
+                  <div className="rounded-lg border border-surface-high bg-surface-low px-4 py-2">
+                    <p className="text-sm text-ink">
+                      {form.activity_type === "class" ? "Clase" : "Máquina"}
+                    </p>
                     <p className="mt-1 text-xs text-ink-soft">(No editable después de crear)</p>
                   </div>
                 ) : (
@@ -401,6 +435,23 @@ export function ActividadesAdminPage() {
                   </select>
                 )}
               </Field>
+
+              {form.activity_type === "class" && (
+                <Field label="Proveedora *">
+                  <select
+                    value={form.service_provider_id || ""}
+                    onChange={(e) => setForm({ ...form, service_provider_id: e.target.value || null })}
+                    className="rounded-lg border border-surface-high px-3 py-2 text-sm text-ink"
+                  >
+                    <option value="">Seleccionar proveedora...</option>
+                    {serviceProviders.map((provider) => (
+                      <option key={provider.id} value={provider.id}>
+                        {provider.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
 
               {form.activity_type === "class" && (
                 <Field label="Clases por mes *">
