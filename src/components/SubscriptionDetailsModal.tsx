@@ -4,6 +4,7 @@ import { useToast } from "./ui/Toast";
 import { Field, Select, TextArea, TextInput, Checkbox } from "./form";
 import { apiFetch } from "../lib/api-client";
 import { useToken } from "../hooks/useToken";
+import { todayLocal } from "../lib/format";
 
 /**
  * Modal/drawer de detalle de suscripción (Task 8 de planning/subscriptions_admin.md).
@@ -177,7 +178,7 @@ export function SubscriptionDetailsModal({
               onChange={(checked) => {
                 setPaid(checked);
                 if (checked && !paidDate) {
-                  setPaidDate(new Date().toISOString().slice(0, 10));
+                  setPaidDate(todayLocal());
                 }
               }}
             />

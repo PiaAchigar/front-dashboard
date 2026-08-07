@@ -9,6 +9,7 @@ import {
   useExceptions,
 } from "../../hooks/useProviderAvailability";
 import type { ConflictingAppointment } from "../../lib/api-types";
+import { formatDateTime } from "../../lib/format";
 
 function formatDateAR(iso: string): string {
   const [y, m, d] = iso.split("-");
@@ -210,7 +211,7 @@ export function ExceptionsTab({
               <ul className="mt-2 list-disc pl-4">
                 {conflict.map((a) => (
                   <li key={a.id}>
-                    {new Date(a.appointmentStart).toLocaleString("es-AR")} —{" "}
+                    {formatDateTime(a.appointmentStart)} —{" "}
                     {a.customerName ?? "Cliente"} — {a.serviceName ?? "Servicio"}
                   </li>
                 ))}

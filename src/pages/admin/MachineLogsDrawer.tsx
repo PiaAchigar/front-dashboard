@@ -4,6 +4,7 @@ import { Field, Select, TextArea, TextInput } from "../../components/form";
 import { useToast } from "../../components/ui/Toast";
 import { Pencil, Trash } from "../../components/icons";
 import type { Machine, MaintenanceLog } from "../../lib/api-types";
+import { todayLocal } from "../../lib/format";
 import {
   useCreateLog,
   useDeleteLog,
@@ -27,10 +28,9 @@ type LogForm = {
   notes: string;
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
 const emptyForm = (): LogForm => ({
   id: null,
-  maintenanceDate: today(),
+  maintenanceDate: todayLocal(),
   maintenanceType: "preventive",
   description: "",
   cost: "",
@@ -66,7 +66,7 @@ export function MachineLogsDrawer({
   function editLog(l: MaintenanceLog) {
     setForm({
       id: l.id,
-      maintenanceDate: l.maintenanceDate ?? today(),
+      maintenanceDate: l.maintenanceDate ?? todayLocal(),
       maintenanceType: l.maintenanceType ?? "preventive",
       description: l.description ?? "",
       cost: l.cost?.toString() ?? "",

@@ -7,6 +7,7 @@ import { Plus, Search, Trash } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
 import type { AdminUser } from "../../lib/api-types";
 import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLE_ORDER } from "../../lib/roles";
+import { formatDateTimeToDate } from "../../lib/format";
 import {
   useCreateUser,
   useDeleteUser,
@@ -145,13 +146,7 @@ export function UsuariosPage() {
                       </Select>
                     </td>
                     <td className="px-4 py-3 text-ink-soft">
-                      {u.lastSignInAt
-                        ? new Date(u.lastSignInAt).toLocaleDateString("es-AR", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })
-                        : "Nunca"}
+                      {u.lastSignInAt ? formatDateTimeToDate(u.lastSignInAt) : "Nunca"}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end">

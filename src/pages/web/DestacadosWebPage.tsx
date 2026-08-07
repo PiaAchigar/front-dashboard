@@ -5,6 +5,7 @@ import { usePromotions } from "../../hooks/usePromotions";
 import { useUpdateService } from "../../hooks/useUpdateService";
 import { useUpdatePromotion } from "../../hooks/useUpdatePromotion";
 import { useTrainingsAdmin, useUpdateTrainingWeb } from "../../hooks/useTrainingsWeb";
+import { formatDate } from "../../lib/format";
 
 export function DestacadosWebPage() {
   const { data: services = [], isLoading: loadingServices } = useServices();
@@ -127,11 +128,7 @@ export function DestacadosWebPage() {
                         </td>
                         <td className="px-4 py-3 text-ink-soft">
                           {promo.validUntil
-                            ? `hasta ${new Date(promo.validUntil).toLocaleDateString("es-AR", {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              })}`
+                            ? `hasta ${formatDate(promo.validUntil)}`
                             : "Sin vencimiento"}
                         </td>
                         <td className="w-28 px-4 py-3">

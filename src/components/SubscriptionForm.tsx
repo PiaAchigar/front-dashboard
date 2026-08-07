@@ -5,6 +5,7 @@ import { CustomerPicker } from "./CustomerPicker";
 import type { CustomerOption } from "../hooks/useCustomerSearch";
 import { apiFetch } from "../lib/api-client";
 import { useToken } from "../hooks/useToken";
+import { todayLocal } from "../lib/format";
 
 /**
  * Alta de suscripción de un cliente a una actividad (Task 7 de
@@ -30,11 +31,9 @@ interface SubscriptionFormProps {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const todayIso = () => new Date().toISOString().split("T")[0];
-
 const buildEmptyForm = () => ({
   activityId: "",
-  subscriptionStartDate: todayIso(),
+  subscriptionStartDate: todayLocal(),
   subscriptionEndDate: "",
   monthlyAmount: "",
   notes: "",
