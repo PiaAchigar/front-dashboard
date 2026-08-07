@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useToast } from "../../components/ui/Toast";
 import { Checkbox, Field, TextArea, TextInput } from "../../components/form";
-import { Trash, Archive, Pencil } from "../../components/icons";
+import { Trash, Archive, Pencil, RotateCcw } from "../../components/icons";
 import { apiFetch } from "../../lib/api-client";
 import { useToken } from "../../hooks/useToken";
 
@@ -96,6 +96,7 @@ export function ActividadesAdminPage() {
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const token = useToken();
 
@@ -126,8 +127,12 @@ export function ActividadesAdminPage() {
   const fetchActivities = async () => {
     try {
       setLoading(true);
-      const data = await apiFetch<{ data: Activity[] }>("/api/activities", token);
-      setActivities(data.data || []);
+      // Con includeInactive el backend devuelve activas + archivadas; el filtro
+      // final es de esta pantalla, según la pestaña elegida.
+      const url = showArchived ? "/api/activities?includeInactive=true" : "/api/activities";
+      const data = await apiFetch<{ data: Activity[] }>(url, token);
+      const all = data.data || [];
+      setActivities(showArchived ? all.filter((a) => !a.isActive) : all);
       setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error desconocido";
@@ -141,9 +146,14 @@ export function ActividadesAdminPage() {
   useEffect(() => {
     fetchServiceProviders();
     fetchProviderSchedules();
-    fetchActivities();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  // Cambiar de pestaña Activas/Archivadas pide otra lista al backend.
+  useEffect(() => {
+    fetchActivities();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, showArchived]);
 
   const openCreate = () => {
     setEditing(null);
@@ -245,6 +255,20 @@ export function ActividadesAdminPage() {
     }
   };
 
+  const handleRestore = async (id: string) => {
+    try {
+      await apiFetch<Activity>(`/api/activities/${id}/restore`, token, {
+        method: "POST",
+      });
+
+      toast.success("Actividad restaurada");
+      await fetchActivities();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error desconocido";
+      toast.error(`Error al restaurar: ${message}`);
+    }
+  };
+
   const handleHardDelete = async (id: string, name: string) => {
     const confirmed = window.confirm(
       `⚠️ ELIMINAR PERMANENTEMENTE\n\n"${name}"\n\nEsta acción NO se puede deshacer. ¿Estás seguro?`
@@ -291,18 +315,38 @@ export function ActividadesAdminPage() {
             Gestiona las actividades mensuales (Pilates, Yoga, máquinas, etc.)
           </p>
         </div>
-        <button
-          onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
-        >
-          + Agregar
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex overflow-hidden rounded-lg border border-surface-highest text-sm">
+            {[
+              { v: false, label: "Activas" },
+              { v: true, label: "Archivadas" },
+            ].map((opt) => (
+              <button
+                key={opt.label}
+                onClick={() => setShowArchived(opt.v)}
+                className={`px-3 py-2 transition-colors ${
+                  showArchived === opt.v
+                    ? "bg-primary font-medium text-white"
+                    : "bg-white text-ink-soft hover:bg-surface-high"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+          >
+            + Agregar
+          </button>
+        </div>
       </div>
 
       <div className="modal-scroll min-h-0 flex-1 overflow-auto rounded-lg border border-surface-high bg-white">
         {activities.length === 0 ? (
           <div className="p-6 text-center text-ink-soft">
-            No hay actividades registradas.
+            {showArchived ? "No hay actividades archivadas." : "No hay actividades registradas."}
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -358,13 +402,23 @@ export function ActividadesAdminPage() {
                       >
                         <Pencil size={16} />
                       </button>
-                      <button
-                        onClick={() => handleArchive(activity.id)}
-                        title="Archivar"
-                        className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-orange-700"
-                      >
-                        <Archive size={16} />
-                      </button>
+                      {activity.isActive ? (
+                        <button
+                          onClick={() => handleArchive(activity.id)}
+                          title="Archivar"
+                          className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-orange-700"
+                        >
+                          <Archive size={16} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleRestore(activity.id)}
+                          title="Restaurar"
+                          className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-green-700"
+                        >
+                          <RotateCcw size={16} />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleHardDelete(activity.id, activity.name)}
                         title="Eliminar permanentemente"
