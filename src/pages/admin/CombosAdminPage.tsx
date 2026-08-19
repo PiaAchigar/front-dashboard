@@ -33,6 +33,14 @@ type DraftLine = {
    * esto la fila queda muda y la usuaria no sabe qué está reemplazando.
    */
   serviceName: string | null;
+  /**
+   * Precio del servicio tal como vino del combo guardado (congelado al
+   * cargarlo). `useServices()` sólo trae servicios activos: si esta línea
+   * quedó archivada, no aparece ahí y el precio "en vivo" da $0, lo que
+   * arruina el subtotal del preview y dispara el cartel de "sale más caro"
+   * aunque nada haya cambiado. Este valor es el respaldo para ese caso.
+   */
+  servicePrice: number | null;
 };
 
 type Form = {
@@ -57,7 +65,15 @@ const EMPTY: Form = {
   lines: [],
 };
 
-const EMPTY_LINE: DraftLine = { serviceId: "", sessionsIncluded: "", serviceName: null };
+const EMPTY_LINE: DraftLine = {
+  serviceId: "",
+  sessionsIncluded: "",
+  serviceName: null,
+  servicePrice: null,
+};
+
+/** Tope de sesiones por línea, igual al que valida el backend (zod, combos.ts). */
+const MAX_SESSIONS_INCLUDED = 999;
 
 /** Una fila del combo: servicio + cuántas sesiones de ese servicio incluye. */
 function LineRow({
@@ -172,10 +188,15 @@ export function CombosAdminPage() {
     return m;
   }, [services]);
 
+  // Precio a usar en el preview: el "en vivo" de useServices() si el servicio
+  // sigue activo, y si no, el que trajo el combo guardado (servicePrice de la
+  // línea) — evita que un servicio archivado valga $0 en el preview.
+  const precioPreview = (l: DraftLine) => priceById.get(l.serviceId) ?? l.servicePrice ?? 0;
+
   // Preview en vivo: mismo cálculo que combo-pricing.ts del backend.
   const subtotalPreview = computeComboSubtotal(
     form.lines.map((l) => ({
-      servicePrice: priceById.get(l.serviceId) ?? 0,
+      servicePrice: precioPreview(l),
       sessionsIncluded: Number(l.sessionsIncluded) || 0,
     })),
   );
@@ -280,6 +301,7 @@ export function CombosAdminPage() {
         serviceId: l.serviceId ?? "",
         sessionsIncluded: l.sessionsIncluded != null ? String(l.sessionsIncluded) : "",
         serviceName: l.serviceName ?? null,
+        servicePrice: l.servicePrice ?? null,
       })),
     });
     setFormError(null);
@@ -328,9 +350,13 @@ export function CombosAdminPage() {
   const lineasValidas = form.lines.filter(
     (l) => l.serviceId && Number(l.sessionsIncluded) > 0,
   ).length;
+  const hayLineaConSesionesExcedidas = form.lines.some(
+    (l) => Number(l.sessionsIncluded) > MAX_SESSIONS_INCLUDED,
+  );
   const puedeGuardar =
     form.name.trim().length >= 1 &&
     lineasValidas >= 1 &&
+    !hayLineaConSesionesExcedidas &&
     form.priceValue.trim() !== "" &&
     Number(form.validityMonths) >= 1;
 
@@ -473,7 +499,7 @@ export function CombosAdminPage() {
                   key={i}
                   line={l}
                   services={services}
-                  precio={priceById.get(l.serviceId) ?? 0}
+                  precio={precioPreview(l)}
                   onChange={(nl) =>
                     setForm({ ...form, lines: form.lines.map((x, idx) => (idx === i ? nl : x)) })
                   }
