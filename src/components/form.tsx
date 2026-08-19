@@ -41,7 +41,16 @@ export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
 }
 
 export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={`${fieldClass} resize-none ${props.className ?? ""}`} />;
+  // `resize-none` es el default, pero si quien lo usa ya pasa su propia clase de
+  // resize no la agregamos: dejar las dos y confiar en cuál gana depende del
+  // orden en que Tailwind emite el CSS, que no es algo que convenga suponer.
+  const traeResize = (props.className ?? "").includes("resize");
+  return (
+    <textarea
+      {...props}
+      className={`${fieldClass} ${traeResize ? "" : "resize-none"} ${props.className ?? ""}`}
+    />
+  );
 }
 
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {

@@ -40,14 +40,77 @@ const PAYMENT_TYPES = [
 
 type AgreementForm = { serviceProviderId: string; paymentType: string; rate: string };
 
-/** Aplana el árbol de categorías para un multi-select, con sangría por nivel. */
-function flattenCategories(nodes: CategoryNode[], depth = 0): { id: string; label: string }[] {
-  const out: { id: string; label: string }[] = [];
-  for (const n of nodes) {
-    out.push({ id: n.id, label: `${"— ".repeat(depth)}${n.name ?? "—"}` });
-    if (n.children?.length) out.push(...flattenCategories(n.children, depth + 1));
+/** Cuenta las categorías del árbol, para distinguir "no hay ninguna" de "hay". */
+function contarCategorias(nodes: CategoryNode[]): number {
+  return nodes.reduce((acc, n) => acc + 1 + contarCategorias(n.children ?? []), 0);
+}
+
+/**
+ * Rama del árbol de categorías dentro del modal de servicio.
+ *
+ * Regla única, derivada de la forma del árbol y sin listas fijas: una categoría
+ * **con hijas es un encabezado** (Cosmetología, y adentro Facial y Corporal), y
+ * una **sin hijas es un checkbox** (Limpieza de Cutis). Con eso salen solos los
+ * tres niveles de Dermatología sin ningún caso especial.
+ *
+ * El encabezado además lleva **su propio checkbox al final de su grupo**, no
+ * arriba: así hay que leer todas las opciones específicas antes de encontrar la
+ * general. Sin ese checkbox, los servicios que hoy cuelgan de una categoría
+ * madre —11 al momento de escribir esto, 7 de Cosmetología y 4 de Estética
+ * Corporal— quedarían asignados sin forma de verlo ni de sacarlo.
+ */
+function RamaCategorias({
+  nodo,
+  nivel,
+  seleccionadas,
+  onToggle,
+}: {
+  nodo: CategoryNode;
+  nivel: number;
+  seleccionadas: string[];
+  onToggle: (id: string) => void;
+}) {
+  const hijas = nodo.children ?? [];
+  const nombre = nodo.name ?? "—";
+
+  if (hijas.length === 0) {
+    return (
+      <Checkbox
+        label={nombre}
+        checked={seleccionadas.includes(nodo.id)}
+        onChange={() => onToggle(nodo.id)}
+      />
+    );
   }
-  return out;
+
+  // Los encabezados de primer nivel son los más marcados; los de adentro bajan
+  // de peso para que se lea la jerarquía sin depender solo de la sangría.
+  const claseTitulo =
+    nivel === 0
+      ? "text-xs font-semibold uppercase tracking-wide text-ink"
+      : "text-xs font-medium text-ink-soft";
+
+  return (
+    <div className={nivel === 0 ? "" : "mt-1"}>
+      <p className={`${claseTitulo} ${nivel === 0 ? "" : "pl-1"}`}>{nombre}</p>
+      <div className={`mt-0.5 space-y-0.5 ${nivel === 0 ? "pl-2" : "pl-3"}`}>
+        {hijas.map((h) => (
+          <RamaCategorias
+            key={h.id}
+            nodo={h}
+            nivel={nivel + 1}
+            seleccionadas={seleccionadas}
+            onToggle={onToggle}
+          />
+        ))}
+        <Checkbox
+          label={`${nombre} (general)`}
+          checked={seleccionadas.includes(nodo.id)}
+          onChange={() => onToggle(nodo.id)}
+        />
+      </div>
+    </div>
+  );
 }
 
 export type AgreementsHandle = { getAgreements: () => AgreementForm[] };
@@ -238,7 +301,7 @@ export function ServiciosAdminPage() {
   const { data: machines = [] } = useMachinesList();
   const { data: categoryTree = [] } = useCategoriesAdmin(false);
   const { data: providersAll = [] } = useProvidersAdmin(false);
-  const categoryOptions = useMemo(() => flattenCategories(categoryTree), [categoryTree]);
+  const totalCategorias = useMemo(() => contarCategorias(categoryTree), [categoryTree]);
 
   // El editor de acuerdos mantiene su propio estado; lo leemos al guardar.
   const agreementsRef = useRef<AgreementsHandle>(null);
@@ -458,8 +521,12 @@ export function ServiciosAdminPage() {
           <TextInput value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
         </Field>
         <Field label="Descripción">
+          {/* 6 filas y redimensionable a mano: las descripciones reales rondan
+              los 150-300 caracteres y con 2 filas había que escribir mirando
+              por una rendija. `resize-y` pisa el `resize-none` del componente. */}
           <TextArea
-            rows={2}
+            rows={6}
+            className="resize-y"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
@@ -562,20 +629,25 @@ export function ServiciosAdminPage() {
           />
         </div>
 
-        {/* Categorías (M:N) */}
+        {/* Categorías (M:N) — agrupadas por categoría madre, ver RamaCategorias */}
         <div className="space-y-2 rounded-xl border border-surface-high p-3">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">Categorías</p>
-          {categoryOptions.length === 0 ? (
+          {totalCategorias === 0 ? (
             <p className="text-sm text-ink-soft">No hay categorías cargadas.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-              {categoryOptions.map((c) => (
-                <Checkbox
-                  key={c.id}
-                  label={c.label}
-                  checked={form.categoryIds.includes(c.id)}
-                  onChange={() => toggleCategory(c.id)}
-                />
+            // `columns-2` en vez de `grid-cols-2`: con grid, un grupo largo se
+            // parte al medio entre las dos columnas. Con columnas CSS y
+            // `break-inside-avoid` cada categoría madre queda entera.
+            <div className="columns-2 gap-x-6">
+              {categoryTree.map((n) => (
+                <div key={n.id} className="mb-3 break-inside-avoid">
+                  <RamaCategorias
+                    nodo={n}
+                    nivel={0}
+                    seleccionadas={form.categoryIds}
+                    onToggle={toggleCategory}
+                  />
+                </div>
               ))}
             </div>
           )}
