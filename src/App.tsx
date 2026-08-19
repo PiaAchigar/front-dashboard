@@ -15,6 +15,7 @@ import { ServiciosAdminPage } from "./pages/admin/ServiciosAdminPage";
 import { ProveedorasAdminPage } from "./pages/admin/ProveedorasAdminPage";
 import { MaquinasAdminPage } from "./pages/admin/MaquinasAdminPage";
 import { PromosAdminPage } from "./pages/admin/PromosAdminPage";
+import { CombosAdminPage } from "./pages/admin/CombosAdminPage";
 import { ActividadesAdminPage } from "./pages/admin/ActividadesAdminPage";
 import { SubscriptionsAdminPage } from "./pages/admin/SubscriptionsAdminPage";
 import { SitioWebLayout } from "./pages/web/SitioWebLayout";
@@ -60,6 +61,7 @@ export default function App() {
                   <Route path="categorias" element={<CategoriasAdminPage />} />
                   <Route path="maquinas" element={<MaquinasAdminPage />} />
                   <Route path="promos" element={<PromosAdminPage />} />
+                  <Route path="combos" element={<CombosAdminPage />} />
                   <Route path="actividades" element={<ActividadesAdminPage />} />
                   <Route path="suscripciones" element={<SubscriptionsAdminPage />} />
                 </Route>

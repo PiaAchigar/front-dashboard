@@ -9,6 +9,7 @@ const SUBNAV = [
   { to: "/admin/categorias", label: "Categorías", section: "catalogo" as const },
   { to: "/admin/maquinas", label: "Máquinas", section: "catalogo" as const },
   { to: "/admin/promos", label: "Promos", section: "catalogo" as const },
+  { to: "/admin/combos", label: "Combos", section: "catalogo" as const },
   { to: "/admin/actividades", label: "Actividades", section: "catalogo" as const },
   { to: "/admin/suscripciones", label: "Suscripciones", section: "catalogo" as const },
 ];
