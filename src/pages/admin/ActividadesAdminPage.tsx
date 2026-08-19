@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useToast } from "../../components/ui/Toast";
+import { EmbeddingsPendientesAviso } from "../../components/EmbeddingsPendientesAviso";
 import { Checkbox, Field, TextArea, TextInput } from "../../components/form";
 import { Trash, Archive, Pencil, RotateCcw } from "../../components/icons";
 import { apiFetch } from "../../lib/api-client";
@@ -342,6 +343,8 @@ export function ActividadesAdminPage() {
           </button>
         </div>
       </div>
+
+      <EmbeddingsPendientesAviso />
 
       <div className="modal-scroll min-h-0 flex-1 overflow-auto rounded-lg border border-surface-high bg-white">
         {activities.length === 0 ? (

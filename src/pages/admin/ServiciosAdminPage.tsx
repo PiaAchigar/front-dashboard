@@ -3,6 +3,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
 import { BenefitsInput } from "../../components/Services/BenefitsInput";
+import { EmbeddingsPendientesAviso } from "../../components/EmbeddingsPendientesAviso";
 import { Checkbox, Field, Select, TextArea, TextInput } from "../../components/form";
 import { Plus, Trash } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
@@ -393,6 +394,7 @@ export function ServiciosAdminPage() {
 
   return (
     <>
+      <EmbeddingsPendientesAviso />
       <ResourceManager<Service>
         title="Servicios"
         rows={rows}
