@@ -29,6 +29,7 @@ import { DatosEmpresaPage } from "./pages/config/DatosEmpresaPage";
 import { UsuariosPage } from "./pages/config/UsuariosPage";
 import { FacturadoresPage } from "./pages/config/FacturadoresPage";
 import { PermisosPage } from "./pages/config/PermisosPage";
+import { InteligenciaArtificialPage } from "./pages/config/InteligenciaArtificialPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -79,6 +80,7 @@ export default function App() {
                   <Route path="usuarios" element={<UsuariosPage />} />
                   <Route path="facturadores" element={<FacturadoresPage />} />
                   <Route path="permisos" element={<PermisosPage />} />
+                  <Route path="ia" element={<InteligenciaArtificialPage />} />
                 </Route>
                 <Route path="ayuda" element={<AyudaPage />} />
               </Route>

@@ -7,6 +7,7 @@ const SUBNAV = [
   { to: "/configuracion/usuarios", label: "Usuarios" },
   { to: "/configuracion/facturadores", label: "Facturadores" },
   { to: "/configuracion/permisos", label: "Permisos" },
+  { to: "/configuracion/ia", label: "Inteligencia Artificial" },
 ];
 
 export function ConfiguracionLayout() {
