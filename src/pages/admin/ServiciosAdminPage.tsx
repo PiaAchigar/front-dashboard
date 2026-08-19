@@ -394,13 +394,13 @@ export function ServiciosAdminPage() {
 
   return (
     <>
-      <EmbeddingsPendientesAviso />
       <ResourceManager<Service>
         title="Servicios"
         rows={rows}
         columns={columns}
         loading={isLoading}
         error={error ? (error as Error).message : null}
+        avisoSuperior={<EmbeddingsPendientesAviso />}
         rowKey={(s) => s.id}
         isArchived={(s) => s.isActive === false}
         search={search}

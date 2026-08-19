@@ -75,6 +75,9 @@ type Props<T> = {
   rowActions?: (row: T) => ReactNode;
   /** Click en la fila (opcional). Los botones de acciones hacen stopPropagation. */
   onRowClick?: (row: T) => void;
+
+  /** Contenido opcional a renderizar arriba del título, dentro del contenedor con padding. */
+  avisoSuperior?: React.ReactNode;
 };
 
 export function ResourceManager<T>({
@@ -104,6 +107,7 @@ export function ResourceManager<T>({
   hardDeleteName,
   rowActions,
   onRowClick,
+  avisoSuperior,
 }: Props<T>) {
   const [toArchive, setToArchive] = useState<T | null>(null);
   const [hardDeleteRow, setHardDeleteRow] = useState<T | null>(null);
@@ -194,6 +198,7 @@ export function ResourceManager<T>({
 
   return (
     <div className="flex h-full flex-col gap-3 p-2 pl-4 sm:p-4">
+      {avisoSuperior}
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-xl text-ink">{title}</h2>
