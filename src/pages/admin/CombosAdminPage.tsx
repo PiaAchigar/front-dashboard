@@ -26,6 +26,13 @@ const money = (n: number | null | undefined) =>
 type DraftLine = {
   serviceId: string;
   sessionsIncluded: string;
+  /**
+   * Nombre del servicio tal como vino del combo guardado. Sólo se usa para
+   * identificar la fila cuando ese servicio ya se archivó y por lo tanto no
+   * aparece entre las opciones del <Select> (que solo lista activos): sin
+   * esto la fila queda muda y la usuaria no sabe qué está reemplazando.
+   */
+  serviceName: string | null;
 };
 
 type Form = {
@@ -50,7 +57,7 @@ const EMPTY: Form = {
   lines: [],
 };
 
-const EMPTY_LINE: DraftLine = { serviceId: "", sessionsIncluded: "" };
+const EMPTY_LINE: DraftLine = { serviceId: "", sessionsIncluded: "", serviceName: null };
 
 /** Una fila del combo: servicio + cuántas sesiones de ese servicio incluye. */
 function LineRow({
@@ -67,15 +74,29 @@ function LineRow({
   onRemove: () => void;
 }) {
   const sesiones = Number(line.sessionsIncluded) || 0;
+  // El <Select> sólo lista servicios activos. Si esta línea trae un
+  // serviceId que ya no está entre ellos, es porque el servicio se archivó
+  // — usamos el nombre guardado para que la fila diga a quién hay que
+  // reemplazar en vez de aparecer vacía.
+  const isArchivedSelection =
+    !!line.serviceId && !services.some((s) => s.id === line.serviceId);
 
   return (
     <li className="space-y-2 rounded-lg border border-surface-high bg-white p-2.5">
       <div className="flex items-start gap-2">
         <div className="flex-1">
           <Field label="Servicio">
+            {isArchivedSelection && (
+              <p className="mb-1.5 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
+                Servicio archivado: <strong>{line.serviceName ?? "sin nombre guardado"}</strong>.
+                Elegí un reemplazo.
+              </p>
+            )}
             <Select
               value={line.serviceId}
-              onChange={(e) => onChange({ ...line, serviceId: e.target.value })}
+              onChange={(e) =>
+                onChange({ ...line, serviceId: e.target.value, serviceName: null })
+              }
             >
               <option value="">Elegí un servicio…</option>
               {services.map((s) => (
@@ -258,6 +279,7 @@ export function CombosAdminPage() {
       lines: c.lines.map((l) => ({
         serviceId: l.serviceId ?? "",
         sessionsIncluded: l.sessionsIncluded != null ? String(l.sessionsIncluded) : "",
+        serviceName: l.serviceName ?? null,
       })),
     });
     setFormError(null);
