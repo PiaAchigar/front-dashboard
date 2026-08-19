@@ -17,6 +17,8 @@ export type LoteResultado = {
   processed?: number;
   results?: { id: string; status: "success" | "failed"; error?: string }[];
   sinCredito?: boolean;
+  /** Cuántos de `results` fallaron. Ver `processed === fallidos` en el loop del front. */
+  fallidos?: number;
   message?: string;
 };
 

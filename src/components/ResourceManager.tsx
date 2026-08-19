@@ -77,7 +77,7 @@ type Props<T> = {
   onRowClick?: (row: T) => void;
 
   /** Contenido opcional a renderizar arriba del título, dentro del contenedor con padding. */
-  avisoSuperior?: React.ReactNode;
+  avisoSuperior?: ReactNode;
 };
 
 export function ResourceManager<T>({

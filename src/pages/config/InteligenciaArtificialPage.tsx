@@ -15,6 +15,11 @@ import { useEmbeddingsStatus, useRecalcularLote } from "../../hooks/useEmbedding
 const MODELO_DEFAULT = "text-embedding-3-small";
 const MAX_VUELTAS = 60;
 
+/** Mismo criterio que `EmbeddingsPendientesAviso.tsx` para no repetir «1 ítems». */
+function pluralItems(n: number): string {
+  return n === 1 ? "ítem" : "ítems";
+}
+
 /**
  * Credencial de OpenAI usada para generar los embeddings del buscador de la
  * web pública, más el estado de indexación del catálogo y el botón para
@@ -24,17 +29,27 @@ const MAX_VUELTAS = 60;
 export function InteligenciaArtificialPage() {
   const toast = useToast();
 
-  const { data: credenciales = [], isLoading: loadingCredenciales } = useAICredentials();
+  const {
+    data: credenciales = [],
+    isLoading: loadingCredenciales,
+    isError: errorCredenciales,
+  } = useAICredentials();
   const validar = useValidarCredencial();
   const guardar = useGuardarCredencial();
 
   const status = useEmbeddingsStatus();
   const recalcularLote = useRecalcularLote();
 
-  const activa = credenciales.find((c) => c.is_active) ?? null;
+  // Filtra por proveedor: `listAICredentials` devuelve TODAS las credenciales
+  // (también las de Anthropic que carga front-crm), así que sin este filtro
+  // una fila activa de Anthropic se mostraba acá como si fuera la de OpenAI.
+  const activa = credenciales.find((c) => c.is_active && c.provider === "openai") ?? null;
 
   const [apiKey, setApiKey] = useState("");
-  const [modelo, setModelo] = useState(MODELO_DEFAULT);
+  // Fijo, no editable (ver IMPORTANT 3 del review): es el único modelo de
+  // OpenAI que devuelve 1536 dimensiones, que es lo que guardan las columnas
+  // de embeddings.
+  const modelo = MODELO_DEFAULT;
   const [validacionError, setValidacionError] = useState<ValidacionResultado | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -86,6 +101,17 @@ export function InteligenciaArtificialPage() {
         // Un lote sin nada procesado significa que no hay más trabajo: cortar
         // igual, para no gastar las 60 vueltas girando en el vacío.
         if (!r.processed) break;
+        // Un lote que procesó filas pero no tuvo NI UN solo éxito (key
+        // revocada, modelo mal configurado, etc.) no corta solo: el backend
+        // responde 200 y las mismas filas siguen sin vector, así que el
+        // `LIMIT 10` de la próxima vuelta trae exactamente las mismas 10 de
+        // nuevo. Sin este corte el loop gasta las 60 vueltas contra las
+        // mismas filas y termina sin mostrar ningún error.
+        const huboExito = r.results?.some((x) => x.status === "success");
+        if (r.results?.length && !huboExito) {
+          setErrorLoop(r.results[0].error ?? "No se pudo actualizar el buscador.");
+          break;
+        }
       }
     } catch (err) {
       setErrorLoop(err instanceof Error ? err.message : "No se pudo actualizar el buscador.");
@@ -117,6 +143,10 @@ export function InteligenciaArtificialPage() {
 
         {loadingCredenciales ? (
           <p className="mt-2 text-sm text-ink-soft">Cargando…</p>
+        ) : errorCredenciales ? (
+          <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            No pudimos consultar el estado de la credencial. Probá recargar la página.
+          </p>
         ) : activa ? (
           <div className="mt-2 rounded-lg bg-surface-high px-3 py-2 text-sm text-ink-soft">
             <p>
@@ -145,13 +175,12 @@ export function InteligenciaArtificialPage() {
             />
           </Field>
           <Field label="Modelo de embeddings">
-            <TextInput value={modelo} onChange={(e) => setModelo(e.target.value)} />
+            <TextInput value={modelo} readOnly disabled />
           </Field>
           <p className="text-xs text-ink-soft">
-            Tiene que ser{" "}
-            <code className="rounded bg-surface-high px-1 py-0.5">text-embedding-3-small</code>.
+            Fijo en <code className="rounded bg-surface-high px-1 py-0.5">text-embedding-3-small</code>.
             Las columnas de la base guardan vectores de 1536 dimensiones y es el único modelo que
-            devuelve esa medida.
+            devuelve esa medida; no se puede editar.
           </p>
 
           {validacionError && (
@@ -188,6 +217,10 @@ export function InteligenciaArtificialPage() {
 
         {status.isLoading ? (
           <p className="mt-2 text-sm text-ink-soft">Cargando…</p>
+        ) : status.isError ? (
+          <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            No pudimos consultar el estado del buscador. Probá recargar la página.
+          </p>
         ) : status.data ? (
           <div className="mt-2">
             {status.data.credencial_activa === false ? (
@@ -197,12 +230,14 @@ export function InteligenciaArtificialPage() {
               </p>
             ) : status.data.pendientes === 0 ? (
               <p className="text-sm text-ink-soft">
-                {status.data.indexados} ítems indexados. El buscador está al día.
+                {status.data.indexados} {pluralItems(status.data.indexados)} indexados. El
+                buscador está al día.
               </p>
             ) : (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                Hay {status.data.pendientes} ítems que todavía no aparecen en el buscador de la
-                web.
+                {status.data.indexados} {pluralItems(status.data.indexados)} indexados ·{" "}
+                {status.data.pendientes} {pluralItems(status.data.pendientes)} pendientes de
+                aparecer en el buscador de la web.
               </p>
             )}
           </div>
@@ -228,7 +263,11 @@ export function InteligenciaArtificialPage() {
         busy={corriendo}
         message={
           <>
-            Se van a actualizar <strong>{totalAlEmpezar} ítems</strong>.
+            Se van a actualizar{" "}
+            <strong>
+              {totalAlEmpezar} {pluralItems(totalAlEmpezar)}
+            </strong>
+            .
             <br />
             Tarda unos segundos y el costo es menor a un centavo de dólar.
           </>
