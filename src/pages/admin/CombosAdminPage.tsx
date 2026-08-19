@@ -7,7 +7,7 @@ import { Field, Select, TextArea, TextInput } from "../../components/form";
 import { Plus, Trash } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
 import { useServices } from "../../hooks/useServices";
-import { computeComboFinalPrice, computeComboSubtotal } from "../../lib/combo-pricing";
+import { computeComboFinalPrice, computeComboSubtotal, precioDeServicio } from "../../lib/combo-pricing";
 import {
   useArchiveCombo,
   useCombosAdmin,
@@ -184,7 +184,7 @@ export function CombosAdminPage() {
 
   const priceById = useMemo(() => {
     const m = new Map<string, number>();
-    for (const s of services) m.set(s.id, s.unitPriceList ?? 0);
+    for (const s of services) m.set(s.id, precioDeServicio(s.unitPriceList, s.unitPriceCash));
     return m;
   }, [services]);
 
