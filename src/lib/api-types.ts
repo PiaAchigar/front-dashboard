@@ -139,6 +139,32 @@ export type PromotionAdmin = {
   lines: PromoLineAdmin[];
 };
 
+export type ComboLineAdmin = {
+  id: string;
+  serviceId: string | null;
+  serviceName: string | null;
+  serviceIsActive: boolean | null;
+  sessionsIncluded: number | null;
+  servicePrice: number | null;
+};
+
+export type ComboAdmin = {
+  id: string;
+  name: string | null;
+  description: string | null;
+  priceType: string | null; // 'fixed' | 'percentage'
+  fixedPrice: number | null;
+  discountPercentage: number | null;
+  validityMonths: number | null;
+  isActive: boolean | null;
+  isVisibleWeb: boolean | null;
+  displayOrder: number | null;
+  servicesSubtotal: number;
+  finalAmount: number;
+  hasInactiveService: boolean;
+  lines: ComboLineAdmin[];
+};
+
 export type OpenHour = {
   dayOfWeek: number | null;
   openingTime: string | null;
