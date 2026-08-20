@@ -24,6 +24,7 @@ export const SECTION_LABELS: Record<Section, string> = {
   agenda: "Agenda",
   facturacion: "Facturación",
   crm: "CRM",
+  "crm-config": "Config del CRM",
   catalogo: "Catálogo",
   proveedoras: "Proveedoras",
   "sitio-web": "Sitio Web",

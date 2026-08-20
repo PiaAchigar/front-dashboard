@@ -15,6 +15,9 @@ const MATRIZ_1_7: Record<Section, Record<Role, "F" | "E" | "V" | "–">> = {
   agenda:          { admin: "F", manager: "F", operator: "F", sales: "–", accountant: "–" },
   facturacion:     { admin: "F", manager: "F", operator: "E", sales: "–", accountant: "V" },
   crm:             { admin: "F", manager: "F", operator: "F", sales: "F", accountant: "–" },
+  // Configuración del CRM (credenciales de IA, canales, automatizaciones).
+  // No es una fila de §1.7: es cableado del sistema, y por eso admin sola.
+  "crm-config":    { admin: "F", manager: "–", operator: "–", sales: "–", accountant: "–" },
   catalogo:        { admin: "F", manager: "F", operator: "E", sales: "–", accountant: "–" },
   proveedoras:     { admin: "F", manager: "F", operator: "–", sales: "–", accountant: "–" },
   "sitio-web":     { admin: "F", manager: "F", operator: "E", sales: "–", accountant: "–" },
@@ -44,11 +47,22 @@ describe("can()", () => {
     expect(can(undefined, "usuarios", "manage")).toBe(false);
   });
 
+  it("restringir la config del CRM no le saca a nadie el CRM", () => {
+    // En julio se dejaron los canales en admin recortando `crm.manage`, y con
+    // eso sales perdió el CRM que §1.7 le da. Por eso `crm-config` es su
+    // propia sección: se puede endurecer sin tocar la fila del CRM.
+    for (const rol of ["admin", "manager", "operator", "sales"] as const) {
+      expect(can(rol, "crm", "manage")).toBe(true);
+      expect(can(rol, "crm-config", "manage")).toBe(rol === "admin");
+    }
+  });
+
   it("sales entra a CRM y a nada más", () => {
     expect(can("sales", "crm", "manage")).toBe(true);
     expect(can("sales", "catalogo", "view")).toBe(false);
     expect(can("sales", "facturacion", "view")).toBe(false);
     expect(can("sales", "agenda", "view")).toBe(false);
+    expect(can("sales", "crm-config", "view")).toBe(false);
   });
 
   it("accountant solo lee facturación", () => {
