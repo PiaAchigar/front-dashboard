@@ -12,6 +12,7 @@ const SUBNAV = [
   { to: "/admin/combos", label: "Combos", section: "catalogo" as const },
   { to: "/admin/actividades", label: "Actividades", section: "catalogo" as const },
   { to: "/admin/suscripciones", label: "Suscripciones", section: "catalogo" as const },
+  { to: "/admin/depilacion", label: "Depilación", section: "catalogo" as const },
 ];
 
 export function AdminLayout() {

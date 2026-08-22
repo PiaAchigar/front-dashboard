@@ -330,3 +330,19 @@ export type ConflictingAppointment = {
   customerName: string | null;
   serviceName: string | null;
 };
+
+// ── Depilación definitiva ───────────────────────────────────────────────
+export type ZonaCategoria = "grande" | "mediana" | "chica";
+
+export type ZonaDepilacion = {
+  id: string;
+  name: string;
+  category: ZonaCategoria;
+  displayOrder: number | null;
+  isActive: boolean;
+  /** Ids de las zonas con las que ésta no se puede combinar. */
+  exclusions: string[];
+};
+
+/** GET /api/agenda/depilacion/zonas: ya viene agrupado por categoría. */
+export type ZonasPorCategoria = Record<ZonaCategoria, ZonaDepilacion[]>;

@@ -18,6 +18,10 @@ import { PromosAdminPage } from "./pages/admin/PromosAdminPage";
 import { CombosAdminPage } from "./pages/admin/CombosAdminPage";
 import { ActividadesAdminPage } from "./pages/admin/ActividadesAdminPage";
 import { SubscriptionsAdminPage } from "./pages/admin/SubscriptionsAdminPage";
+import { DepilacionLayout } from "./pages/admin/depilacion/DepilacionLayout";
+import { ZonasPage } from "./pages/admin/depilacion/ZonasPage";
+import { PreciosPage } from "./pages/admin/depilacion/PreciosPage";
+import { CombosDepilacionPage } from "./pages/admin/depilacion/CombosDepilacionPage";
 import { SitioWebLayout } from "./pages/web/SitioWebLayout";
 import { VisiblesWebPage } from "./pages/web/VisiblesWebPage";
 import { DestacadosWebPage } from "./pages/web/DestacadosWebPage";
@@ -64,6 +68,12 @@ export default function App() {
                   <Route path="combos" element={<CombosAdminPage />} />
                   <Route path="actividades" element={<ActividadesAdminPage />} />
                   <Route path="suscripciones" element={<SubscriptionsAdminPage />} />
+                  <Route path="depilacion" element={<DepilacionLayout />}>
+                    <Route index element={<Navigate to="zonas" replace />} />
+                    <Route path="zonas" element={<ZonasPage />} />
+                    <Route path="precios" element={<PreciosPage />} />
+                    <Route path="combos" element={<CombosDepilacionPage />} />
+                  </Route>
                 </Route>
                 <Route path="facturacion" element={<BillerFrame />} />
                 <Route path="crm" element={<CrmFrame />} />
