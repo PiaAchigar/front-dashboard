@@ -46,7 +46,15 @@ function HelpTip({ text, describedById }: { text: string; describedById: string 
   }, [abierto]);
 
   return (
-    <>
+    // `relative` NO es decorativo: la copia sr-only de abajo es
+    // `position: absolute` (así lo implementa Tailwind), y un absoluto se
+    // recorta contra su BLOQUE CONTENEDOR, no contra cualquier ancestro con
+    // overflow. Sin un ancestro posicionado, ese bloque contenedor es el
+    // <html>: los spans se escapan del área que scrollea y estiran el alto del
+    // documento entero, agregando una segunda barra de scroll. Pasó de verdad
+    // en Precios, que tiene 10 de estos dentro de un contenedor con
+    // overflow-y-auto — el documento se iba a 1629px con el viewport en 900.
+    <span className="relative inline-flex items-center">
       <button
         ref={anchorRef}
         type="button"
@@ -88,7 +96,7 @@ function HelpTip({ text, describedById }: { text: string; describedById: string 
       <span id={describedById} className="sr-only">
         {text}
       </span>
-    </>
+    </span>
   );
 }
 

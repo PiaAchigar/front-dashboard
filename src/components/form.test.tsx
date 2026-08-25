@@ -145,4 +145,24 @@ describe("Field", () => {
       document.getElementById(uno.getAttribute("aria-describedby")!),
     ).toHaveTextContent("Ayuda uno");
   });
+
+  // Regresión: `sr-only` es position:absolute, y un absoluto se recorta contra
+  // su bloque contenedor. Sin un ancestro posicionado dentro del componente,
+  // ese bloque contenedor es el <html>, el span se escapa de cualquier
+  // contenedor con overflow y estira el alto del documento — que fue
+  // exactamente el segundo scroll que apareció en la pantalla de Precios.
+  // happy-dom no calcula layout, así que lo que se fija acá es la estructura
+  // que lo evita.
+  it("la copia sr-only vive dentro de un ancestro posicionado", () => {
+    render(
+      <Field label="Orden" help={AYUDA}>
+        <TextInput value="" onChange={() => {}} />
+      </Field>,
+    );
+
+    const input = screen.getByLabelText("Orden");
+    const srOnly = document.getElementById(input.getAttribute("aria-describedby")!);
+    expect(srOnly).toHaveClass("sr-only");
+    expect(srOnly!.closest(".relative")).not.toBeNull();
+  });
 });
