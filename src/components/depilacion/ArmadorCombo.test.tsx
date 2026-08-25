@@ -101,8 +101,14 @@ describe("ArmadorCombo", () => {
     render(<ArmadorCombo {...props} />);
     await userEvent.click(screen.getByLabelText("Pierna entera"));
 
-    expect(screen.getByLabelText("Media pierna")).toBeDisabled();
-    expect(screen.getByText(/ya incluida en Pierna entera/i)).toBeInTheDocument();
+    const checkbox = screen.getByLabelText("Media pierna");
+    const motivo = screen.getByText(/ya incluida en Pierna entera/i);
+    expect(checkbox).toBeDisabled();
+    expect(motivo).toBeInTheDocument();
+    // No alcanza con que las dos cosas estén en pantalla: un lector de
+    // pantalla solo anuncia "por qué" si el checkbox apunta al motivo con
+    // aria-describedby. Sin esto se anuncia "deshabilitado" y nada más.
+    expect(checkbox).toHaveAttribute("aria-describedby", motivo.id);
   });
 
   it("no deja tildar una zona bloqueada", async () => {
@@ -116,7 +122,7 @@ describe("ArmadorCombo", () => {
     expect(screen.getByTestId("total")).toHaveTextContent("$19.000");
   });
 
-  it("avisa cuando la selección coincide con un pack fijo", async () => {
+  it("avisa cuando la selección coincide con un pack fijo, y el total pasa a ser el del pack", async () => {
     render(<ArmadorCombo {...props} />);
     for (const nombre of ZONAS_CUERPO_FULL) {
       await userEvent.click(screen.getByLabelText(nombre));
@@ -124,6 +130,19 @@ describe("ArmadorCombo", () => {
 
     expect(screen.getByText(/Cuerpo Full/)).toBeInTheDocument();
     expect(screen.getByText(/\$65\.000 en vez de \$86\.000/)).toBeInTheDocument();
+
+    // El Total mostrado tiene que ser el precio fijo ($65.000), no el de la
+    // fórmula ($86.000) — es la regla 3 del diseño ("se aplica solo"), y es
+    // lo que un cartel-solo-de-texto no puede probar: un total que se quedó
+    // pegado a la fórmula deja el cartel diciendo una cosa y el número de
+    // abajo otra.
+    expect(screen.getByTestId("total")).toHaveTextContent("$65.000");
+    expect(screen.getByTestId("total")).not.toHaveTextContent("$86.000");
+
+    // Y el pack de 3 tiene que salir de ESE total ($65.000 × 3 × 0,85 →
+    // $165.750 → redondea a $166.000; ahorro $29.000), no del de la fórmula.
+    expect(screen.getByText("$166.000")).toBeInTheDocument();
+    expect(screen.getByText(/Ahorrás \$29\.000/)).toBeInTheDocument();
   });
 
   it("cambia la duración al cambiar el sexo", async () => {

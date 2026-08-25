@@ -47,6 +47,15 @@ export type ArmadorComboProps = {
   onCambio?: (state: ArmadorComboState) => void;
   /** Zonas ya tildadas al montar — para editar un combo guardado existente. */
   zonaIdsIniciales?: string[];
+  /**
+   * Zonas que el combo que se está editando ya incluye pero que salieron
+   * activas (archivadas). No van en `zonas` — no son seleccionables — pero
+   * tienen que seguir contando para el precio y la duración mientras sigan
+   * tildadas (si no, el total que se ve al abrir el editor queda más bajo que
+   * el real, en silencio) y tienen que poder destildarse para poder guardar
+   * (si no, la única forma de sacarlas es tocando la base a mano).
+   */
+  zonasArchivadasIncluidas?: ZonaParaCotizar[];
 };
 
 /**
@@ -61,19 +70,38 @@ export function ArmadorCombo({
   packs,
   onCambio,
   zonaIdsIniciales,
+  zonasArchivadasIncluidas = [],
 }: ArmadorComboProps) {
   const [zonaIds, setZonaIds] = useState<string[]>(zonaIdsIniciales ?? []);
   const [sexo, setSexo] = useState<Sexo>("mujer");
 
+  // Universo completo para nombre/precio/duración: las seleccionables +
+  // las archivadas que el combo ya traía. Cotizar solo contra `zonas` es lo
+  // que hacía que el total se viera mal apenas se abría un combo con una zona
+  // archivada adentro — la línea desaparecía del cálculo sin avisar.
+  const zonasConocidas = useMemo(
+    () => [...zonas, ...zonasArchivadasIncluidas],
+    [zonas, zonasArchivadasIncluidas],
+  );
+
   const nombrePorId = useMemo(() => {
     const m = new Map<string, string>();
-    for (const z of zonas) m.set(z.id, z.nombre);
+    for (const z of zonasConocidas) m.set(z.id, z.nombre);
     return m;
-  }, [zonas]);
+  }, [zonasConocidas]);
 
   const seleccionadas = useMemo(
-    () => zonas.filter((z) => zonaIds.includes(z.id)),
-    [zonas, zonaIds],
+    () => zonasConocidas.filter((z) => zonaIds.includes(z.id)),
+    [zonasConocidas, zonaIds],
+  );
+
+  // Las archivadas siguen mostrándose mientras sigan tildadas — para poder
+  // verlas, entender cuáles son por nombre y sacarlas. Apenas se destildan
+  // dejan de estar acá (no hay forma de volver a tildarlas: no son parte de
+  // `zonas`).
+  const archivadasSeleccionadas = useMemo(
+    () => zonasArchivadasIncluidas.filter((z) => zonaIds.includes(z.id)),
+    [zonasArchivadasIncluidas, zonaIds],
   );
 
   const cotizacion = useMemo(
@@ -117,6 +145,32 @@ export function ArmadorCombo({
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
       <div className="space-y-4">
+        {archivadasSeleccionadas.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-amber-900">
+              Zonas archivadas en este combo
+            </p>
+            <div className="space-y-2">
+              {archivadasSeleccionadas.map((z) => {
+                const motivoId = `motivo-archivada-${z.id}`;
+                return (
+                  <div key={z.id}>
+                    <Checkbox
+                      label={`${z.nombre} (archivada)`}
+                      checked
+                      describedBy={motivoId}
+                      onChange={() => toggleZona(z.id)}
+                    />
+                    <p id={motivoId} className="pl-6 text-xs text-amber-800">
+                      Esta zona ya no está activa en el catálogo — sacala para poder guardar.
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <fieldset className="flex items-center gap-4">
           <legend className="mb-1.5 text-xs font-medium uppercase tracking-wide text-ink-soft">
             Sexo
@@ -147,16 +201,18 @@ export function ArmadorCombo({
               <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
                 {zonasCat.map((z) => {
                   const bloqueadaPor = bloqueadas.get(z.id);
+                  const motivoId = bloqueadaPor ? `motivo-bloqueo-${z.id}` : undefined;
                   return (
                     <div key={z.id}>
                       <Checkbox
                         label={z.nombre}
                         checked={zonaIds.includes(z.id)}
                         disabled={Boolean(bloqueadaPor)}
+                        describedBy={motivoId}
                         onChange={() => toggleZona(z.id)}
                       />
                       {bloqueadaPor && (
-                        <p className="pl-6 text-xs text-ink-soft">
+                        <p id={motivoId} className="pl-6 text-xs text-ink-soft">
                           Ya incluida en {nombrePorId.get(bloqueadaPor) ?? bloqueadaPor}
                         </p>
                       )}

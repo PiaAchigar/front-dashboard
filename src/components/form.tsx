@@ -62,11 +62,15 @@ export function Checkbox({
   checked,
   onChange,
   disabled,
+  describedBy,
 }: {
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
   disabled?: boolean;
+  /** id de un elemento (ej. el motivo de un disabled) para `aria-describedby`.
+   *  Sin esto un lector de pantalla anuncia "deshabilitado" sin decir por qué. */
+  describedBy?: string;
 }) {
   return (
     <label className="flex items-center gap-2 text-sm text-ink">
@@ -74,6 +78,7 @@ export function Checkbox({
         type="checkbox"
         checked={checked}
         disabled={disabled}
+        aria-describedby={describedBy}
         onChange={(e) => onChange(e.target.checked)}
         className="h-4 w-4 accent-[var(--color-primary)]"
       />

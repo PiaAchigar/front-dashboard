@@ -90,6 +90,29 @@ export function CombosDepilacionPage() {
     [combos, showArchived],
   );
 
+  // Zonas que el combo en edición ya incluye pero que ya no están activas.
+  // `ArmadorCombo` las necesita para mostrarlas por nombre, seguir
+  // cotizándolas mientras sigan tildadas y dejar que se destilden — si no se
+  // le pasan, esas zonas desaparecen del cálculo en silencio y, si se guarda
+  // sin sacarlas, el backend rechaza el PATCH con un 400 sobre un uuid que
+  // nadie puede ubicar en la pantalla.
+  const zonasArchivadasDelCombo: ZonaParaCotizar[] = useMemo(() => {
+    if (!editing) return [];
+    const activasIds = new Set(zonasActivas.map((z) => z.id));
+    return editing.zonas
+      .filter((z) => !activasIds.has(z.id))
+      .map((z) => ({ id: z.id, nombre: z.name, categoria: z.category }));
+  }, [editing, zonasActivas]);
+
+  // Mientras quede una zona archivada tildada, no se deja guardar: es más
+  // claro que el admin la saque acá a que el PATCH vuelva con un 400 sobre un
+  // uuid sin nombre.
+  const tieneZonaArchivadaSeleccionada = useMemo(() => {
+    if (zonasArchivadasDelCombo.length === 0 || !armadorState) return false;
+    const archivadasIds = new Set(zonasArchivadasDelCombo.map((z) => z.id));
+    return armadorState.zonaIds.some((id) => archivadasIds.has(id));
+  }, [zonasArchivadasDelCombo, armadorState]);
+
   function openCreate() {
     setEditing(null);
     setForm(EMPTY);
@@ -134,7 +157,7 @@ export function CombosDepilacionPage() {
   }
 
   const saving = guardarCombo.isPending;
-  const puedeGuardar = form.name.trim().length >= 1;
+  const puedeGuardar = form.name.trim().length >= 1 && !tieneZonaArchivadaSeleccionada;
   const loading = zonasLoading || configLoading || combosLoading;
   const error = zonasError ?? configError ?? combosError;
 
@@ -325,9 +348,17 @@ export function CombosDepilacionPage() {
           onChange={(v) => setForm({ ...form, isPublishedWeb: v })}
         />
 
+        {tieneZonaArchivadaSeleccionada && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Este combo tiene una zona archivada tildada (marcada abajo). Sacala para poder
+            guardar.
+          </p>
+        )}
+
         {config && (
           <ArmadorCombo
             zonas={zonasActivas}
+            zonasArchivadasIncluidas={zonasArchivadasDelCombo}
             exclusiones={exclusiones}
             config={config}
             packs={packs}
