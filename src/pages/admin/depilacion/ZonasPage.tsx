@@ -1,15 +1,16 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "../../../auth/AuthContext";
 import { can, type Role } from "../../../lib/permissions";
-import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { EntityDrawer } from "../../../components/EntityDrawer";
 import { Checkbox, Field, Select, TextInput } from "../../../components/form";
-import { Archive, Pencil, Plus, RotateCcw } from "../../../components/icons";
+import { ResourceManager, type Column, type Group } from "../../../components/ResourceManager";
 import { useToast } from "../../../components/ui/Toast";
 import {
   useArchivarZona,
   useGuardarExclusiones,
   useGuardarZona,
+  useHardDeleteZona,
+  useZonaDeleteImpact,
   useZonas,
 } from "../../../hooks/useDepilacion";
 import type { ZonaCategoria, ZonaDepilacion } from "../../../lib/api-types";
@@ -19,6 +20,10 @@ const CATEGORIAS: { key: ZonaCategoria; label: string }[] = [
   { key: "mediana", label: "Mediana" },
   { key: "chica", label: "Chica" },
 ];
+
+// Las tres secciones colapsables de la tabla, en el orden en que se muestran:
+// de zona más grande a más chica, igual que la lista de precios.
+const GRUPOS: Group[] = CATEGORIAS.map((c) => ({ key: c.key, label: c.label }));
 
 type Form = {
   name: string;
@@ -45,17 +50,21 @@ export function ZonasPage() {
   const canManage = can(r, "catalogo", "manage");
   const toast = useToast();
 
+  const isAdmin = r === "admin";
+
+  const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ZonaDepilacion | null>(null);
   const [form, setForm] = useState<Form>(EMPTY);
   const [formError, setFormError] = useState<string | null>(null);
-  const [toArchive, setToArchive] = useState<ZonaDepilacion | null>(null);
 
   const { data, isLoading, error } = useZonas();
   const guardarZona = useGuardarZona();
   const archivarZona = useArchivarZona();
   const guardarExclusiones = useGuardarExclusiones();
+  const deleteImpact = useZonaDeleteImpact();
+  const hardDelete = useHardDeleteZona();
 
   // Todas las zonas juntas (las tres categorías), para el mapa de nombres y
   // para el selector de exclusiones del formulario.
@@ -129,149 +138,89 @@ export function ZonasPage() {
     }
   }
 
+  // El buscador filtra por nombre de la zona y también por el de sus
+  // exclusiones: buscar "Pierna entera" tiene que traer "Media pierna", que es
+  // justo la zona con la que no se combina.
+  const filtradas = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (q === "") return todas;
+    return todas.filter(
+      (z) =>
+        z.name.toLowerCase().includes(q) ||
+        z.exclusions.some((id) => (nombrePorId.get(id) ?? "").toLowerCase().includes(q)),
+    );
+  }, [todas, search, nombrePorId]);
+
+  const COLUMNAS: Column<ZonaDepilacion>[] = useMemo(
+    () => [
+      { key: "nombre", header: "Nombre", render: (z) => z.name, width: 260 },
+      {
+        key: "exclusiones",
+        header: "No se combina con",
+        render: (z) =>
+          z.exclusions.length === 0
+            ? "—"
+            : z.exclusions.map((id) => nombrePorId.get(id) ?? id).join(", "),
+        width: 420,
+      },
+    ],
+    [nombrePorId],
+  );
+
   const saving = guardarZona.isPending || guardarExclusiones.isPending;
   const puedeGuardar = form.name.trim().length >= 1;
 
   return (
     <>
-      <div className="flex h-full flex-col gap-4 overflow-auto p-2 pl-4 sm:p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-xl text-ink">Zonas</h2>
-          <div className="flex items-center gap-2">
-            <div className="flex overflow-hidden rounded-lg border border-surface-highest text-sm">
-              {[
-                { v: false, label: "Activos" },
-                { v: true, label: "Archivadas" },
-              ].map((opt) => (
-                <button
-                  key={opt.label}
-                  onClick={() => setShowArchived(opt.v)}
-                  className={`px-3 py-2 transition-colors ${
-                    showArchived === opt.v
-                      ? "bg-primary font-medium text-white"
-                      : "bg-white text-ink-soft hover:bg-surface-high"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            {canManage && (
-              <button
-                onClick={openCreate}
-                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
-              >
-                <Plus size={16} />
-                Agregar
-              </button>
-            )}
-          </div>
-        </div>
-
-        {error && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
-            {(error as Error).message}
-          </p>
-        )}
-
-        {isLoading ? (
-          <p className="text-sm text-ink-soft">Cargando…</p>
-        ) : (
-          CATEGORIAS.map((cat) => {
-            const zonas = (data?.[cat.key] ?? []).filter((z) => z.isActive === !showArchived);
-            return (
-              <div key={cat.key} className="space-y-2">
-                <div className="flex items-baseline gap-2">
-                  <h3 className="font-display text-base text-ink">{cat.label}</h3>
-                  <span className="text-xs text-ink-soft">
-                    {zonas.length} {zonas.length === 1 ? "zona" : "zonas"}
-                  </span>
-                </div>
-                <div className="modal-scroll overflow-auto rounded-xl border border-surface-high">
-                  <table className="w-full text-sm">
-                    <thead className="text-xs uppercase tracking-wider text-ink-soft">
-                      <tr>
-                        <th className="border-b border-surface-highest bg-surface-high px-4 py-2.5 text-left font-medium">
-                          Nombre
-                        </th>
-                        <th className="border-b border-surface-highest bg-surface-high px-4 py-2.5 text-left font-medium">
-                          Exclusiones
-                        </th>
-                        <th className="border-b border-surface-highest bg-surface-high px-4 py-2.5 text-right font-medium">
-                          Acciones
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-surface-high">
-                      {zonas.length === 0 ? (
-                        <tr>
-                          <td colSpan={3} className="px-4 py-6 text-center text-ink-soft">
-                            {showArchived
-                              ? "No hay zonas archivadas en esta categoría."
-                              : "No hay zonas en esta categoría."}
-                          </td>
-                        </tr>
-                      ) : (
-                        zonas.map((z) => (
-                          <tr key={z.id} className={z.isActive ? "" : "opacity-60"}>
-                            <td className="px-4 py-2.5 text-ink">{z.name}</td>
-                            <td className="px-4 py-2.5 text-ink-soft">
-                              {z.exclusions.length === 0
-                                ? "—"
-                                : `No se combina con ${z.exclusions
-                                    .map((id) => nombrePorId.get(id) ?? id)
-                                    .join(", ")}`}
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <div className="flex justify-end gap-1">
-                                {canEdit && z.isActive && (
-                                  <button
-                                    onClick={() => openEdit(z)}
-                                    title="Editar"
-                                    className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-primary"
-                                  >
-                                    <Pencil size={16} />
-                                  </button>
-                                )}
-                                {canManage && z.isActive && (
-                                  <button
-                                    onClick={() => setToArchive(z)}
-                                    title="Archivar"
-                                    className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700"
-                                  >
-                                    <Archive size={16} />
-                                  </button>
-                                )}
-                                {canManage && !z.isActive && (
-                                  <button
-                                    onClick={() =>
-                                      archivarZona.mutate(
-                                        { id: z.id, isActive: true },
-                                        {
-                                          onSuccess: () => toast.success("Zona restaurada"),
-                                          onError: (e: Error) => toast.error(e.message),
-                                        },
-                                      )
-                                    }
-                                    title="Restaurar"
-                                    className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-primary"
-                                  >
-                                    <RotateCcw size={16} />
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
+      <ResourceManager
+        title="Zonas"
+        rows={filtradas}
+        columns={COLUMNAS}
+        loading={isLoading}
+        error={error ? (error as Error).message : null}
+        rowKey={(z) => z.id}
+        isArchived={(z) => !z.isActive}
+        groups={GRUPOS}
+        groupOf={(z) => z.category}
+        search={search}
+        onSearch={setSearch}
+        searchPlaceholder="Buscar zona por nombre…"
+        showArchived={showArchived}
+        onToggleArchived={setShowArchived}
+        canCreate={canManage}
+        canArchive={canManage}
+        onAdd={openCreate}
+        onEdit={canEdit ? openEdit : undefined}
+        archiving={archivarZona.isPending}
+        archiveName={(z) => z.name}
+        onArchive={(z) =>
+          archivarZona.mutate(
+            { id: z.id, isActive: false },
+            {
+              onSuccess: () => toast.success("Zona archivada"),
+              onError: (e: Error) => toast.error(e.message),
+            },
+          )
+        }
+        onRestore={(z) =>
+          archivarZona.mutate(
+            { id: z.id, isActive: true },
+            {
+              onSuccess: () => toast.success("Zona restaurada"),
+              onError: (e: Error) => toast.error(e.message),
+            },
+          )
+        }
+        canHardDelete={isAdmin}
+        onHardDeletePreview={(z) => deleteImpact.mutateAsync(z.id)}
+        hardDeleteName={(z) => z.name}
+        onHardDelete={(z) =>
+          hardDelete.mutate(z.id, {
+            onSuccess: () => toast.success("Zona eliminada definitivamente"),
+            onError: (e: Error) => toast.error(e.message),
           })
-        )}
-      </div>
+        }
+      />
 
       <EntityDrawer
         open={drawerOpen}
@@ -347,32 +296,6 @@ export function ZonasPage() {
         </div>
       </EntityDrawer>
 
-      <ConfirmDialog
-        open={Boolean(toArchive)}
-        title="Archivar"
-        danger
-        confirmLabel="Archivar"
-        busy={archivarZona.isPending}
-        message={
-          <>
-            ¿Seguro que querés archivar {toArchive ? `"${toArchive.name}"` : "esta zona"}? No se
-            elimina: queda inactiva y podés restaurarla después.
-          </>
-        }
-        onCancel={() => setToArchive(null)}
-        onConfirm={() => {
-          if (toArchive) {
-            archivarZona.mutate(
-              { id: toArchive.id, isActive: false },
-              {
-                onSuccess: () => toast.success("Zona archivada"),
-                onError: (e: Error) => toast.error(e.message),
-              },
-            );
-          }
-          setToArchive(null);
-        }}
-      />
     </>
   );
 }

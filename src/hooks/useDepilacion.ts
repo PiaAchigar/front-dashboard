@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch } from "../lib/api-client";
+import type { DeleteImpact } from "../components/ResourceManager";
 import type { DepilationConfig } from "../lib/depilation-pricing";
 import type {
   ComboDepilacion,
@@ -157,16 +158,24 @@ export function useCombosDepilacion() {
   });
 }
 
-/** Lo que este front puede crear/editar: siempre `kind: "guardado"`, sin
- *  precio propio (esa es la razón de ser del diseño — ver depilacion.repo.ts,
- *  `CHECK ck_dc_precio_guardado`). Los packs fijos son de seed, no se tocan
- *  desde acá. */
+/** Un combo se crea SIEMPRE como `guardado` (sin precio propio: el precio
+ *  sale de la fórmula, que es la razón de ser del diseño). Pero editar un
+ *  pack fijo sembrado sí está permitido, así que `kind` y `fixedPrice` viajan
+ *  cuando el llamador los manda.
+ *
+ *  El backend no deja cambiar el `kind` de un combo existente ni dejar sin
+ *  precio a un pack fijo (PATCH /combos/:id): mandar el `kind` que la fila ya
+ *  tiene no es una decisión de esta pantalla, es repetirle a la API lo que
+ *  ella misma va a verificar. */
 export type ComboDepilacionInput = {
   name: string;
   description?: string | null;
   isPublishedWeb: boolean;
   displayOrder?: number | null;
   zonaIds: string[];
+  kind?: "pack_fijo" | "guardado";
+  fixedPrice?: number | null;
+  choiceZoneCount?: number;
 };
 
 function useInvalidateCombos() {
@@ -187,7 +196,11 @@ export function useGuardarComboDepilacion() {
         token,
         {
           method: id ? "PATCH" : "POST",
-          body: JSON.stringify({ ...data, kind: "guardado", choiceZoneCount: 0 }),
+          body: JSON.stringify({
+            ...data,
+            kind: data.kind ?? "guardado",
+            choiceZoneCount: data.choiceZoneCount ?? 0,
+          }),
         },
       ),
     onSuccess: invalidate,
@@ -206,6 +219,53 @@ export function useArchivarComboDepilacion() {
         method: "PATCH",
         body: JSON.stringify({ isActive }),
       }),
+    onSuccess: invalidate,
+  });
+}
+
+// ── Borrado real (hard-delete) ───────────────────────────────────────────
+// Mismo par que Servicios y Proveedoras: primero se pide el impacto y recién
+// con esa respuesta `ResourceManager` decide si muestra la confirmación o el
+// cartel de "no se puede". Distinto de archivar, que es reversible.
+
+/** Preview de impacto: no es una query cacheada, se llama on-demand vía
+ *  mutateAsync justo antes de mostrar la confirmación. */
+export function useZonaDeleteImpact() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<DeleteImpact>(`/api/agenda/depilacion/zonas/${id}/delete-impact`, token),
+  });
+}
+
+export function useHardDeleteZona() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch(`/api/agenda/depilacion/zonas/${id}/permanent`, token, { method: "DELETE" }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useComboDepilacionDeleteImpact() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<DeleteImpact>(`/api/agenda/depilacion/combos/${id}/delete-impact`, token),
+  });
+}
+
+export function useHardDeleteComboDepilacion() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const invalidate = useInvalidateCombos();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch(`/api/agenda/depilacion/combos/${id}/permanent`, token, { method: "DELETE" }),
     onSuccess: invalidate,
   });
 }

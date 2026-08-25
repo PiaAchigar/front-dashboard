@@ -148,4 +148,11 @@ export const HELP_ARTICLES: HelpArticle[] = [
     tags: ["depilación", "precio", "por qué", "desglose", "escalón", "zona"],
     section: "Agenda",
   },
+  {
+    id: "depilacion-archivar-vs-eliminar",
+    title: "Archivar o eliminar: ¿cuál uso?",
+    body: "En Zonas y en Combos hay dos botones parecidos y NO hacen lo mismo.\n\nArchivar (el de la cajita) esconde la zona o el combo de las pantallas de venta, pero no lo borra: podés traerlo de vuelta cuando quieras desde la solapa \"Archivados\", y los combos que ya usaban esa zona la siguen mostrando. Es lo que querés el 99% de las veces — por ejemplo, una zona que dejaste de ofrecer este verano.\n\nEliminar (el tachito) la saca de la base para siempre. No hay forma de recuperarla. Antes de borrar, el sistema te dice qué se lleva puesto y te frena solo si no puede: una zona que está dentro de algún combo no se deja eliminar, porque ese combo pasaría a vender menos zonas y su precio cambiaría solo, sin que vos lo hayas tocado. En ese caso sacala de los combos primero, o archivala.\n\nSolo el administrador ve el botón de eliminar.",
+    tags: ["depilación", "archivar", "eliminar", "borrar", "zona", "combo"],
+    section: "Agenda",
+  },
 ];

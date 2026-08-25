@@ -80,22 +80,74 @@ afterEach(() => {
 });
 
 describe("ZonasPage", () => {
-  it("agrupa las zonas por categoría y muestra el conteo", async () => {
+  it("agrupa las zonas por categoría y muestra el conteo de cada una", async () => {
     render(<ZonasPage />, { wrapper });
-    expect(await screen.findByText("Grande")).toBeInTheDocument();
-    expect(screen.getByText("Pierna entera")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Grande/ })).toHaveTextContent("(2)");
+    expect(screen.getByRole("button", { name: /Mediana/ })).toHaveTextContent("(1)");
+    expect(screen.getByRole("button", { name: /Chica/ })).toHaveTextContent("(1)");
   });
 
-  it("muestra las exclusiones de cada zona", async () => {
+  it("colapsar una categoría esconde sus zonas y deja las otras", async () => {
+    const user = userEvent.setup();
     render(<ZonasPage />, { wrapper });
-    expect(await screen.findByText(/no se combina con Media pierna/i)).toBeInTheDocument();
+
+    // "Pierna entera" aparece dos veces: como zona y como exclusión de Media
+    // pierna. Las dos están dentro de la sección Grande, así que colapsarla
+    // se las lleva a ambas.
+    expect(await screen.findAllByText("Pierna entera")).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: /Grande/ }));
+
+    expect(screen.queryByText("Pierna entera")).not.toBeInTheDocument();
+    expect(screen.getByText("Axilas")).toBeInTheDocument();
+  });
+
+  it("muestra las exclusiones de cada zona, bajo su propia columna", async () => {
+    render(<ZonasPage />, { wrapper });
+    // Esperar a una fila, no al encabezado: el <thead> se pinta también
+    // mientras carga, así que buscarlo a él deja pasar el assert con la tabla
+    // todavía vacía.
+    expect(await screen.findByRole("button", { name: /Grande/ })).toBeInTheDocument();
+    // El "no se combina con" vive en el encabezado, no repetido en cada celda.
+    expect(screen.getByText("No se combina con")).toBeInTheDocument();
+    // "Media pierna" aparece dos veces: como zona y como exclusión de Pierna
+    // entera. Que sean 2 es justamente lo que prueba que la celda se llenó.
+    expect(screen.getAllByText("Media pierna")).toHaveLength(2);
+    // Bozo no excluye a nadie.
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  });
+
+  it("el buscador filtra por nombre y también por el de las exclusiones", async () => {
+    const user = userEvent.setup();
+    render(<ZonasPage />, { wrapper });
+
+    await user.type(await screen.findByPlaceholderText(/Buscar zona/i), "Bozo");
+    expect(screen.getByText("Bozo")).toBeInTheDocument();
+    expect(screen.queryByText("Axilas")).not.toBeInTheDocument();
+
+    await user.clear(screen.getByPlaceholderText(/Buscar zona/i));
+    // "Media pierna" no está en el nombre de Pierna entera, pero sí en sus
+    // exclusiones: buscar una tiene que traer la otra.
+    await user.type(screen.getByPlaceholderText(/Buscar zona/i), "Media pierna");
+    expect(screen.getByRole("button", { name: /Grande/ })).toHaveTextContent("(2)");
+    expect(screen.queryByText("Axilas")).not.toBeInTheDocument();
   });
 
   it("no muestra el botón Agregar para operator (manage, no edit)", async () => {
     mockRole = "operator";
     render(<ZonasPage />, { wrapper });
-    expect(await screen.findByText("Grande")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Grande/ })).toBeInTheDocument();
     expect(screen.queryByText("Agregar")).not.toBeInTheDocument();
+  });
+
+  it("el borrado definitivo es solo para admin", async () => {
+    const { unmount } = render(<ZonasPage />, { wrapper });
+    expect(await screen.findAllByTitle("Eliminar definitivamente")).not.toHaveLength(0);
+    unmount();
+
+    mockRole = "operator";
+    render(<ZonasPage />, { wrapper });
+    expect(await screen.findByRole("button", { name: /Grande/ })).toBeInTheDocument();
+    expect(screen.queryByTitle("Eliminar definitivamente")).not.toBeInTheDocument();
   });
 
   it("rechaza un orden que no es un entero, sin llamar a la API", async () => {

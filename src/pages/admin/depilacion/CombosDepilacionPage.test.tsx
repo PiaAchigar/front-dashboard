@@ -185,12 +185,84 @@ describe("CombosDepilacionPage", () => {
     ).not.toBeInTheDocument();
   });
 
+
+  it("editar un pack fijo conserva su tipo y manda el precio corregido", async () => {
+    const user = userEvent.setup();
+    render(<CombosDepilacionPage />, { wrapper });
+
+    // "Pack con precio alto" vende a $15.000 lo que por fórmula vale $12.000.
+    const fila = (await screen.findByText("Pack con precio alto")).closest("tr");
+    await user.click(within(fila as HTMLElement).getByTitle("Editar"));
+
+    const precio = await screen.findByLabelText("Precio del pack *");
+    expect(precio).toHaveValue("15000");
+
+    await user.clear(precio);
+    await user.type(precio, "10.000");
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => expect(patchCalls).toHaveLength(1));
+    expect(patchCalls[0]!.url).toContain("/depilacion/combos/pack-1");
+    // Sigue siendo pack_fijo: el backend rechaza el cambio de tipo, y mandar
+    // "guardado" acá le borraría el precio a un pack sembrado.
+    expect(patchCalls[0]!.body).toMatchObject({ kind: "pack_fijo", fixedPrice: 10000 });
+  });
+
+  it("un precio de pack que no es un número se corta antes de tocar la red", async () => {
+    const user = userEvent.setup();
+    render(<CombosDepilacionPage />, { wrapper });
+
+    const fila = (await screen.findByText("Pack con precio alto")).closest("tr");
+    await user.click(within(fila as HTMLElement).getByTitle("Editar"));
+
+    const precio = await screen.findByLabelText("Precio del pack *");
+    await user.clear(precio);
+    await user.type(precio, "gratis");
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(
+      await screen.findByText(/El precio del pack tiene que ser un número entero/i),
+    ).toBeInTheDocument();
+    expect(patchCalls).toHaveLength(0);
+  });
+
+  it("crear un combo nuevo no ofrece precio propio: se cotiza con la fórmula", async () => {
+    const user = userEvent.setup();
+    render(<CombosDepilacionPage />, { wrapper });
+
+    await user.click(await screen.findByRole("button", { name: /Nuevo combo|Agregar/ }));
+    expect(await screen.findByLabelText("Nombre *")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Precio del pack *")).not.toBeInTheDocument();
+  });
+
+  it("el buscador filtra por nombre del combo y por el de sus zonas", async () => {
+    const user = userEvent.setup();
+    render(<CombosDepilacionPage />, { wrapper });
+
+    await screen.findByText("Pack con precio alto");
+    const buscador = screen.getByPlaceholderText(/Buscar por nombre/i);
+
+    await user.type(buscador, "precio normal");
+    expect(screen.getByText("Pack con precio normal")).toBeInTheDocument();
+    expect(screen.queryByText("Pack con precio alto")).not.toBeInTheDocument();
+
+    // "Pierna entera" es una zona, no un nombre de combo: solo la tiene el
+    // combo guardado.
+    await user.clear(buscador);
+    await user.type(buscador, "Pierna entera");
+    expect(screen.getByText("Combo con zona archivada")).toBeInTheDocument();
+    expect(screen.queryByText("Pack con precio normal")).not.toBeInTheDocument();
+  });
+
   it("al editar un combo con una zona archivada: la identifica por nombre, deja sacarla y guarda bien", async () => {
     const user = userEvent.setup();
     render(<CombosDepilacionPage />, { wrapper });
 
-    await screen.findByText("Combo con zona archivada");
-    await user.click(screen.getByTitle("Editar"));
+    // Los packs fijos también son editables, así que hay varios botones
+    // "Editar": hay que ir al de esta fila, no al primero que aparezca.
+    const fila = (await screen.findByText("Combo con zona archivada")).closest("tr");
+    expect(fila).not.toBeNull();
+    await user.click(within(fila as HTMLElement).getByTitle("Editar"));
 
     // La zona archivada aparece identificada por su nombre, no por uuid, y
     // con el motivo de por qué hay que sacarla.

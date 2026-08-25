@@ -1,6 +1,6 @@
-import { useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { Fragment, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { Archive, Pencil, Plus, RotateCcw, Search, Trash } from "./icons";
+import { Archive, ChevronRight, Pencil, Plus, RotateCcw, Search, Trash } from "./icons";
 
 export type Column<T> = {
   key: string;
@@ -11,6 +11,9 @@ export type Column<T> = {
   /** Clase extra para la celda (ej: alineación). */
   className?: string;
 };
+
+/** Una sección colapsable de la tabla. Ver la prop `groups`. */
+export type Group = { key: string; label: string };
 
 export type DeleteImpact = {
   blocked: boolean;
@@ -78,6 +81,14 @@ type Props<T> = {
 
   /** Contenido opcional a renderizar arriba del título, dentro del contenedor con padding. */
   avisoSuperior?: ReactNode;
+
+  /** Secciones colapsables, en el orden en que se muestran. Omitir las dos
+   *  props deja la tabla plana, que es como la usan el resto de las pantallas.
+   *  Una sección sin filas se muestra igual, con su contador en 0: sirve para
+   *  que se vea que la categoría existe y está vacía. */
+  groups?: Group[];
+  /** A qué sección pertenece cada fila (debe devolver un `key` de `groups`). */
+  groupOf?: (row: T) => string;
 };
 
 export function ResourceManager<T>({
@@ -108,6 +119,8 @@ export function ResourceManager<T>({
   rowActions,
   onRowClick,
   avisoSuperior,
+  groups,
+  groupOf,
 }: Props<T>) {
   const [toArchive, setToArchive] = useState<T | null>(null);
   const [hardDeleteRow, setHardDeleteRow] = useState<T | null>(null);
@@ -115,6 +128,7 @@ export function ResourceManager<T>({
   const [previewingHardDelete, setPreviewingHardDelete] = useState(false);
   const [widths, setWidths] = useState<Record<string, number>>(() => loadWidths(title, columns));
   const [resizing, setResizing] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
 
   // Archivados: mostrar SOLO los archivados; Activos: SOLO los activos.
   // isArchived es estricto (isActive===false / status==='inactive'), así que los
@@ -194,6 +208,76 @@ export function ResourceManager<T>({
       .filter(([, count]) => count > 0)
       .map(([key, count]) => `${count} ${labels[key] ?? key}`);
     return parts.length > 0 ? ` También se van a desvincular: ${parts.join(", ")}.` : "";
+  }
+
+  function toggleGroup(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function renderRow(row: T) {
+    const archived = isArchived(row);
+    return (
+      <tr
+        key={rowKey(row)}
+        onClick={onRowClick ? () => onRowClick(row) : undefined}
+        className={`${archived ? "opacity-60" : ""} ${onRowClick ? "cursor-pointer hover:bg-surface-low" : ""}`.trim()}
+      >
+        {columns.map((col) => (
+          <td key={col.key} className="overflow-hidden px-4 py-3 text-ink">
+            <div className={`truncate ${col.className ?? ""}`}>{col.render(row)}</div>
+          </td>
+        ))}
+        {showActions && (
+          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-end gap-1">
+              {rowActions && rowActions(row)}
+              {onEdit && !archived && (
+                <button
+                  onClick={() => onEdit(row)}
+                  title="Editar"
+                  className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-primary"
+                >
+                  <Pencil size={16} />
+                </button>
+              )}
+              {canArchive && !archived && onArchive && (
+                <button
+                  onClick={() => setToArchive(row)}
+                  title="Archivar"
+                  className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700"
+                >
+                  <Archive size={16} />
+                </button>
+              )}
+              {canArchive && archived && onRestore && (
+                <button
+                  onClick={() => onRestore(row)}
+                  title="Restaurar"
+                  className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-primary"
+                >
+                  <RotateCcw size={16} />
+                </button>
+              )}
+              {canHardDelete && onHardDeletePreview && onHardDelete && (
+                <button
+                  onClick={() => startHardDelete(row)}
+                  disabled={previewingHardDelete && hardDeleteRow === row}
+                  title="Eliminar definitivamente"
+                  className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700 disabled:opacity-50"
+                >
+                  <Trash size={16} />
+                </button>
+              )}
+            </div>
+          </td>
+        )}
+      </tr>
+    );
   }
 
   return (
@@ -300,67 +384,49 @@ export function ResourceManager<T>({
                   {showArchived ? "No hay elementos archivados." : "No hay elementos."}
                 </td>
               </tr>
-            ) : (
-              visibleRows.map((row) => {
-                const archived = isArchived(row);
+            ) : groups && groupOf ? (
+              groups.map((g) => {
+                const filas = visibleRows.filter((r) => groupOf(r) === g.key);
+                const abierto = !collapsed.has(g.key);
                 return (
-                  <tr
-                    key={rowKey(row)}
-                    onClick={onRowClick ? () => onRowClick(row) : undefined}
-                    className={`${archived ? "opacity-60" : ""} ${onRowClick ? "cursor-pointer hover:bg-surface-low" : ""}`.trim()}
-                  >
-                    {columns.map((col) => (
-                      <td key={col.key} className="overflow-hidden px-4 py-3 text-ink">
-                        <div className={`truncate ${col.className ?? ""}`}>{col.render(row)}</div>
+                  <Fragment key={g.key}>
+                    <tr>
+                      <td
+                        colSpan={columns.length + (showActions ? 1 : 0)}
+                        className="bg-surface-low p-0"
+                      >
+                        <button
+                          onClick={() => toggleGroup(g.key)}
+                          aria-expanded={abierto}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm font-medium text-ink transition-colors hover:bg-surface-high"
+                        >
+                          <ChevronRight
+                            size={16}
+                            className={`shrink-0 text-ink-soft transition-transform ${abierto ? "rotate-90" : ""}`}
+                          />
+                          <span>{g.label}</span>
+                          <span className="text-xs font-normal text-ink-soft">({filas.length})</span>
+                        </button>
                       </td>
-                    ))}
-                    {showActions && (
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-end gap-1">
-                          {rowActions && rowActions(row)}
-                          {onEdit && !archived && (
-                            <button
-                              onClick={() => onEdit(row)}
-                              title="Editar"
-                              className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-primary"
-                            >
-                              <Pencil size={16} />
-                            </button>
-                          )}
-                          {canArchive && !archived && onArchive && (
-                            <button
-                              onClick={() => setToArchive(row)}
-                              title="Archivar"
-                              className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700"
-                            >
-                              <Archive size={16} />
-                            </button>
-                          )}
-                          {canArchive && archived && onRestore && (
-                            <button
-                              onClick={() => onRestore(row)}
-                              title="Restaurar"
-                              className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-primary"
-                            >
-                              <RotateCcw size={16} />
-                            </button>
-                          )}
-                          {canHardDelete && onHardDeletePreview && onHardDelete && (
-                            <button
-                              onClick={() => startHardDelete(row)}
-                              disabled={previewingHardDelete && hardDeleteRow === row}
-                              title="Eliminar definitivamente"
-                              className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700 disabled:opacity-50"
-                            >
-                              <Trash size={16} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
+                    </tr>
+                    {abierto &&
+                      (filas.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={columns.length + (showActions ? 1 : 0)}
+                            className="px-4 py-4 text-center text-sm text-ink-soft"
+                          >
+                            Nada en esta sección.
+                          </td>
+                        </tr>
+                      ) : (
+                        filas.map(renderRow)
+                      ))}
+                  </Fragment>
                 );
               })
+            ) : (
+              visibleRows.map(renderRow)
             )}
           </tbody>
         </table>
