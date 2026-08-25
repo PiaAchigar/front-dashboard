@@ -2,10 +2,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch } from "../lib/api-client";
 import type { DepilationConfig } from "../lib/depilation-pricing";
-import type { ZonaCategoria, ZonaDepilacion, ZonasPorCategoria } from "../lib/api-types";
+import type {
+  ComboDepilacion,
+  ZonaCategoria,
+  ZonaDepilacion,
+  ZonasPorCategoria,
+} from "../lib/api-types";
 
 const KEY = ["depilacion", "zonas"];
 const CONFIG_KEY = ["depilacion", "config"];
+const COMBOS_KEY = ["depilacion", "combos"];
 
 export type ZonaInput = {
   name: string;
@@ -132,5 +138,74 @@ export function useGuardarConfig() {
         body: JSON.stringify(input),
       }),
     onSuccess: (data) => qc.setQueryData(CONFIG_KEY, data),
+  });
+}
+
+// ── Combos ───────────────────────────────────────────────────────────────
+
+/** GET /combos: los 3 packs fijos sembrados + los guardados, cada uno con su
+ *  precio ya calculado por el backend (fórmula siempre, fijo solo si aplica). */
+export function useCombosDepilacion() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+
+  return useQuery({
+    queryKey: COMBOS_KEY,
+    queryFn: () => apiFetch<ComboDepilacion[]>("/api/agenda/depilacion/combos", token),
+    enabled: !!token,
+    staleTime: 60 * 1000,
+  });
+}
+
+/** Lo que este front puede crear/editar: siempre `kind: "guardado"`, sin
+ *  precio propio (esa es la razón de ser del diseño — ver depilacion.repo.ts,
+ *  `CHECK ck_dc_precio_guardado`). Los packs fijos son de seed, no se tocan
+ *  desde acá. */
+export type ComboDepilacionInput = {
+  name: string;
+  description?: string | null;
+  isPublishedWeb: boolean;
+  displayOrder?: number | null;
+  zonaIds: string[];
+};
+
+function useInvalidateCombos() {
+  const qc = useQueryClient();
+  return () => qc.invalidateQueries({ queryKey: COMBOS_KEY });
+}
+
+/** Alta o edición según venga `id`: POST /combos o PATCH /combos/:id. */
+export function useGuardarComboDepilacion() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const invalidate = useInvalidateCombos();
+
+  return useMutation({
+    mutationFn: ({ id, ...data }: ComboDepilacionInput & { id?: string }) =>
+      apiFetch<ComboDepilacion>(
+        id ? `/api/agenda/depilacion/combos/${id}` : "/api/agenda/depilacion/combos",
+        token,
+        {
+          method: id ? "PATCH" : "POST",
+          body: JSON.stringify({ ...data, kind: "guardado", choiceZoneCount: 0 }),
+        },
+      ),
+    onSuccess: invalidate,
+  });
+}
+
+/** Archivar / restaurar: PATCH /combos/:id/estado. */
+export function useArchivarComboDepilacion() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const invalidate = useInvalidateCombos();
+
+  return useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      apiFetch<ComboDepilacion>(`/api/agenda/depilacion/combos/${id}/estado`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive }),
+      }),
+    onSuccess: invalidate,
   });
 }

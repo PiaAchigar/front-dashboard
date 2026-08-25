@@ -346,3 +346,26 @@ export type ZonaDepilacion = {
 
 /** GET /api/agenda/depilacion/zonas: ya viene agrupado por categoría. */
 export type ZonasPorCategoria = Record<ZonaCategoria, ZonaDepilacion[]>;
+
+export type ComboDepilacionKind = "pack_fijo" | "guardado";
+
+/** GET/POST/PATCH /api/agenda/depilacion/combos: espejo de
+ *  `DepilationComboAssembled` en el repo del backend. `precioCalculado` es
+ *  siempre la fórmula; `precioFinal` es el fijo solo si `kind === "pack_fijo"`
+ *  — un `guardado` nunca lee `fixedPrice` para su precio. */
+export type ComboDepilacion = {
+  id: string;
+  name: string;
+  description: string | null;
+  kind: ComboDepilacionKind;
+  fixedPrice: number | null;
+  fixedDurationMinutes: number | null;
+  choiceZoneCount: number;
+  isPublishedWeb: boolean;
+  displayOrder: number;
+  isActive: boolean;
+  zonas: { id: string; name: string; category: ZonaCategoria }[];
+  precioCalculado: number;
+  precioFinal: number;
+  duracionMinutos: number;
+};
