@@ -1,5 +1,6 @@
-import { cloneElement, isValidElement, useId, useLayoutEffect, useRef, useState } from "react";
+import { cloneElement, isValidElement, useCallback, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { posicionDelGlobo, TIP_ANCHO } from "../lib/tooltip-position";
 import type {
   InputHTMLAttributes,
   ReactNode,
@@ -26,24 +27,31 @@ const fieldClass =
 function HelpTip({ text, describedById }: { text: string; describedById: string }) {
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [abierto, setAbierto] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number; abajo: boolean } | null>(null);
+  // `null` = todavía sin medir. Mientras tanto el globo se dibuja invisible:
+  // ocupa lugar —para poder medirlo— pero no se ve en el lugar equivocado.
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
-  const ANCHO = 224; // w-56
-  const SEPARACION = 8;
-
-  useLayoutEffect(() => {
-    if (!abierto || !anchorRef.current) return;
-    const r = anchorRef.current.getBoundingClientRect();
-    // Estimación del alto: alcanza para decidir arriba/abajo. Si no entra
-    // arriba se abre hacia abajo, que es el caso del drawer.
-    const ALTO_APROX = 96;
-    const abajo = r.top < ALTO_APROX + SEPARACION;
-    const left = Math.min(
-      Math.max(SEPARACION, r.left + r.width / 2 - ANCHO / 2),
-      window.innerWidth - ANCHO - SEPARACION,
+  // Se mide en el ref callback y no en un efecto: React lo llama en la fase de
+  // commit, antes de pintar, así que la posición ya está bien en el primer
+  // frame visible y no hay setState adentro de un effect.
+  const medir = useCallback((tip: HTMLSpanElement | null) => {
+    if (!tip || !anchorRef.current) return;
+    const a = anchorRef.current.getBoundingClientRect();
+    setPos(
+      posicionDelGlobo(
+        { top: a.top, bottom: a.bottom, left: a.left, width: a.width },
+        tip.getBoundingClientRect().height,
+        { alto: window.innerHeight, ancho: window.innerWidth },
+      ),
     );
-    setPos({ top: abajo ? r.bottom + SEPARACION : r.top - SEPARACION, left, abajo });
-  }, [abierto]);
+  }, []);
+
+  function cerrar() {
+    setAbierto(false);
+    // Se limpia acá y no en un efecto: la próxima apertura tiene que volver a
+    // medir, no reusar la posición vieja.
+    setPos(null);
+  }
 
   return (
     // `relative` NO es decorativo: la copia sr-only de abajo es
@@ -61,9 +69,9 @@ function HelpTip({ text, describedById }: { text: string; describedById: string 
         aria-label="Ayuda"
         className="inline-flex cursor-help text-ink-soft/70 transition-colors hover:text-primary focus:text-primary focus:outline-none"
         onMouseEnter={() => setAbierto(true)}
-        onMouseLeave={() => setAbierto(false)}
+        onMouseLeave={cerrar}
         onFocus={() => setAbierto(true)}
-        onBlur={() => setAbierto(false)}
+        onBlur={cerrar}
         // El "?" explica, no envía: sin esto un Enter con el foco encima
         // dispararía el submit del formulario que lo contiene.
         onClick={(e) => e.preventDefault()}
@@ -72,19 +80,19 @@ function HelpTip({ text, describedById }: { text: string; describedById: string 
       </button>
 
       {abierto &&
-        pos &&
         createPortal(
           <span
+            ref={medir}
             role="tooltip"
             aria-hidden="true"
             style={{
               position: "fixed",
-              top: pos.top,
-              left: pos.left,
-              width: ANCHO,
-              transform: pos.abajo ? undefined : "translateY(-100%)",
+              top: pos?.top ?? 0,
+              left: pos?.left ?? 0,
+              width: TIP_ANCHO,
+              visibility: pos ? "visible" : "hidden",
             }}
-            className="pointer-events-none z-[100] rounded-lg bg-ink px-2.5 py-1.5 text-[11px] font-normal leading-snug text-white shadow-lg"
+            className="pointer-events-none z-[100] rounded-lg bg-ink px-3 py-2 text-[11px] font-normal leading-snug text-white shadow-lg"
           >
             {text}
           </span>,

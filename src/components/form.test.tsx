@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { Field, Select, TextInput } from "./form";
+import { posicionDelGlobo } from "../lib/tooltip-position";
 
 const AYUDA = "El número más chico va primero.";
 
@@ -164,5 +165,54 @@ describe("Field", () => {
     const srOnly = document.getElementById(input.getAttribute("aria-describedby")!);
     expect(srOnly).toHaveClass("sr-only");
     expect(srOnly!.closest(".relative")).not.toBeNull();
+  });
+});
+
+describe("posicionDelGlobo", () => {
+  const VENTANA = { alto: 900, ancho: 1440 };
+  // El "?" del campo Orden en el drawer de Zonas, medido en producción.
+  const ANCLA = { top: 153, bottom: 166, left: 700, width: 13 };
+
+  it("se abre arriba del ícono cuando ahí entra", () => {
+    const { top } = posicionDelGlobo(ANCLA, 80, VENTANA);
+    // 153 − 8 − 80 = 65: arriba, sin tocar el borde.
+    expect(top).toBe(65);
+    expect(top).toBeGreaterThanOrEqual(0);
+  });
+
+  it("EL BUG: con un globo alto no lo empuja fuera de la ventana, lo pasa abajo", () => {
+    // 167px es el alto real del tooltip de "Orden". Arriba no entra
+    // (153 − 8 − 167 = −22), así que tiene que ir abajo del ícono.
+    const { top } = posicionDelGlobo(ANCLA, 167, VENTANA);
+    expect(top).toBe(174); // 166 + 8
+    expect(top).toBeGreaterThanOrEqual(0);
+    expect(top + 167).toBeLessThanOrEqual(VENTANA.alto);
+  });
+
+  it("cuando no entra ni arriba ni abajo, queda pegado al borde pero adentro", () => {
+    // Ventana chica: 320 de alto, globo de 167. Ni arriba ni abajo alcanza.
+    const ventana = { alto: 320, ancho: 1440 };
+    const { top } = posicionDelGlobo(ANCLA, 167, ventana);
+    expect(top).toBeGreaterThanOrEqual(0);
+    expect(top + 167).toBeLessThanOrEqual(ventana.alto);
+  });
+
+  it("un globo más alto que la ventana entera arranca en el borde, no en negativo", () => {
+    const { top } = posicionDelGlobo(ANCLA, 2000, { alto: 400, ancho: 1440 });
+    expect(top).toBe(8);
+  });
+
+  it("se centra en el ícono cuando hay lugar a los costados", () => {
+    const { left } = posicionDelGlobo(ANCLA, 80, VENTANA);
+    // 700 + 6,5 − 130 = 576,5
+    expect(left).toBeCloseTo(576.5);
+  });
+
+  it("no se sale por los costados", () => {
+    const pegadoIzq = posicionDelGlobo({ ...ANCLA, left: 2 }, 80, VENTANA);
+    expect(pegadoIzq.left).toBeGreaterThanOrEqual(0);
+
+    const pegadoDer = posicionDelGlobo({ ...ANCLA, left: 1435 }, 80, VENTANA);
+    expect(pegadoDer.left + 260).toBeLessThanOrEqual(VENTANA.ancho);
   });
 });
