@@ -509,7 +509,7 @@ function PreciosForm({
         <section className="space-y-4">
           <h2 className="font-display text-lg text-ink">Minutos de turno</h2>
           <p className="text-xs text-ink-soft">
-            Minutos que se bloquean en la agenda por zona, según el sexo de la clienta.
+            Minutos que se bloquean en la agenda por zona, según el sexo del cliente.
           </p>
           <div className="space-y-3">
             <div>
