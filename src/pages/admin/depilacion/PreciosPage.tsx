@@ -10,6 +10,7 @@ import {
   primeraViolacionNoInversion,
   type Categoria,
   type DepilationConfig,
+  type LineaCotizacion,
   type ZonaParaCotizar,
 } from "../../../lib/depilation-pricing";
 import {
@@ -253,16 +254,56 @@ const zona = (categoria: Categoria, nombre: string): ZonaParaCotizar => ({
   categoria,
 });
 
+/** Los tres pasos de `calcularPrecioCombo`, en el mismo orden en que los
+ *  aplica el motor. `donde` nombra la sección del formulario que edita los
+ *  números de ese paso: sin ese puntero, saber la fórmula no alcanza para
+ *  saber qué campo tocar. */
+const PASOS = [
+  {
+    n: 1,
+    titulo: "La zona más cara va primera",
+    formula: "Se cobra al precio de lista de su categoría.",
+    donde: "Precios de lista",
+  },
+  {
+    n: 2,
+    titulo: "La segunda zona",
+    formula: "Minutos de la zona × tarifa del escalón 1.",
+    donde: "Minutos de precio + Escalones",
+  },
+  {
+    n: 3,
+    titulo: "De la tercera en adelante",
+    formula: "Minutos de la zona × tarifa del escalón 2.",
+    donde: "Minutos de precio + Escalones",
+  },
+];
+
+/** Traduce el `motivo` que devuelve el motor a la cuenta concreta que se hizo,
+ *  con los números que están en el formulario en este momento. "escalon_1" no
+ *  le dice nada a nadie; "5 min × $1.200" es la cuenta. */
+function explicarLinea(linea: LineaCotizacion, config: DepilationConfig): string {
+  if (linea.motivo === "lista") return "precio de lista";
+  const minutos = config.minutosPrecio[linea.categoria];
+  const tarifa = linea.motivo === "escalon_1" ? config.tarifaEscalon1 : config.tarifaEscalon2;
+  const escalon = linea.motivo === "escalon_1" ? "escalón 1" : "escalón 2";
+  return `${minutos} min × ${money(tarifa)} (${escalon})`;
+}
+
+// El PRIMERO es el que se muestra desglosado, y por eso tiene tres zonas: es
+// el único tamaño que ejercita los tres pasos de la fórmula (precio de lista,
+// escalón 1 y escalón 2). Con dos zonas el escalón 2 se explica arriba pero no
+// se ve nunca en acción, que era justo lo que había que evitar.
 const EJEMPLOS: { testId: string; nombre: string; zonas: ZonaParaCotizar[] }[] = [
+  {
+    testId: "preview-pierna-cavado-rostro",
+    nombre: "Pierna + Rostro + Cavado",
+    zonas: [zona("grande", "Pierna"), zona("grande", "Rostro"), zona("chica", "Cavado")],
+  },
   {
     testId: "preview-cavado-axila",
     nombre: "Cavado + Axila",
     zonas: [zona("chica", "Cavado"), zona("chica", "Axila")],
-  },
-  {
-    testId: "preview-pierna-cavado-rostro",
-    nombre: "Pierna + Cavado + Rostro",
-    zonas: [zona("grande", "Pierna"), zona("grande", "Rostro"), zona("chica", "Cavado")],
   },
   {
     testId: "preview-pierna-axila-cavado-tira-bozo",
@@ -343,18 +384,26 @@ function PreciosForm({
   // Se recalcula en cada render con los valores QUE ESTÁN EN EL FORMULARIO,
   // no con `config` (los guardados): es toda la razón de ser de esta pantalla.
   const previewConfig = useMemo(() => formToPreviewConfig(form), [form]);
+  // Se guarda la cotización ENTERA, no solo el total: el primer ejemplo se
+  // muestra línea por línea (qué zona, por qué motivo, cuánto) y para eso hace
+  // falta `lineas`. Es la diferencia entre "confiá en que da $18.000" y "mirá
+  // de dónde sale cada peso".
   const ejemplos = useMemo(
     () =>
-      EJEMPLOS.map((e) => ({
-        ...e,
-        total: calcularPrecioCombo(e.zonas, previewConfig).total,
-      })),
+      EJEMPLOS.map((e) => {
+        const cotizacion = calcularPrecioCombo(e.zonas, previewConfig);
+        return { ...e, total: cotizacion.total, lineas: cotizacion.lineas };
+      }),
     [previewConfig],
   );
   // Pack de 3 sesiones del primer ejemplo (Cavado + Axila): es el único
   // reflejo en vivo de `packSessions`/`packDescuentoPct`/`packRedondeo` — sin
   // esto esas tres perillas se editan a ciegas, igual que pasaba con las
   // otras 16 antes de tener los cuatro ejemplos de fórmula.
+  // El primero se muestra desglosado; los otros, compactos.
+  const ejemploPrincipal = ejemplos[0]!;
+  const otrosEjemplos = ejemplos.slice(1);
+
   const packEjemplo = useMemo(
     () => calcularPrecioPack(ejemplos[0].total, previewConfig),
     [ejemplos, previewConfig],
@@ -454,7 +503,10 @@ function PreciosForm({
             (escalón 2).
           </p>
           <div className="flex flex-wrap gap-3">
-            <Field label="Tarifa escalón 1 ($/min)">
+            <Field
+              label="Tarifa escalón 1 ($/min)"
+              help="Lo que vale un minuto de la SEGUNDA zona del combo. La segunda ya no se cobra a precio de lista: comparte el turno con la primera, así que sale más barata. Se multiplica por los minutos de precio de esa zona."
+            >
               <TextInput
                 inputMode="numeric"
                 disabled={!canManage}
@@ -462,7 +514,10 @@ function PreciosForm({
                 onChange={(e) => set("tier1RatePerMinute", e.target.value)}
               />
             </Field>
-            <Field label="Tarifa escalón 2 ($/min)">
+            <Field
+              label="Tarifa escalón 2 ($/min)"
+              help="Lo que vale un minuto de la TERCERA zona en adelante. Más barata todavía que el escalón 1, por el mismo motivo. Tiene que ser menor o igual al escalón 1: si fuera mayor, la tercera zona costaría más que la segunda."
+            >
               <TextInput
                 inputMode="numeric"
                 disabled={!canManage}
@@ -479,7 +534,10 @@ function PreciosForm({
             Minutos por zona que multiplican la tarifa de cada escalón (unisex).
           </p>
           <div className="flex flex-wrap gap-3">
-            <Field label="Grande">
+            <Field
+              label="Grande"
+              help="Minutos que se le asignan a una zona GRANDE para calcular su precio cuando cae en un escalón. OJO: no es la duración del turno, es un multiplicador de la tarifa por minuto. La duración real se configura abajo, en Minutos de turno."
+            >
               <TextInput
                 inputMode="numeric"
                 disabled={!canManage}
@@ -487,7 +545,10 @@ function PreciosForm({
                 onChange={(e) => set("pricingMinutesGrande", e.target.value)}
               />
             </Field>
-            <Field label="Mediana">
+            <Field
+              label="Mediana"
+              help="Minutos que se le asignan a una zona MEDIANA para calcular su precio cuando cae en un escalón. No es la duración del turno: eso se configura abajo, en Minutos de turno."
+            >
               <TextInput
                 inputMode="numeric"
                 disabled={!canManage}
@@ -495,7 +556,10 @@ function PreciosForm({
                 onChange={(e) => set("pricingMinutesMediana", e.target.value)}
               />
             </Field>
-            <Field label="Chica">
+            <Field
+              label="Chica"
+              help="Minutos que se le asignan a una zona CHICA para calcular su precio cuando cae en un escalón. No es la duración del turno: eso se configura abajo, en Minutos de turno."
+            >
               <TextInput
                 inputMode="numeric"
                 disabled={!canManage}
@@ -571,7 +635,10 @@ function PreciosForm({
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Field label="Redondeo del turno (min)">
+              <Field
+                label="Redondeo del turno (min)"
+                help="La duración calculada se redondea al múltiplo más cercano de este número, para que los turnos caigan en horarios prolijos. Con 5, un turno de 23 minutos se agenda como 25."
+              >
                 <TextInput
                   inputMode="numeric"
                   disabled={!canManage}
@@ -579,7 +646,10 @@ function PreciosForm({
                   onChange={(e) => set("slotRoundingStep", e.target.value)}
                 />
               </Field>
-              <Field label="Turno mínimo (min)">
+              <Field
+                label="Turno mínimo (min)"
+                help="Ningún turno se agenda por menos de esto, por más chica que sea la zona. Cubre la preparación y la limpieza, que llevan lo mismo aunque la depilación dure dos minutos."
+              >
                 <TextInput
                   inputMode="numeric"
                   disabled={!canManage}
@@ -597,7 +667,10 @@ function PreciosForm({
             Descuento por pagar varias sesiones del mismo combo juntas.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Field label="Sesiones">
+            <Field
+              label="Sesiones"
+              help="Cuántas sesiones trae un pack. El precio parte de multiplicar el total del combo por este número, y recién después se aplica el descuento."
+            >
               <TextInput
                 inputMode="numeric"
                 disabled={!canManage}
@@ -605,7 +678,10 @@ function PreciosForm({
                 onChange={(e) => set("packSessions", e.target.value)}
               />
             </Field>
-            <Field label="Descuento (%)">
+            <Field
+              label="Descuento (%)"
+              help="Cuánto se le descuenta al pack por pagar todas las sesiones juntas. Con 15, un pack que costaría $54.000 sueltas pasa a $45.900 antes del redondeo."
+            >
               <TextInput
                 inputMode="numeric"
                 disabled={!canManage}
@@ -613,7 +689,10 @@ function PreciosForm({
                 onChange={(e) => set("packDiscountPercentage", e.target.value)}
               />
             </Field>
-            <Field label="Redondeo del pack ($)">
+            <Field
+              label="Redondeo del pack ($)"
+              help="El precio del pack se redondea al múltiplo más cercano de este monto, para no cobrar cifras raras. Con 1000, $45.900 se cobra $46.000."
+            >
               <TextInput
                 inputMode="numeric"
                 disabled={!canManage}
@@ -641,49 +720,150 @@ function PreciosForm({
         )}
       </form>
 
-      <aside className="w-full shrink-0 space-y-3 rounded-xl border border-surface-high bg-white p-4 lg:sticky lg:top-4 lg:w-72">
-        <h3 className="font-display text-base text-ink">Vista previa</h3>
-        <p className="text-xs text-ink-soft">
-          Con los valores del formulario, aunque no se hayan guardado.
-        </p>
-        <ul className="space-y-3">
-          {ejemplos.map((e, i) => (
-            <li key={e.testId} data-testid={e.testId} className="border-t border-surface-high pt-2">
-              <p className="text-sm text-ink">{e.nombre}</p>
-              <p className="font-display text-lg text-ink">{money(e.total)}</p>
-              {i === 0 && (
-                <p className="mt-0.5 text-xs text-ink-soft" data-testid="preview-cavado-axila-pack">
-                  Pack de {form.packSessions || "?"} sesiones: {money(packEjemplo)}
-                </p>
-              )}
-            </li>
-          ))}
-          <li
-            key="preview-cuerpo-full"
-            data-testid="preview-cuerpo-full"
-            className="border-t border-surface-high pt-2"
-          >
-            <p className="text-sm text-ink">Cuerpo Full</p>
-            {cuerpoFullCargando ? (
-              <p className="text-sm text-ink-soft">Cargando…</p>
-            ) : cuerpoFullPrecio != null ? (
-              <>
-                <p className="font-display text-lg text-ink">{money(cuerpoFullPrecio)}</p>
-                <p className="text-xs text-ink-soft">
-                  Pack fijo — precio propio, no usa la fórmula. Por fórmula sería{" "}
-                  <span data-testid="preview-cuerpo-full-formula">{money(cuerpoFullFormula)}</span>
-                  {cuerpoFullConviene
-                    ? ` (${cuerpoFullDescuentoPct}% de descuento sobre la fórmula).`
-                    : " — ¡el pack fijo ya NO conviene, cuesta igual o más que la fórmula!"}
-                </p>
-              </>
-            ) : (
-              <p className="text-xs text-ink-soft">
-                No se pudo cargar el precio del pack fijo "Cuerpo Full".
+      <aside className="w-full shrink-0 space-y-4 lg:sticky lg:top-4 lg:w-80">
+        {/* ── Cómo se calcula ────────────────────────────────────────────
+            Va ANTES del ejemplo a propósito: sin saber la forma de la
+            fórmula, los números del ejemplo son cuatro cifras sueltas. */}
+        <section className="space-y-3 rounded-xl border border-surface-high bg-white p-4">
+          <h3 className="font-display text-base text-ink">Cómo se calcula un combo</h3>
+          <p className="text-xs text-ink-soft">
+            La fórmula es siempre esta y no se edita. Lo que se edita en esta pantalla son los
+            números que usa.
+          </p>
+
+          <ol className="space-y-2.5">
+            {PASOS.map((paso) => (
+              <li key={paso.n} className="flex gap-2.5">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-medium text-primary">
+                  {paso.n}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm text-ink">{paso.titulo}</p>
+                  <p className="text-xs text-ink-soft">{paso.formula}</p>
+                  <p className="mt-0.5 text-[11px] text-ink-soft/80">
+                    Se edita en: <span className="text-ink-soft">{paso.donde}</span>
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+
+          <p className="rounded-lg bg-surface-low px-3 py-2 text-xs text-ink-soft">
+            El total del combo es la suma de sus líneas. Las zonas se ordenan de la más grande a
+            la más chica, así que la más cara siempre es la primera y{" "}
+            <strong className="font-medium text-ink">agregar una zona nunca baja el total</strong>.
+          </p>
+        </section>
+
+        {/* ── Ejemplo desglosado ───────────────────────────────────────── */}
+        <section className="space-y-3 rounded-xl border border-surface-high bg-white p-4">
+          <div>
+            <h3 className="font-display text-base text-ink">Ejemplo, paso a paso</h3>
+            <p className="text-xs text-ink-soft">
+              Calculado con los valores que están ahora en el formulario, estén guardados o no.
+              Sirve para ver a dónde llega un cambio antes de aplicarlo.
+            </p>
+          </div>
+
+          <div data-testid={ejemploPrincipal.testId}>
+            <p className="text-sm font-medium text-ink">{ejemploPrincipal.nombre}</p>
+            <table className="mt-1.5 w-full text-xs">
+              <tbody>
+                {ejemploPrincipal.lineas.map((l) => (
+                  <tr key={l.zonaId} className="align-baseline">
+                    <td className="py-0.5 pr-2 text-ink">
+                      {l.nombre}
+                      <span className="text-ink-soft"> ({l.categoria})</span>
+                    </td>
+                    <td className="py-0.5 pr-2 text-ink-soft">
+                      {explicarLinea(l, previewConfig)}
+                    </td>
+                    <td className="py-0.5 text-right tabular-nums text-ink">{money(l.importe)}</td>
+                  </tr>
+                ))}
+                <tr className="border-t border-surface-high">
+                  <td className="pt-1.5 text-sm font-medium text-ink" colSpan={2}>
+                    Total
+                  </td>
+                  <td className="pt-1.5 text-right font-display text-base tabular-nums text-ink">
+                    {money(ejemploPrincipal.total)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div className="mt-2.5 rounded-lg bg-surface-low px-3 py-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-xs text-ink">
+                  Pack de {form.packSessions || "?"} sesiones
+                </span>
+                <span
+                  className="font-display text-sm tabular-nums text-ink"
+                  data-testid="preview-pack"
+                >
+                  {money(packEjemplo)}
+                </span>
+              </div>
+              <p className="mt-0.5 text-[11px] text-ink-soft">
+                {form.packSessions || "?"} × {money(ejemploPrincipal.total)} ={" "}
+                {money(ejemploPrincipal.total * toNumber(form.packSessions))}, menos{" "}
+                {form.packDiscountPercentage || "?"}%, redondeado a múltiplos de{" "}
+                {money(toNumber(form.packRoundingBase))}.
               </p>
-            )}
-          </li>
-        </ul>
+            </div>
+          </div>
+
+          {/* Los otros ejemplos, compactos: confirman que la fórmula escala
+              con más zonas sin repetir todo el desglose. */}
+          <ul className="space-y-1.5 border-t border-surface-high pt-2.5">
+            {otrosEjemplos.map((e) => (
+              <li
+                key={e.testId}
+                data-testid={e.testId}
+                className="flex items-baseline justify-between gap-2 text-xs"
+              >
+                <span className="min-w-0 text-ink-soft">{e.nombre}</span>
+                <span className="shrink-0 tabular-nums text-ink">{money(e.total)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* ── El pack fijo, que NO usa la fórmula ──────────────────────── */}
+        <section
+          className="space-y-1.5 rounded-xl border border-surface-high bg-white p-4"
+          data-testid="preview-cuerpo-full"
+        >
+          <h3 className="font-display text-base text-ink">Cuando el precio no sale de la fórmula</h3>
+          <p className="text-xs text-ink-soft">
+            Los packs fijos (Cuerpo Full, Cuerpo Completo, Esenciales) tienen precio propio de
+            catálogo. Se cobran a ese precio aunque la fórmula dé otro, y se editan en la solapa
+            Combos.
+          </p>
+          {cuerpoFullCargando ? (
+            <p className="text-sm text-ink-soft">Cargando…</p>
+          ) : cuerpoFullPrecio != null ? (
+            <div className="rounded-lg bg-surface-low px-3 py-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-xs text-ink">Cuerpo Full</span>
+                <span className="font-display text-sm tabular-nums text-ink">
+                  {money(cuerpoFullPrecio)}
+                </span>
+              </div>
+              <p className="mt-0.5 text-[11px] text-ink-soft">
+                Por fórmula sería{" "}
+                <span data-testid="preview-cuerpo-full-formula">{money(cuerpoFullFormula)}</span>
+                {cuerpoFullConviene
+                  ? ` — ${cuerpoFullDescuentoPct}% de descuento.`
+                  : " — ¡el pack fijo ya NO conviene, cuesta igual o más que la fórmula!"}
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-ink-soft">
+              No se pudo cargar el precio del pack fijo "Cuerpo Full".
+            </p>
+          )}
+        </section>
       </aside>
     </div>
   );

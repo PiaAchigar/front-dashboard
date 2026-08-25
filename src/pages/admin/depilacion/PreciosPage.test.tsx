@@ -315,7 +315,9 @@ describe("PreciosPage", () => {
       await user.type(campoPriceGrande(), "1000");
       await user.click(screen.getByRole("button", { name: /guardar/i }));
 
-      expect(await screen.findByText(/agregar una zona/i)).toBeInTheDocument();
+      expect(
+        await screen.findByText(/puede terminar costando MENOS/i),
+      ).toBeInTheDocument();
       // Ni un PUT: el guardado se cortó antes de tocar la red, igual que el
       // resto de los bloqueos de `parseForm`.
       expect(fetchMock.mock.calls.length).toBe(callsAntes);
@@ -350,7 +352,7 @@ describe("PreciosPage", () => {
         ([, opts]) => (opts as RequestInit)?.method === "PUT",
       );
       expect(putCall).toBeDefined();
-      expect(screen.queryByText(/agregar una zona/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/puede terminar costando MENOS/i)).not.toBeInTheDocument();
     });
   });
 
@@ -397,17 +399,98 @@ describe("PreciosPage", () => {
 
   // Ronda de fixes 1, punto 2(b): packSessions/packDiscountPercentage/
   // packRoundingBase no tenían NINGÚN reflejo en la vista previa.
-  it("el pack de sesiones de Cavado + Axila se mueve al cambiar el descuento del pack", async () => {
+  it("el pack de sesiones se mueve al cambiar el descuento del pack", async () => {
     const user = userEvent.setup();
     render(<PreciosPage />, { wrapper });
 
-    // calcularPrecioPack(18000, 3 ses., 15%) = 18000×3×0,85 = 45.900 → redondea a 46.000
-    expect(await screen.findByTestId("preview-cavado-axila-pack")).toHaveTextContent("$46.000");
+    // calcularPrecioPack(36000, 3 ses., 15%) = 36000×3×0,85 = 91.800 → redondea a 92.000
+    expect(await screen.findByTestId("preview-pack")).toHaveTextContent("$92.000");
 
     await user.clear(screen.getByLabelText(/descuento \(%\)/i));
     await user.type(screen.getByLabelText(/descuento \(%\)/i), "20");
 
-    // 18000×3×0,80 = 43.200 → redondea a 43.000
-    expect(screen.getByTestId("preview-cavado-axila-pack")).toHaveTextContent("$43.000");
+    // 36000×3×0,80 = 86.400 → redondea a 86.000
+    expect(screen.getByTestId("preview-pack")).toHaveTextContent("$86.000");
+  });
+
+  describe("panel explicativo", () => {
+    it("muestra los tres pasos de la fórmula y dónde se edita cada uno", async () => {
+      render(<PreciosPage />, { wrapper });
+      await screen.findByTestId("preview-cavado-axila");
+
+      expect(screen.getByText(/La zona más cara va primera/i)).toBeInTheDocument();
+      expect(screen.getByText(/precio de lista de su categoría/i)).toBeInTheDocument();
+      expect(screen.getByText(/Minutos de la zona × tarifa del escalón 1/i)).toBeInTheDocument();
+      expect(screen.getByText(/Minutos de la zona × tarifa del escalón 2/i)).toBeInTheDocument();
+
+      // El puntero a la sección del formulario: sin esto, saber la fórmula no
+      // alcanza para saber qué campo tocar. Aparece dos veces —el encabezado
+      // de la sección y el puntero del paso 1— y esa coincidencia exacta es
+      // la que hace que se pueda seguir.
+      expect(screen.getAllByText("Precios de lista")).toHaveLength(2);
+      expect(screen.getAllByText("Minutos de precio + Escalones")).toHaveLength(2);
+    });
+
+    it("dice explícitamente que la fórmula no se edita, solo sus números", async () => {
+      render(<PreciosPage />, { wrapper });
+      await screen.findByTestId("preview-cavado-axila");
+      expect(screen.getByText(/La fórmula es siempre esta y no se edita/i)).toBeInTheDocument();
+    });
+
+    it("desglosa el ejemplo línea por línea, mostrando los TRES pasos", async () => {
+      render(<PreciosPage />, { wrapper });
+      const bloque = await screen.findByTestId("preview-pierna-cavado-rostro");
+
+      // Paso 1 — Pierna (grande) es la más cara: precio de lista = $19.000
+      expect(bloque).toHaveTextContent(/Pierna.*grande.*precio de lista/i);
+      expect(bloque).toHaveTextContent("$19.000");
+      // Paso 2 — Rostro (grande) es la segunda: 10 min × $1.200 = $12.000
+      expect(bloque).toHaveTextContent(/Rostro.*grande.*10 min × \$1\.200 \(escalón 1\)/i);
+      expect(bloque).toHaveTextContent("$12.000");
+      // Paso 3 — Cavado (chica) es la tercera: 5 min × $1.000 = $5.000. Esta
+      // línea es la razón de que el ejemplo tenga tres zonas y no dos: con dos
+      // el escalón 2 no aparece nunca.
+      expect(bloque).toHaveTextContent(/Cavado.*chica.*5 min × \$1\.000 \(escalón 2\)/i);
+      expect(bloque).toHaveTextContent("$5.000");
+      // Y el total es la suma.
+      expect(bloque).toHaveTextContent("$36.000");
+    });
+
+    it("el desglose se recalcula al cambiar un valor, sin guardar", async () => {
+      const user = userEvent.setup();
+      render(<PreciosPage />, { wrapper });
+      const bloque = await screen.findByTestId("preview-pierna-cavado-rostro");
+      expect(bloque).toHaveTextContent(/10 min × \$1\.200/);
+
+      await user.clear(screen.getByLabelText(/escalón 1/i));
+      await user.type(screen.getByLabelText(/escalón 1/i), "1300");
+
+      // La cuenta mostrada cambia, no solo el resultado.
+      expect(bloque).toHaveTextContent(/10 min × \$1\.300/);
+      expect(bloque).toHaveTextContent("$13.000");
+      expect(bloque).toHaveTextContent("$37.000");
+      // El escalón 2 no se tocó: la tercera línea sigue igual.
+      expect(bloque).toHaveTextContent(/5 min × \$1\.000/);
+    });
+
+    it("explica la cuenta del pack con los números del formulario", async () => {
+      render(<PreciosPage />, { wrapper });
+      const bloque = await screen.findByTestId("preview-pierna-cavado-rostro");
+
+      // 3 × $36.000 = $108.000, −15%, redondeado a $1.000 → $92.000
+      expect(bloque).toHaveTextContent(/3 × \$36\.000 = \$108\.000/);
+      expect(bloque).toHaveTextContent(/menos 15%/i);
+      expect(bloque).toHaveTextContent(/múltiplos de \$1\.000/i);
+      expect(screen.getByTestId("preview-pack")).toHaveTextContent("$92.000");
+    });
+
+    it("aclara que los packs fijos no usan la fórmula y dónde se editan", async () => {
+      render(<PreciosPage />, { wrapper });
+      const bloque = await screen.findByTestId("preview-cuerpo-full");
+
+      expect(bloque).toHaveTextContent(/precio propio de catálogo/i);
+      expect(bloque).toHaveTextContent(/se editan en la solapa Combos/i);
+      expect(bloque).toHaveTextContent("$65.000");
+    });
   });
 });
