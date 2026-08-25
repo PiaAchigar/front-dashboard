@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { Field, Select, TextInput } from "./form";
 
@@ -40,7 +41,7 @@ describe("Field", () => {
     expect(document.getElementById(descrito!)).toHaveTextContent(AYUDA);
   });
 
-  it("con help, muestra el tooltip y funciona igual sobre un Select", () => {
+  it("con help, funciona igual sobre un Select", () => {
     render(
       <Field label="Tipo" help={AYUDA}>
         <Select value="a" onChange={() => {}}>
@@ -49,7 +50,70 @@ describe("Field", () => {
       </Field>,
     );
     expect(screen.getByLabelText("Tipo").tagName).toBe("SELECT");
+  });
+
+  it("el globo aparece al pasar el mouse y se va al sacarlo", async () => {
+    const user = userEvent.setup();
+    render(
+      <Field label="Orden" help={AYUDA}>
+        <TextInput value="" onChange={() => {}} />
+      </Field>,
+    );
+
+    expect(screen.queryByRole("tooltip", { hidden: true })).not.toBeInTheDocument();
+
+    const ayuda = screen.getByRole("button", { name: "Ayuda" });
+    await user.hover(ayuda);
     expect(screen.getByRole("tooltip", { hidden: true })).toHaveTextContent(AYUDA);
+
+    await user.unhover(ayuda);
+    expect(screen.queryByRole("tooltip", { hidden: true })).not.toBeInTheDocument();
+  });
+
+  it("el globo también se abre con el teclado", async () => {
+    const user = userEvent.setup();
+    render(
+      <Field label="Orden" help={AYUDA}>
+        <TextInput value="" onChange={() => {}} />
+      </Field>,
+    );
+
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Ayuda" })).toHaveFocus();
+    expect(screen.getByRole("tooltip", { hidden: true })).toHaveTextContent(AYUDA);
+  });
+
+  it("el globo se dibuja fuera del contenedor que scrollea, para no quedar recortado", async () => {
+    const user = userEvent.setup();
+    render(
+      <div data-testid="scroller" style={{ overflowY: "auto", height: 100 }}>
+        <Field label="Orden" help={AYUDA}>
+          <TextInput value="" onChange={() => {}} />
+        </Field>
+      </div>,
+    );
+
+    await user.hover(screen.getByRole("button", { name: "Ayuda" }));
+    const globo = screen.getByRole("tooltip", { hidden: true });
+    // Este es el bug que se arregló: si el globo cuelga del contenedor con
+    // overflow, ese contenedor lo recorta.
+    expect(screen.getByTestId("scroller")).not.toContainElement(globo);
+    expect(globo).toHaveStyle({ position: "fixed" });
+  });
+
+  it("el botón de ayuda no envía el formulario que lo contiene", async () => {
+    const user = userEvent.setup();
+    let enviados = 0;
+    render(
+      <form onSubmit={(e) => { e.preventDefault(); enviados += 1; }}>
+        <Field label="Orden" help={AYUDA}>
+          <TextInput value="" onChange={() => {}} />
+        </Field>
+      </form>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ayuda" }));
+    expect(enviados).toBe(0);
   });
 
   it("respeta el id propio del campo en vez de pisarlo", () => {

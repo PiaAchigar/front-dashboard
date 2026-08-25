@@ -1,4 +1,5 @@
-import { cloneElement, isValidElement, useId } from "react";
+import { cloneElement, isValidElement, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
   InputHTMLAttributes,
   ReactNode,
@@ -11,8 +12,89 @@ const fieldClass =
   "w-full rounded-xl border border-surface-highest bg-white px-3 py-2 text-sm text-ink outline-none focus:border-primary disabled:bg-surface-high disabled:text-ink-soft";
 
 /**
- * Un campo de formulario con su etiqueta y, opcionalmente, un "?" que al
- * pasarle el mouse despliega una explicación.
+ * El "?" con su globo de ayuda.
+ *
+ * El globo se dibuja con `createPortal` en el <body> y posición `fixed`, no
+ * dentro del campo. Si se dibuja adentro, cualquier ancestro que scrollee lo
+ * recorta: en el drawer de "Nueva zona" el formulario tiene `overflow-y-auto`,
+ * así que el globo del primer campo —que se abre hacia arriba— quedaba cortado
+ * por el borde del área que scrollea, tapado por el título del drawer.
+ *
+ * Se abre hacia arriba si hay lugar y hacia abajo si no, y se recorta contra
+ * los bordes de la ventana para no salirse de pantalla.
+ */
+function HelpTip({ text, describedById }: { text: string; describedById: string }) {
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const [abierto, setAbierto] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; abajo: boolean } | null>(null);
+
+  const ANCHO = 224; // w-56
+  const SEPARACION = 8;
+
+  useLayoutEffect(() => {
+    if (!abierto || !anchorRef.current) return;
+    const r = anchorRef.current.getBoundingClientRect();
+    // Estimación del alto: alcanza para decidir arriba/abajo. Si no entra
+    // arriba se abre hacia abajo, que es el caso del drawer.
+    const ALTO_APROX = 96;
+    const abajo = r.top < ALTO_APROX + SEPARACION;
+    const left = Math.min(
+      Math.max(SEPARACION, r.left + r.width / 2 - ANCHO / 2),
+      window.innerWidth - ANCHO - SEPARACION,
+    );
+    setPos({ top: abajo ? r.bottom + SEPARACION : r.top - SEPARACION, left, abajo });
+  }, [abierto]);
+
+  return (
+    <>
+      <button
+        ref={anchorRef}
+        type="button"
+        aria-label="Ayuda"
+        className="inline-flex cursor-help text-ink-soft/70 transition-colors hover:text-primary focus:text-primary focus:outline-none"
+        onMouseEnter={() => setAbierto(true)}
+        onMouseLeave={() => setAbierto(false)}
+        onFocus={() => setAbierto(true)}
+        onBlur={() => setAbierto(false)}
+        // El "?" explica, no envía: sin esto un Enter con el foco encima
+        // dispararía el submit del formulario que lo contiene.
+        onClick={(e) => e.preventDefault()}
+      >
+        <HelpCircle size={13} />
+      </button>
+
+      {abierto &&
+        pos &&
+        createPortal(
+          <span
+            role="tooltip"
+            aria-hidden="true"
+            style={{
+              position: "fixed",
+              top: pos.top,
+              left: pos.left,
+              width: ANCHO,
+              transform: pos.abajo ? undefined : "translateY(-100%)",
+            }}
+            className="pointer-events-none z-[100] rounded-lg bg-ink px-2.5 py-1.5 text-[11px] font-normal leading-snug text-white shadow-lg"
+          >
+            {text}
+          </span>,
+          document.body,
+        )}
+      {/* Copia siempre presente en el DOM: es la que lee un lector de
+          pantalla vía aria-describedby. El globo de arriba es solo visual y
+          existe únicamente mientras está abierto. */}
+      <span id={describedById} className="sr-only">
+        {text}
+      </span>
+    </>
+  );
+}
+
+/**
+ * Un campo de formulario con su etiqueta y, opcionalmente, un "?" que
+ * despliega una explicación.
  *
  * Sin `help` la etiqueta envuelve al campo (asociación implícita), que es como
  * funcionaron siempre los ~135 campos de la app.
@@ -23,9 +105,7 @@ const fieldClass =
  * un lector de pantalla y para cualquier búsqueda por etiqueta (ni
  * `aria-hidden` ni `aria-describedby` lo evitan: el texto sigue estando
  * adentro). Por eso, en ese caso, la etiqueta se ata al campo por `htmlFor` y
- * el tooltip queda afuera, colgado del campo con `aria-describedby` — que es
- * el atributo hecho para esto: el nombre sigue siendo "Orden" y la
- * explicación se anuncia aparte.
+ * la explicación se cuelga del campo con `aria-describedby`.
  */
 export function Field({
   label,
@@ -67,16 +147,7 @@ export function Field({
     <div className="block">
       <div className={labelClass}>
         <label htmlFor={forId}>{label}</label>
-        <span className="group relative inline-flex cursor-help">
-          <HelpCircle size={13} className="text-ink-soft/70" />
-          <span
-            id={helpId}
-            role="tooltip"
-            className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 hidden w-52 -translate-x-1/2 rounded-lg bg-ink px-2.5 py-1.5 text-[11px] font-normal leading-snug text-white shadow-lg group-hover:block"
-          >
-            {help}
-          </span>
-        </span>
+        <HelpTip text={help} describedById={helpId} />
       </div>
       {campo}
     </div>
