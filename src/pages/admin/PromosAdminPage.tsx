@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { can, type Role } from "../../lib/permissions";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
@@ -140,6 +141,26 @@ function LineRow({
         </Field>
       </div>
     </li>
+  );
+}
+
+/**
+ * Cartel informativo (no bloqueante) arriba del listado: una promo no crea
+ * servicios nuevos, solo combina los que ya están cargados. Si el servicio
+ * que se busca no existe todavía, no va a aparecer en el selector de líneas
+ * más abajo — este aviso explica por qué antes de que la usuaria llegue a
+ * ese punto y se quede sin entender.
+ */
+function PromoDependenciaAviso() {
+  return (
+    <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+      Una promo se arma con servicios y actividades que ya estén cargados. Si falta alguno,
+      cargalo primero en{" "}
+      <Link to="/admin/servicios" className="font-medium underline underline-offset-2">
+        Servicios
+      </Link>
+      .
+    </div>
   );
 }
 
@@ -306,6 +327,7 @@ export function PromosAdminPage() {
     <>
       <ResourceManager<PromotionAdmin>
         title="Promo"
+        avisoSuperior={<PromoDependenciaAviso />}
         rows={rows}
         columns={columns}
         loading={isLoading}

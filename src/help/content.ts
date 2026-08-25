@@ -134,4 +134,18 @@ export const HELP_ARTICLES: HelpArticle[] = [
     tags: ["usuario", "auth", "identidad", "auth_id", "login"],
     section: "Configuración",
   },
+  {
+    id: "depilacion-cotizar",
+    title: "¿Cómo cotizo una depilación?",
+    body: "Entrá a Administración → Depilación → Combos y tildá las zonas que la clienta quiere. El precio y los minutos del turno se calculan solos: no hace falta cargar ningún combo nuevo.\n\nSi una zona aparece en gris es porque ya está incluida en otra que tildaste (por ejemplo, Media pierna se apaga cuando elegiste Pierna entera). Abajo de la zona gris dice cuál la está incluyendo.\n\nSi la combinación coincide con uno de los packs (Cuerpo Full, Cuerpo Completo o Combo de Esenciales), el sistema aplica el precio del pack solo y te avisa cuánto se ahorra.\n\nEl botón \"Pack de 3 sesiones\" toma el total que ya está en pantalla y le aplica el descuento por pagar las tres juntas.",
+    tags: ["depilación", "zonas", "combo", "precio", "cotizar", "presupuesto"],
+    section: "Agenda",
+  },
+  {
+    id: "depilacion-por-que-este-precio",
+    title: "¿Por qué el sistema me da este precio?",
+    body: "La primera zona —la más cara de las que elegiste— se cobra a precio de lista. Cada zona que se suma sale más barata, porque comparte el mismo turno.\n\nPor eso el desglose muestra al lado de cada zona por qué vale lo que vale: \"precio de lista\", \"2ª zona\" o \"3ª zona\". Se lo podés mostrar a la clienta tal cual.\n\nAgregar una zona nunca puede bajar el total: cuantas más zonas, mejor le queda el valor por zona, pero siempre paga algo más.\n\nLos precios se cambian desde Administración → Depilación → Precios. Cambiar un valor ahí afecta a todos los combos del negocio.",
+    tags: ["depilación", "precio", "por qué", "desglose", "escalón", "zona"],
+    section: "Agenda",
+  },
 ];
