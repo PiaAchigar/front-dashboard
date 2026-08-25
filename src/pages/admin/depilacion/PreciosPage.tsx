@@ -7,15 +7,18 @@ import { money } from "../../../lib/format";
 import {
   calcularPrecioCombo,
   calcularPrecioPack,
+  primeraViolacionNoInversion,
   type Categoria,
   type DepilationConfig,
   type ZonaParaCotizar,
 } from "../../../lib/depilation-pricing";
 import {
+  useCombosDepilacion,
   useDepilacionConfig,
   useGuardarConfig,
   type DepilacionConfigInput,
 } from "../../../hooks/useDepilacion";
+import type { ComboDepilacion } from "../../../lib/api-types";
 
 /** Los 19 campos del formulario, todos como texto para permitir borrar el
  *  campo mientras se escribe. La validación al guardar (más abajo, `parseForm`)
@@ -159,12 +162,56 @@ const CAMPOS: { key: keyof Form; validar: (raw: string) => number | null; mensaj
   { key: "packRoundingBase", validar: parseEnteroPositivo, mensaje: "El redondeo del pack tiene que ser un número entero mayor a cero." },
 ];
 
+/** Mismo mapeo que `aConfigAnidada` en el backend (`depilacion.repo.ts`):
+ *  las 19 columnas planas de `DepilacionConfigInput` al `DepilationConfig`
+ *  anidado que pide el motor. Duplicado a propósito (no importado desde el
+ *  backend, que es otro repo/deploy): es la mitad "cliente" del espejo de la
+ *  ronda de fixes 1, punto 1 — separado de `formToPreviewConfig` porque ese
+ *  toma el `Form` (strings, tolerante a basura para la vista previa en
+ *  vivo) y este toma valores YA validados como enteros. */
+function configInputToNested(v: DepilacionConfigInput): DepilationConfig {
+  return {
+    precioLista: { grande: v.priceGrande, mediana: v.priceMediana, chica: v.priceChica },
+    minutosPrecio: {
+      grande: v.pricingMinutesGrande,
+      mediana: v.pricingMinutesMediana,
+      chica: v.pricingMinutesChica,
+    },
+    tarifaEscalon1: v.tier1RatePerMinute,
+    tarifaEscalon2: v.tier2RatePerMinute,
+    minutosTurno: {
+      mujer: {
+        grande: v.slotMinutesFemaleGrande,
+        mediana: v.slotMinutesFemaleMediana,
+        chica: v.slotMinutesFemaleChica,
+      },
+      hombre: {
+        grande: v.slotMinutesMaleGrande,
+        mediana: v.slotMinutesMaleMediana,
+        chica: v.slotMinutesMaleChica,
+      },
+    },
+    redondeoTurno: v.slotRoundingStep,
+    turnoMinimo: v.slotMinimumMinutes,
+    packSesiones: v.packSessions,
+    packDescuentoPct: v.packDiscountPercentage,
+    packRedondeo: v.packRoundingBase,
+  };
+}
+
 /** Valida el formulario entero antes de guardar. Corta en el primer campo
  *  inválido — mismo criterio que `parseDisplayOrder` en ZonasPage: bloquea el
  *  guardado y devuelve un mensaje propio en vez de mandar la solicitud y
  *  esperar que el backend la rechace. Crítico para `packDiscountPercentage`:
  *  como el 0 es un valor válido ahí, sin este bloqueo un campo vacío o con
- *  basura se colaba como `0` y borraba el descuento del pack en silencio. */
+ *  basura se colaba como `0` y borraba el descuento del pack en silencio.
+ *
+ *  Ronda de fixes 1, punto 1 (Important): espejo EXACTO de la validación de
+ *  `configBody` en el backend (`api-sistema-central/src/routes/agenda/depilacion.ts`)
+ *  — mismas dos capas, mismo motor (`primeraViolacionNoInversion`) — para que
+ *  el aviso de "esto rompe la no-inversión" llegue ANTES de mandar el PUT, no
+ *  solo después. El backend sigue siendo la garantía real (esto es UX, no
+ *  reemplaza esa validación); si algún día se desalinean, el backend manda. */
 function parseForm(f: Form): { ok: true; values: DepilacionConfigInput } | { ok: false; error: string } {
   const values = {} as DepilacionConfigInput;
   for (const campo of CAMPOS) {
@@ -172,6 +219,29 @@ function parseForm(f: Form): { ok: true; values: DepilacionConfigInput } | { ok:
     if (parsed === null) return { ok: false, error: campo.mensaje };
     (values as Record<string, number>)[campo.key] = parsed;
   }
+
+  if (values.priceGrande < values.priceMediana || values.priceMediana < values.priceChica) {
+    return {
+      ok: false,
+      error:
+        "El precio de zona grande tiene que ser mayor o igual al de zona mediana, y el de zona " +
+        "mediana mayor o igual al de zona chica. Si no, agregar una zona más grande a una " +
+        "selección puede terminar costando MENOS que las zonas más chicas que ya estaban — y eso " +
+        "nunca puede pasar.",
+    };
+  }
+
+  const violacion = primeraViolacionNoInversion(configInputToNested(values));
+  if (violacion) {
+    return {
+      ok: false,
+      error:
+        "Con estos precios y tarifas, agregar una zona a una selección puede hacer que el total " +
+        "termine costando IGUAL O MENOS que antes de agregarla — y agregar una zona nunca puede " +
+        "bajar el precio. Revisá los precios de lista y las tarifas de escalón antes de guardar.",
+    };
+  }
+
   return { ok: true, values };
 }
 
@@ -208,30 +278,25 @@ const EJEMPLOS: { testId: string; nombre: string; zonas: ZonaParaCotizar[] }[] =
 ];
 
 /** "Cuerpo Full" es un pack fijo (PDF §6, seed en task-1): 5 zonas grandes +
- *  5 chicas (Pierna entera, Rostro completo, Espalda, Brazos, Glúteos · Axila,
- *  Cavado, Tira de cola, Línea alba, Empeine y dedos de los pies), precio
- *  propio de catálogo $65.000 — ese número NUNCA sale de la fórmula, así que
- *  no se recalcula con el formulario. Lo que SÍ se recalcula es lo que la
- *  fórmula daría para esas mismas 10 zonas ($86.000 con los valores base):
- *  es el dato que importa, porque si las tarifas suben ese equivalente baja
- *  la diferencia con el precio fijo y el pack puede dejar de convenir.
+ *  5 chicas, con precio propio de catálogo — ese número NUNCA sale de la
+ *  fórmula, así que no se recalcula con el formulario.
+ *
+ *  Ronda de fixes 2, punto 3 (Important): antes esto era una constante
+ *  hardcodeada acá (`CUERPO_FULL_PRECIO = 65000` + las 10 zonas escritas a
+ *  mano) — un número del negocio duplicado del que ya vive de verdad en
+ *  `depilation_combo.fixed_price`. Si el precio del pack cambiaba en la
+ *  base, esta pantalla seguía mostrando el viejo y el cartel de "el pack fijo
+ *  ya NO conviene" —que existe justamente para avisar cuando eso pasa—
+ *  quedaba calculando contra un número que ya no era el real. Ahora sale de
+ *  `useCombosDepilacion()`, la misma fuente que usa el resto del panel.
  */
-const CUERPO_FULL_PRECIO = 65000;
-const CUERPO_FULL_ZONAS: ZonaParaCotizar[] = [
-  zona("grande", "Pierna entera"),
-  zona("grande", "Rostro completo"),
-  zona("grande", "Espalda"),
-  zona("grande", "Brazos"),
-  zona("grande", "Glúteos"),
-  zona("chica", "Axila"),
-  zona("chica", "Cavado"),
-  zona("chica", "Tira de cola"),
-  zona("chica", "Línea alba"),
-  zona("chica", "Empeine y dedos de los pies"),
-];
+function buscarCuerpoFull(combos: ComboDepilacion[] | undefined): ComboDepilacion | undefined {
+  return combos?.find((c) => c.kind === "pack_fijo" && c.name === "Cuerpo Full");
+}
 
 export function PreciosPage() {
   const { data, isLoading, error } = useDepilacionConfig();
+  const combosQuery = useCombosDepilacion();
 
   return (
     <div className="modal-scroll h-full overflow-y-auto p-2 pl-4 sm:p-4">
@@ -243,13 +308,25 @@ export function PreciosPage() {
       {isLoading ? (
         <p className="text-sm text-ink-soft">Cargando…</p>
       ) : data ? (
-        <PreciosForm config={data} />
+        <PreciosForm
+          config={data}
+          cuerpoFull={buscarCuerpoFull(combosQuery.data)}
+          cuerpoFullCargando={combosQuery.isLoading}
+        />
       ) : null}
     </div>
   );
 }
 
-function PreciosForm({ config }: { config: DepilationConfig }) {
+function PreciosForm({
+  config,
+  cuerpoFull,
+  cuerpoFullCargando,
+}: {
+  config: DepilationConfig;
+  cuerpoFull: ComboDepilacion | undefined;
+  cuerpoFullCargando: boolean;
+}) {
   const { role } = useAuth();
   const r = role as Role | null;
   const canManage = can(r, "catalogo", "manage");
@@ -282,16 +359,30 @@ function PreciosForm({ config }: { config: DepilationConfig }) {
     () => calcularPrecioPack(ejemplos[0].total, previewConfig),
     [ejemplos, previewConfig],
   );
-  // Lo que darían las 10 zonas de Cuerpo Full si se cotizaran por fórmula en
-  // vez de por el precio fijo del pack — este número SÍ se mueve con el
-  // formulario, a diferencia de `CUERPO_FULL_PRECIO`.
-  const cuerpoFullFormula = useMemo(
-    () => calcularPrecioCombo(CUERPO_FULL_ZONAS, previewConfig).total,
-    [previewConfig],
+  // Las zonas REALES del pack "Cuerpo Full", tal como las devuelve el
+  // backend — no una lista escrita a mano que puede desalinearse si alguien
+  // cambia las zonas del pack desde la pantalla de Combos.
+  const cuerpoFullZonas: ZonaParaCotizar[] = useMemo(
+    () => (cuerpoFull?.zonas ?? []).map((z) => ({ id: z.id, nombre: z.name, categoria: z.category })),
+    [cuerpoFull],
   );
+  // Lo que darían esas zonas si se cotizaran por fórmula en vez de por el
+  // precio fijo del pack — este número SÍ se mueve con el formulario, a
+  // diferencia de `cuerpoFullPrecio` (que es el precio propio, ajeno a la
+  // fórmula).
+  const cuerpoFullFormula = useMemo(
+    () => calcularPrecioCombo(cuerpoFullZonas, previewConfig).total,
+    [cuerpoFullZonas, previewConfig],
+  );
+  // `null` mientras no se sabe el precio real todavía (combos cargando o el
+  // pack no apareció) — a propósito distinto de `0`, para no mostrar ni
+  // calcular nada con un número inventado mientras tanto.
+  const cuerpoFullPrecio = cuerpoFull?.precioFinal ?? null;
   const cuerpoFullDescuentoPct =
-    cuerpoFullFormula > 0 ? Math.round((1 - CUERPO_FULL_PRECIO / cuerpoFullFormula) * 100) : 0;
-  const cuerpoFullConviene = CUERPO_FULL_PRECIO < cuerpoFullFormula;
+    cuerpoFullPrecio != null && cuerpoFullFormula > 0
+      ? Math.round((1 - cuerpoFullPrecio / cuerpoFullFormula) * 100)
+      : 0;
+  const cuerpoFullConviene = cuerpoFullPrecio != null && cuerpoFullPrecio < cuerpoFullFormula;
 
   async function save() {
     setFormError(null);
@@ -573,14 +664,24 @@ function PreciosForm({ config }: { config: DepilationConfig }) {
             className="border-t border-surface-high pt-2"
           >
             <p className="text-sm text-ink">Cuerpo Full</p>
-            <p className="font-display text-lg text-ink">{money(CUERPO_FULL_PRECIO)}</p>
-            <p className="text-xs text-ink-soft">
-              Pack fijo — precio propio, no usa la fórmula. Por fórmula sería{" "}
-              <span data-testid="preview-cuerpo-full-formula">{money(cuerpoFullFormula)}</span>
-              {cuerpoFullConviene
-                ? ` (${cuerpoFullDescuentoPct}% de descuento sobre la fórmula).`
-                : " — ¡el pack fijo ya NO conviene, cuesta igual o más que la fórmula!"}
-            </p>
+            {cuerpoFullCargando ? (
+              <p className="text-sm text-ink-soft">Cargando…</p>
+            ) : cuerpoFullPrecio != null ? (
+              <>
+                <p className="font-display text-lg text-ink">{money(cuerpoFullPrecio)}</p>
+                <p className="text-xs text-ink-soft">
+                  Pack fijo — precio propio, no usa la fórmula. Por fórmula sería{" "}
+                  <span data-testid="preview-cuerpo-full-formula">{money(cuerpoFullFormula)}</span>
+                  {cuerpoFullConviene
+                    ? ` (${cuerpoFullDescuentoPct}% de descuento sobre la fórmula).`
+                    : " — ¡el pack fijo ya NO conviene, cuesta igual o más que la fórmula!"}
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-ink-soft">
+                No se pudo cargar el precio del pack fijo "Cuerpo Full".
+              </p>
+            )}
           </li>
         </ul>
       </aside>
