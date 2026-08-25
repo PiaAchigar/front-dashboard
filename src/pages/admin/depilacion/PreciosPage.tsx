@@ -6,6 +6,7 @@ import { useToast } from "../../../components/ui/Toast";
 import { money } from "../../../lib/format";
 import {
   calcularPrecioCombo,
+  calcularPrecioPack,
   type Categoria,
   type DepilationConfig,
   type ZonaParaCotizar,
@@ -17,7 +18,9 @@ import {
 } from "../../../hooks/useDepilacion";
 
 /** Los 19 campos del formulario, todos como texto para permitir borrar el
- *  campo mientras se escribe (mismo criterio que `displayOrder` en ZonasPage). */
+ *  campo mientras se escribe. La validación al guardar (más abajo, `parseForm`)
+ *  sí sigue el criterio de `parseDisplayOrder` en ZonasPage: bloquea y muestra
+ *  un mensaje propio en vez de mandarle basura al backend. */
 type Form = {
   priceGrande: string;
   priceMediana: string;
@@ -109,28 +112,67 @@ function formToPreviewConfig(f: Form): DepilationConfig {
   };
 }
 
-function formToInput(f: Form): DepilacionConfigInput {
-  return {
-    priceGrande: toNumber(f.priceGrande),
-    priceMediana: toNumber(f.priceMediana),
-    priceChica: toNumber(f.priceChica),
-    pricingMinutesGrande: toNumber(f.pricingMinutesGrande),
-    pricingMinutesMediana: toNumber(f.pricingMinutesMediana),
-    pricingMinutesChica: toNumber(f.pricingMinutesChica),
-    tier1RatePerMinute: toNumber(f.tier1RatePerMinute),
-    tier2RatePerMinute: toNumber(f.tier2RatePerMinute),
-    slotMinutesFemaleGrande: toNumber(f.slotMinutesFemaleGrande),
-    slotMinutesFemaleMediana: toNumber(f.slotMinutesFemaleMediana),
-    slotMinutesFemaleChica: toNumber(f.slotMinutesFemaleChica),
-    slotMinutesMaleGrande: toNumber(f.slotMinutesMaleGrande),
-    slotMinutesMaleMediana: toNumber(f.slotMinutesMaleMediana),
-    slotMinutesMaleChica: toNumber(f.slotMinutesMaleChica),
-    slotRoundingStep: toNumber(f.slotRoundingStep),
-    slotMinimumMinutes: toNumber(f.slotMinimumMinutes),
-    packSessions: toNumber(f.packSessions),
-    packDiscountPercentage: toNumber(f.packDiscountPercentage),
-    packRoundingBase: toNumber(f.packRoundingBase),
-  };
+/** Entero positivo estricto: "" o cualquier cosa no numérica (incluye
+ *  negativos y decimales) invalida. Mismo criterio que el `enteroPositivo`
+ *  del Zod del backend, pero bloqueando ACÁ para no ida-y-vuelta con el
+ *  servidor por un typo. */
+function parseEnteroPositivo(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const n = Number(trimmed);
+  return n > 0 ? n : null;
+}
+
+/** Igual que arriba pero para `packDiscountPercentage`: ahí el 0 SÍ es un
+ *  valor legítimo (combo(s) sin descuento por pack), así que no puede usar
+ *  `parseEnteroPositivo` — si lo hiciera, un campo vacío y un 0% tecleado a
+ *  propósito serían indistinguibles y los dos rebotarían igual. */
+function parsePorcentaje(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const n = Number(trimmed);
+  return n >= 0 && n <= 100 ? n : null;
+}
+
+/** Un campo por cada uno de los 19 de `Form` (mismos nombres que
+ *  `DepilacionConfigInput`, así el resultado de validar ya tiene la forma que
+ *  pide el PUT). El mensaje es el que ve la clienta si el campo no pasa. */
+const CAMPOS: { key: keyof Form; validar: (raw: string) => number | null; mensaje: string }[] = [
+  { key: "priceGrande", validar: parseEnteroPositivo, mensaje: "El precio de zona grande tiene que ser un número entero mayor a cero." },
+  { key: "priceMediana", validar: parseEnteroPositivo, mensaje: "El precio de zona mediana tiene que ser un número entero mayor a cero." },
+  { key: "priceChica", validar: parseEnteroPositivo, mensaje: "El precio de zona chica tiene que ser un número entero mayor a cero." },
+  { key: "pricingMinutesGrande", validar: parseEnteroPositivo, mensaje: "Los minutos de precio de zona grande tienen que ser un número entero mayor a cero." },
+  { key: "pricingMinutesMediana", validar: parseEnteroPositivo, mensaje: "Los minutos de precio de zona mediana tienen que ser un número entero mayor a cero." },
+  { key: "pricingMinutesChica", validar: parseEnteroPositivo, mensaje: "Los minutos de precio de zona chica tienen que ser un número entero mayor a cero." },
+  { key: "tier1RatePerMinute", validar: parseEnteroPositivo, mensaje: "La tarifa del primer escalón tiene que ser un número entero mayor a cero." },
+  { key: "tier2RatePerMinute", validar: parseEnteroPositivo, mensaje: "La tarifa del segundo escalón tiene que ser un número entero mayor a cero." },
+  { key: "slotMinutesFemaleGrande", validar: parseEnteroPositivo, mensaje: "Los minutos de turno (mujer, grande) tienen que ser un número entero mayor a cero." },
+  { key: "slotMinutesFemaleMediana", validar: parseEnteroPositivo, mensaje: "Los minutos de turno (mujer, mediana) tienen que ser un número entero mayor a cero." },
+  { key: "slotMinutesFemaleChica", validar: parseEnteroPositivo, mensaje: "Los minutos de turno (mujer, chica) tienen que ser un número entero mayor a cero." },
+  { key: "slotMinutesMaleGrande", validar: parseEnteroPositivo, mensaje: "Los minutos de turno (hombre, grande) tienen que ser un número entero mayor a cero." },
+  { key: "slotMinutesMaleMediana", validar: parseEnteroPositivo, mensaje: "Los minutos de turno (hombre, mediana) tienen que ser un número entero mayor a cero." },
+  { key: "slotMinutesMaleChica", validar: parseEnteroPositivo, mensaje: "Los minutos de turno (hombre, chica) tienen que ser un número entero mayor a cero." },
+  { key: "slotRoundingStep", validar: parseEnteroPositivo, mensaje: "El redondeo del turno tiene que ser un número entero mayor a cero." },
+  { key: "slotMinimumMinutes", validar: parseEnteroPositivo, mensaje: "El turno mínimo tiene que ser un número entero mayor a cero." },
+  { key: "packSessions", validar: parseEnteroPositivo, mensaje: "Las sesiones del pack tienen que ser un número entero mayor a cero." },
+  { key: "packDiscountPercentage", validar: parsePorcentaje, mensaje: "El descuento del pack tiene que ser un número entero entre 0 y 100." },
+  { key: "packRoundingBase", validar: parseEnteroPositivo, mensaje: "El redondeo del pack tiene que ser un número entero mayor a cero." },
+];
+
+/** Valida el formulario entero antes de guardar. Corta en el primer campo
+ *  inválido — mismo criterio que `parseDisplayOrder` en ZonasPage: bloquea el
+ *  guardado y devuelve un mensaje propio en vez de mandar la solicitud y
+ *  esperar que el backend la rechace. Crítico para `packDiscountPercentage`:
+ *  como el 0 es un valor válido ahí, sin este bloqueo un campo vacío o con
+ *  basura se colaba como `0` y borraba el descuento del pack en silencio. */
+function parseForm(f: Form): { ok: true; values: DepilacionConfigInput } | { ok: false; error: string } {
+  const values = {} as DepilacionConfigInput;
+  for (const campo of CAMPOS) {
+    const parsed = campo.validar(f[campo.key]);
+    if (parsed === null) return { ok: false, error: campo.mensaje };
+    (values as Record<string, number>)[campo.key] = parsed;
+  }
+  return { ok: true, values };
 }
 
 /** Los cuatro combos de ejemplo del spec §6.2, elegidos por cobertura de
@@ -165,11 +207,28 @@ const EJEMPLOS: { testId: string; nombre: string; zonas: ZonaParaCotizar[] }[] =
   },
 ];
 
-/** "Cuerpo Full" es un pack fijo (PDF §6): precio propio de catálogo, nunca
- *  sale de la fórmula, así que no se recalcula con el formulario. Se muestra
- *  igual porque es uno de los cuatro ejemplos del spec §6.2 — la gracia es
- *  que la pantalla deje claro que ESTE no se mueve. */
+/** "Cuerpo Full" es un pack fijo (PDF §6, seed en task-1): 5 zonas grandes +
+ *  5 chicas (Pierna entera, Rostro completo, Espalda, Brazos, Glúteos · Axila,
+ *  Cavado, Tira de cola, Línea alba, Empeine y dedos de los pies), precio
+ *  propio de catálogo $65.000 — ese número NUNCA sale de la fórmula, así que
+ *  no se recalcula con el formulario. Lo que SÍ se recalcula es lo que la
+ *  fórmula daría para esas mismas 10 zonas ($86.000 con los valores base):
+ *  es el dato que importa, porque si las tarifas suben ese equivalente baja
+ *  la diferencia con el precio fijo y el pack puede dejar de convenir.
+ */
 const CUERPO_FULL_PRECIO = 65000;
+const CUERPO_FULL_ZONAS: ZonaParaCotizar[] = [
+  zona("grande", "Pierna entera"),
+  zona("grande", "Rostro completo"),
+  zona("grande", "Espalda"),
+  zona("grande", "Brazos"),
+  zona("grande", "Glúteos"),
+  zona("chica", "Axila"),
+  zona("chica", "Cavado"),
+  zona("chica", "Tira de cola"),
+  zona("chica", "Línea alba"),
+  zona("chica", "Empeine y dedos de los pies"),
+];
 
 export function PreciosPage() {
   const { data, isLoading, error } = useDepilacionConfig();
@@ -215,11 +274,34 @@ function PreciosForm({ config }: { config: DepilationConfig }) {
       })),
     [previewConfig],
   );
+  // Pack de 3 sesiones del primer ejemplo (Cavado + Axila): es el único
+  // reflejo en vivo de `packSessions`/`packDescuentoPct`/`packRedondeo` — sin
+  // esto esas tres perillas se editan a ciegas, igual que pasaba con las
+  // otras 16 antes de tener los cuatro ejemplos de fórmula.
+  const packEjemplo = useMemo(
+    () => calcularPrecioPack(ejemplos[0].total, previewConfig),
+    [ejemplos, previewConfig],
+  );
+  // Lo que darían las 10 zonas de Cuerpo Full si se cotizaran por fórmula en
+  // vez de por el precio fijo del pack — este número SÍ se mueve con el
+  // formulario, a diferencia de `CUERPO_FULL_PRECIO`.
+  const cuerpoFullFormula = useMemo(
+    () => calcularPrecioCombo(CUERPO_FULL_ZONAS, previewConfig).total,
+    [previewConfig],
+  );
+  const cuerpoFullDescuentoPct =
+    cuerpoFullFormula > 0 ? Math.round((1 - CUERPO_FULL_PRECIO / cuerpoFullFormula) * 100) : 0;
+  const cuerpoFullConviene = CUERPO_FULL_PRECIO < cuerpoFullFormula;
 
   async function save() {
     setFormError(null);
+    const parsed = parseForm(form);
+    if (!parsed.ok) {
+      setFormError(parsed.error);
+      return;
+    }
     try {
-      await guardarConfig.mutateAsync(formToInput(form));
+      await guardarConfig.mutateAsync(parsed.values);
       toast.success("Configuración guardada");
     } catch (e) {
       setFormError((e as Error).message);
@@ -474,10 +556,15 @@ function PreciosForm({ config }: { config: DepilationConfig }) {
           Con los valores del formulario, aunque no se hayan guardado.
         </p>
         <ul className="space-y-3">
-          {ejemplos.map((e) => (
+          {ejemplos.map((e, i) => (
             <li key={e.testId} data-testid={e.testId} className="border-t border-surface-high pt-2">
               <p className="text-sm text-ink">{e.nombre}</p>
               <p className="font-display text-lg text-ink">{money(e.total)}</p>
+              {i === 0 && (
+                <p className="mt-0.5 text-xs text-ink-soft" data-testid="preview-cavado-axila-pack">
+                  Pack de {form.packSessions || "?"} sesiones: {money(packEjemplo)}
+                </p>
+              )}
             </li>
           ))}
           <li
@@ -487,7 +574,13 @@ function PreciosForm({ config }: { config: DepilationConfig }) {
           >
             <p className="text-sm text-ink">Cuerpo Full</p>
             <p className="font-display text-lg text-ink">{money(CUERPO_FULL_PRECIO)}</p>
-            <p className="text-xs text-ink-soft">Pack fijo — precio propio, no usa la fórmula.</p>
+            <p className="text-xs text-ink-soft">
+              Pack fijo — precio propio, no usa la fórmula. Por fórmula sería{" "}
+              <span data-testid="preview-cuerpo-full-formula">{money(cuerpoFullFormula)}</span>
+              {cuerpoFullConviene
+                ? ` (${cuerpoFullDescuentoPct}% de descuento sobre la fórmula).`
+                : " — ¡el pack fijo ya NO conviene, cuesta igual o más que la fórmula!"}
+            </p>
           </li>
         </ul>
       </aside>

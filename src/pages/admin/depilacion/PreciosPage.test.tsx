@@ -168,4 +168,75 @@ describe("PreciosPage", () => {
     await screen.findByTestId("preview-cavado-axila");
     expect(screen.getByText(/afectan a todos los combos/i)).toBeInTheDocument();
   });
+
+  // Ronda de fixes 1 (Important): `packDiscountPercentage` es el único de los
+  // 19 campos donde 0 es un valor legítimo — un campo vacío o con basura no
+  // puede colarse como `0` y borrar el descuento del pack en silencio.
+  it("bloquea el guardado si el descuento del pack queda vacío, no manda 0 en silencio", async () => {
+    const user = userEvent.setup();
+    render(<PreciosPage />, { wrapper });
+    await screen.findByTestId("preview-cavado-axila");
+
+    const fetchMock = vi.mocked(fetch);
+    const callsAntes = fetchMock.mock.calls.length;
+
+    await user.clear(screen.getByLabelText(/descuento \(%\)/i));
+    await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+    expect(
+      await screen.findByText("El descuento del pack tiene que ser un número entero entre 0 y 100."),
+    ).toBeInTheDocument();
+    // Ni un PUT: el guardado se cortó antes de tocar la red.
+    expect(fetchMock.mock.calls.length).toBe(callsAntes);
+  });
+
+  it("bloquea el guardado si el descuento del pack tiene basura (no un entero 0-100)", async () => {
+    const user = userEvent.setup();
+    render(<PreciosPage />, { wrapper });
+    await screen.findByTestId("preview-cavado-axila");
+
+    await user.clear(screen.getByLabelText(/descuento \(%\)/i));
+    await user.type(screen.getByLabelText(/descuento \(%\)/i), "abc");
+    await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+    expect(
+      await screen.findByText("El descuento del pack tiene que ser un número entero entre 0 y 100."),
+    ).toBeInTheDocument();
+  });
+
+  // Ronda de fixes 1, punto 2(a): el pack fijo de Cuerpo Full no se mueve
+  // (tiene precio propio), pero el equivalente por fórmula SÍ — es la señal
+  // de que ese "fijo" puede dejar de convenir si suben las tarifas.
+  it("Cuerpo Full: el precio fijo no se mueve, el equivalente por fórmula sí", async () => {
+    const user = userEvent.setup();
+    render(<PreciosPage />, { wrapper });
+
+    // 5 grandes + 5 chicas: 19.000 + 10×1.200 + 3×10×1.000 + 5×5×1.000 = 86.000
+    expect(await screen.findByTestId("preview-cuerpo-full-formula")).toHaveTextContent("$86.000");
+    expect(screen.getByTestId("preview-cuerpo-full")).toHaveTextContent("$65.000");
+
+    await user.clear(screen.getByLabelText(/escalón 1/i));
+    await user.type(screen.getByLabelText(/escalón 1/i), "1300");
+
+    // Sube 100 en el único minuto de escalón 1 del combo (10 min): +1.000
+    expect(screen.getByTestId("preview-cuerpo-full-formula")).toHaveTextContent("$87.000");
+    // El precio fijo del pack sigue siendo el mismo: $65.000, ajeno a la fórmula.
+    expect(screen.getByTestId("preview-cuerpo-full")).toHaveTextContent("$65.000");
+  });
+
+  // Ronda de fixes 1, punto 2(b): packSessions/packDiscountPercentage/
+  // packRoundingBase no tenían NINGÚN reflejo en la vista previa.
+  it("el pack de sesiones de Cavado + Axila se mueve al cambiar el descuento del pack", async () => {
+    const user = userEvent.setup();
+    render(<PreciosPage />, { wrapper });
+
+    // calcularPrecioPack(18000, 3 ses., 15%) = 18000×3×0,85 = 45.900 → redondea a 46.000
+    expect(await screen.findByTestId("preview-cavado-axila-pack")).toHaveTextContent("$46.000");
+
+    await user.clear(screen.getByLabelText(/descuento \(%\)/i));
+    await user.type(screen.getByLabelText(/descuento \(%\)/i), "20");
+
+    // 18000×3×0,80 = 43.200 → redondea a 43.000
+    expect(screen.getByTestId("preview-cavado-axila-pack")).toHaveTextContent("$43.000");
+  });
 });
