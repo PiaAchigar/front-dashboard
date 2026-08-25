@@ -1,14 +1,18 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { ZonasPage } from "./ZonasPage";
 import type { ZonasPorCategoria } from "../../../lib/api-types";
 
+// Mutable para poder probar con distintos roles sin re-declarar el mock por test.
+let mockRole = "admin";
+
 vi.mock("../../../auth/AuthContext", () => ({
   useAuth: () => ({
-    role: "admin",
+    role: mockRole,
     session: { access_token: "test-token" },
     user: null,
     loading: false,
@@ -71,6 +75,10 @@ beforeEach(() => {
   );
 });
 
+afterEach(() => {
+  mockRole = "admin";
+});
+
 describe("ZonasPage", () => {
   it("agrupa las zonas por categoría y muestra el conteo", async () => {
     render(<ZonasPage />, { wrapper });
@@ -81,5 +89,33 @@ describe("ZonasPage", () => {
   it("muestra las exclusiones de cada zona", async () => {
     render(<ZonasPage />, { wrapper });
     expect(await screen.findByText(/no se combina con Media pierna/i)).toBeInTheDocument();
+  });
+
+  it("no muestra el botón Agregar para operator (manage, no edit)", async () => {
+    mockRole = "operator";
+    render(<ZonasPage />, { wrapper });
+    expect(await screen.findByText("Grande")).toBeInTheDocument();
+    expect(screen.queryByText("Agregar")).not.toBeInTheDocument();
+  });
+
+  it("rechaza un orden que no es un entero, sin llamar a la API", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.mocked(fetch);
+    render(<ZonasPage />, { wrapper });
+
+    await user.click(await screen.findByText("Agregar"));
+    await user.type(screen.getByLabelText("Nombre *"), "Rodillas");
+    const ordenInput = screen.getByLabelText("Orden");
+    await user.clear(ordenInput);
+    await user.type(ordenInput, "abc");
+    const callsAntes = fetchMock.mock.calls.length;
+
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(
+      await screen.findByText("El orden debe ser un número entero mayor o igual a 0."),
+    ).toBeInTheDocument();
+    // Ni POST /zonas ni PUT /exclusiones: se cortó antes de tocar la red.
+    expect(fetchMock.mock.calls.length).toBe(callsAntes);
   });
 });

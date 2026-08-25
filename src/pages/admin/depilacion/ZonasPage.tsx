@@ -29,6 +29,15 @@ type Form = {
 
 const EMPTY: Form = { name: "", category: "grande", displayOrder: "0", excludes: [] };
 
+/** "" cuenta como 0. Cualquier otra cosa debe ser un entero >= 0 (sin signo,
+ *  sin decimales); si no, devuelve null para que el llamador muestre el error. */
+function parseDisplayOrder(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return 0;
+  if (!/^\d+$/.test(trimmed)) return null;
+  return Number(trimmed);
+}
+
 export function ZonasPage() {
   const { role } = useAuth();
   const r = role as Role | null;
@@ -97,11 +106,16 @@ export function ZonasPage() {
 
   async function save() {
     setFormError(null);
+    const displayOrder = parseDisplayOrder(form.displayOrder);
+    if (displayOrder === null) {
+      setFormError("El orden debe ser un número entero mayor o igual a 0.");
+      return;
+    }
     try {
       const payload = {
         name: form.name.trim(),
         category: form.category,
-        displayOrder: form.displayOrder.trim() === "" ? 0 : Number(form.displayOrder),
+        displayOrder,
       };
       const saved = await guardarZona.mutateAsync(
         editing ? { id: editing.id, ...payload } : payload,
@@ -142,7 +156,7 @@ export function ZonasPage() {
                 </button>
               ))}
             </div>
-            {canEdit && (
+            {canManage && (
               <button
                 onClick={openCreate}
                 className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
