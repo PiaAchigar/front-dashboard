@@ -254,7 +254,7 @@ export function ZonasPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Orden">
+          <Field label="Orden" help="Posición en la lista: el número más chico va primero. Ordena solo dentro de su categoría (una zona chica nunca sube al grupo de las grandes). Si dos tienen el mismo número, se ordenan alfabéticamente — por eso con todo en 0 la lista queda alfabética. Conviene numerar de 10 en 10 (10, 20, 30) para poder meter una zona en el medio sin renumerar el resto.">
             <TextInput
               inputMode="numeric"
               value={form.displayOrder}

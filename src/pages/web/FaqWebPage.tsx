@@ -197,7 +197,7 @@ export function FaqWebPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Orden">
+          <Field label="Orden" help="Posición en la lista de preguntas de la web: el número más chico va primero. Si dos tienen el mismo número, se ordenan alfabéticamente por la pregunta. Conviene numerar de 10 en 10 (10, 20, 30) para poder meter una pregunta en el medio sin renumerar el resto.">
             <TextInput
               type="number"
               min={0}
