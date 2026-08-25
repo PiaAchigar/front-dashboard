@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch } from "../lib/api-client";
+import type { DepilationConfig } from "../lib/depilation-pricing";
 import type { ZonaCategoria, ZonaDepilacion, ZonasPorCategoria } from "../lib/api-types";
 
 const KEY = ["depilacion", "zonas"];
+const CONFIG_KEY = ["depilacion", "config"];
 
 export type ZonaInput = {
   name: string;
@@ -77,5 +79,58 @@ export function useGuardarExclusiones() {
         body: JSON.stringify({ excludes }),
       }),
     onSuccess: invalidate,
+  });
+}
+
+/** Los 19 campos que espera el `PUT /config` del backend — forma PLANA, a
+ *  diferencia del `DepilationConfig` anidado que devuelve el `GET`. */
+export type DepilacionConfigInput = {
+  priceGrande: number;
+  priceMediana: number;
+  priceChica: number;
+  pricingMinutesGrande: number;
+  pricingMinutesMediana: number;
+  pricingMinutesChica: number;
+  tier1RatePerMinute: number;
+  tier2RatePerMinute: number;
+  slotMinutesFemaleGrande: number;
+  slotMinutesFemaleMediana: number;
+  slotMinutesFemaleChica: number;
+  slotMinutesMaleGrande: number;
+  slotMinutesMaleMediana: number;
+  slotMinutesMaleChica: number;
+  slotRoundingStep: number;
+  slotMinimumMinutes: number;
+  packSessions: number;
+  packDiscountPercentage: number;
+  packRoundingBase: number;
+};
+
+/** GET /config: la forma ANIDADA que consume directamente `calcularPrecioCombo`. */
+export function useDepilacionConfig() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+
+  return useQuery({
+    queryKey: CONFIG_KEY,
+    queryFn: () => apiFetch<DepilationConfig>("/api/agenda/depilacion/config", token),
+    enabled: !!token,
+    staleTime: 60 * 1000,
+  });
+}
+
+/** PUT /config: recibe la forma plana, devuelve la anidada ya actualizada. */
+export function useGuardarConfig() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: DepilacionConfigInput) =>
+      apiFetch<DepilationConfig>("/api/agenda/depilacion/config", token, {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: (data) => qc.setQueryData(CONFIG_KEY, data),
   });
 }
