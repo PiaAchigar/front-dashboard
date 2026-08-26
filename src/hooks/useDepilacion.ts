@@ -176,6 +176,11 @@ export type ComboDepilacionInput = {
   kind?: "pack_fijo" | "guardado";
   fixedPrice?: number | null;
   choiceZoneCount?: number;
+  /** Pack propio del combo. Las tres o ninguna: mandarlas en `null` es
+   *  explícitamente "volvé al pack global", y así lo entiende el backend. */
+  packSessions?: number | null;
+  packDiscountPercentage?: number | null;
+  packRoundingBase?: number | null;
 };
 
 function useInvalidateCombos() {

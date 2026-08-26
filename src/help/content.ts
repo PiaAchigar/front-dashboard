@@ -155,4 +155,11 @@ export const HELP_ARTICLES: HelpArticle[] = [
     tags: ["depilación", "archivar", "eliminar", "borrar", "zona", "combo"],
     section: "Agenda",
   },
+  {
+    id: "depilacion-pack-por-combo",
+    title: "¿Cómo armo un pack de 5 sesiones para un solo combo?",
+    body: "Hay dos lugares donde vive el pack de sesiones y conviene no confundirlos.\n\nEn Administración → Depilación → Precios está el pack POR DEFECTO: la cantidad de sesiones y el descuento que se usan cuando cotizás zonas sueltas en el momento, y que heredan todos los combos que no tengan el suyo. Cambiar eso afecta a todo el negocio.\n\nEn cada combo, en cambio, podés definir uno propio. Entrá a Administración → Depilación → Combos, editá el combo, y en el bloque \"Pack de sesiones\" elegí \"Definir uno para este combo\". Ahí cargás cuántas sesiones trae, qué descuento lleva y a qué múltiplo se redondea. El precio se calcula solo mientras escribís, así que lo ves antes de guardar.\n\nSi alguna vez querés volver atrás, elegí \"Usar el pack por defecto\" y ese combo vuelve a heredar el de la pantalla Precios.\n\nDos avisos que te va a dar el sistema: si ponés 0% de descuento te marca que ese pack cuesta lo mismo que comprar las sesiones sueltas, o sea que dejó de ser un pack. Y en los packs fijos (Cuerpo Full y compañía) el precio del pack se calcula sobre su precio de catálogo, no sobre el que da la fórmula.",
+    tags: ["depilación", "pack", "sesiones", "descuento", "combo", "precio"],
+    section: "Agenda",
+  },
 ];

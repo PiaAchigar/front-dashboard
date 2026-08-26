@@ -353,6 +353,17 @@ export type ComboDepilacionKind = "pack_fijo" | "guardado";
  *  `DepilationComboAssembled` en el repo del backend. `precioCalculado` es
  *  siempre la fórmula; `precioFinal` es el fijo solo si `kind === "pack_fijo"`
  *  — un `guardado` nunca lee `fixedPrice` para su precio. */
+/** El pack de un combo, ya resuelto y calculado por el backend. */
+export type PackDeCombo = {
+  sesiones: number;
+  descuentoPct: number;
+  redondeo: number;
+  /** `true` si el combo define el suyo; `false` si hereda el global. */
+  propio: boolean;
+  precio: number;
+  ahorro: number;
+};
+
 export type ComboDepilacion = {
   id: string;
   name: string;
@@ -361,6 +372,11 @@ export type ComboDepilacion = {
   fixedPrice: number | null;
   fixedDurationMinutes: number | null;
   choiceZoneCount: number;
+  /** Las tres van juntas: o las tres cargadas, o las tres en null (usa el
+   *  pack global de la pantalla Precios). */
+  packSessions: number | null;
+  packDiscountPercentage: number | null;
+  packRoundingBase: number | null;
   isPublishedWeb: boolean;
   displayOrder: number;
   isActive: boolean;
@@ -368,4 +384,5 @@ export type ComboDepilacion = {
   precioCalculado: number;
   precioFinal: number;
   duracionMinutos: number;
+  pack: PackDeCombo;
 };

@@ -57,6 +57,9 @@ const COMBO_ARCHIVADA: ComboDepilacion = {
   fixedPrice: null,
   fixedDurationMinutes: null,
   choiceZoneCount: 0,
+  packSessions: null,
+  packDiscountPercentage: null,
+  packRoundingBase: null,
   isPublishedWeb: false,
   displayOrder: 0,
   isActive: true,
@@ -67,6 +70,7 @@ const COMBO_ARCHIVADA: ComboDepilacion = {
   precioCalculado: 31000, // 19.000 (lista) + 12.000 (escalón 1: 10 × 1.200)
   precioFinal: 31000,
   duracionMinutos: 20,
+  pack: { sesiones: 3, descuentoPct: 15, redondeo: 1000, propio: false, precio: 79000, ahorro: 14000 },
 };
 
 // Dos packs fijos sobre la misma zona (Cavado, $12.000 de fórmula): uno
@@ -81,6 +85,9 @@ const PACK_EXCEDE: ComboDepilacion = {
   fixedPrice: 15000,
   fixedDurationMinutes: null,
   choiceZoneCount: 0,
+  packSessions: null,
+  packDiscountPercentage: null,
+  packRoundingBase: null,
   isPublishedWeb: true,
   displayOrder: 1,
   isActive: true,
@@ -88,6 +95,7 @@ const PACK_EXCEDE: ComboDepilacion = {
   precioCalculado: 12000,
   precioFinal: 15000,
   duracionMinutos: 10,
+  pack: { sesiones: 3, descuentoPct: 15, redondeo: 1000, propio: false, precio: 38000, ahorro: 7000 },
 };
 
 const PACK_OK: ComboDepilacion = {
@@ -98,6 +106,9 @@ const PACK_OK: ComboDepilacion = {
   fixedPrice: 10000,
   fixedDurationMinutes: null,
   choiceZoneCount: 0,
+  packSessions: null,
+  packDiscountPercentage: null,
+  packRoundingBase: null,
   isPublishedWeb: true,
   displayOrder: 2,
   isActive: true,
@@ -105,6 +116,7 @@ const PACK_OK: ComboDepilacion = {
   precioCalculado: 12000,
   precioFinal: 10000,
   duracionMinutos: 10,
+  pack: { sesiones: 3, descuentoPct: 15, redondeo: 1000, propio: false, precio: 26000, ahorro: 4000 },
 };
 
 const COMBOS: ComboDepilacion[] = [COMBO_ARCHIVADA, PACK_EXCEDE, PACK_OK];
@@ -284,5 +296,123 @@ describe("CombosDepilacionPage", () => {
     expect(patchCalls[0]!.url).toContain("/depilacion/combos/combo-1");
     // La zona archivada no viaja en el PATCH — solo la que quedó tildada.
     expect(patchCalls[0]!.body.zonaIds).toEqual(["z1"]);
+  });
+
+  describe("pack de sesiones por combo", () => {
+    async function abrirEdicion(user: ReturnType<typeof userEvent.setup>, nombre: string) {
+      const fila = (await screen.findByText(nombre)).closest("tr");
+      await user.click(within(fila as HTMLElement).getByTitle("Editar"));
+    }
+
+    it("un combo sin pack propio arranca en 'usar el por defecto', con los números del global", async () => {
+      const user = userEvent.setup();
+      render(<CombosDepilacionPage />, { wrapper });
+      await abrirEdicion(user, "Combo con zona archivada");
+
+      const porDefecto = await screen.findByRole("radio", { name: /Usar el pack por defecto/i });
+      expect(porDefecto).toBeChecked();
+      // El texto del radio muestra de dónde parte: 3 sesiones, 15%.
+      expect(porDefecto.closest("label")).toHaveTextContent("3 sesiones, 15%");
+      // Los campos no se ven mientras use el global.
+      expect(screen.queryByLabelText("Sesiones")).not.toBeInTheDocument();
+    });
+
+    it("al definir uno propio aparecen los tres campos y el precio en vivo", async () => {
+      const user = userEvent.setup();
+      render(<CombosDepilacionPage />, { wrapper });
+      await abrirEdicion(user, "Combo con zona archivada");
+
+      await user.click(await screen.findByRole("radio", { name: /Definir uno para este combo/i }));
+
+      expect(screen.getByLabelText("Sesiones")).toHaveValue("3");
+      expect(screen.getByLabelText("Descuento (%)")).toHaveValue("15");
+      expect(screen.getByLabelText("Redondeo ($)")).toHaveValue("1000");
+
+      // El combo son Pierna entera + Rostro completo = $31.000 de fórmula.
+      // 31.000 × 3 × 0,85 = 79.050 → 79.000.
+      expect(screen.getByTestId("preview-pack-combo")).toHaveTextContent("$79.000");
+
+      await user.clear(screen.getByLabelText("Sesiones"));
+      await user.type(screen.getByLabelText("Sesiones"), "5");
+      await user.clear(screen.getByLabelText("Descuento (%)"));
+      await user.type(screen.getByLabelText("Descuento (%)"), "22");
+      // 31.000 × 5 = 155.000; −22% = 120.900 → 121.000.
+      expect(screen.getByTestId("preview-pack-combo")).toHaveTextContent("$121.000");
+    });
+
+    it("guardar con pack propio manda las tres perillas", async () => {
+      const user = userEvent.setup();
+      render(<CombosDepilacionPage />, { wrapper });
+      await abrirEdicion(user, "Combo con zona archivada");
+
+      // Sacar la zona archivada, que si no bloquea el guardado.
+      await user.click(await screen.findByLabelText("Rostro completo (archivada)"));
+      await user.click(screen.getByRole("radio", { name: /Definir uno para este combo/i }));
+      await user.clear(screen.getByLabelText("Sesiones"));
+      await user.type(screen.getByLabelText("Sesiones"), "5");
+      await user.clear(screen.getByLabelText("Descuento (%)"));
+      await user.type(screen.getByLabelText("Descuento (%)"), "22");
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      await waitFor(() => expect(patchCalls).toHaveLength(1));
+      expect(patchCalls[0]!.body).toMatchObject({
+        packSessions: 5,
+        packDiscountPercentage: 22,
+        packRoundingBase: 1000,
+      });
+    });
+
+    it("guardar con el pack por defecto manda las tres en null, no las omite", async () => {
+      const user = userEvent.setup();
+      render(<CombosDepilacionPage />, { wrapper });
+      await abrirEdicion(user, "Combo con zona archivada");
+      await user.click(await screen.findByLabelText("Rostro completo (archivada)"));
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      await waitFor(() => expect(patchCalls).toHaveLength(1));
+      // `null` explícito es lo que le dice al backend "volvé al global";
+      // omitir el campo no significa lo mismo.
+      expect(patchCalls[0]!.body).toMatchObject({
+        packSessions: null,
+        packDiscountPercentage: null,
+        packRoundingBase: null,
+      });
+    });
+
+    it("un descuento de más de 100 se corta antes de tocar la red", async () => {
+      const user = userEvent.setup();
+      render(<CombosDepilacionPage />, { wrapper });
+      await abrirEdicion(user, "Combo con zona archivada");
+      await user.click(await screen.findByLabelText("Rostro completo (archivada)"));
+      await user.click(screen.getByRole("radio", { name: /Definir uno para este combo/i }));
+      await user.clear(screen.getByLabelText("Descuento (%)"));
+      await user.type(screen.getByLabelText("Descuento (%)"), "150");
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      expect(await screen.findByText(/entre 0 y 100/i)).toBeInTheDocument();
+      expect(patchCalls).toHaveLength(0);
+    });
+
+    it("avisa cuando el descuento es 0 y el pack deja de ser un pack", async () => {
+      const user = userEvent.setup();
+      render(<CombosDepilacionPage />, { wrapper });
+      await abrirEdicion(user, "Combo con zona archivada");
+      await user.click(await screen.findByRole("radio", { name: /Definir uno para este combo/i }));
+      await user.clear(screen.getByLabelText("Descuento (%)"));
+      await user.type(screen.getByLabelText("Descuento (%)"), "0");
+
+      expect(screen.getByText(/dejó de ser un pack/i)).toBeInTheDocument();
+    });
+
+    it("en un pack fijo el pack se calcula sobre su precio de catálogo, no sobre la fórmula", async () => {
+      const user = userEvent.setup();
+      render(<CombosDepilacionPage />, { wrapper });
+      // "Pack con precio alto": fijo $15.000, fórmula $12.000.
+      await abrirEdicion(user, "Pack con precio alto");
+      await user.click(await screen.findByRole("radio", { name: /Definir uno para este combo/i }));
+
+      // 15.000 × 3 × 0,85 = 38.250 → 38.000. Sobre la fórmula daría 31.000.
+      expect(screen.getByTestId("preview-pack-combo")).toHaveTextContent("$38.000");
+    });
   });
 });

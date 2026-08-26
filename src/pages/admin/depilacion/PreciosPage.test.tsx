@@ -64,6 +64,9 @@ const CUERPO_FULL: ComboDepilacion = {
   fixedPrice: 65000,
   fixedDurationMinutes: null,
   choiceZoneCount: 0,
+  packSessions: null,
+  packDiscountPercentage: null,
+  packRoundingBase: null,
   isPublishedWeb: true,
   displayOrder: 1,
   isActive: true,
@@ -82,6 +85,7 @@ const CUERPO_FULL: ComboDepilacion = {
   precioCalculado: 86000,
   precioFinal: 65000,
   duracionMinutos: 60,
+  pack: { sesiones: 3, descuentoPct: 15, redondeo: 1000, propio: false, precio: 166000, ahorro: 29000 },
 };
 const COMBOS: ComboDepilacion[] = [CUERPO_FULL];
 

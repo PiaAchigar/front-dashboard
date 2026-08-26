@@ -662,9 +662,11 @@ function PreciosForm({
         </section>
 
         <section className="space-y-4">
-          <h2 className="font-display text-lg text-ink">Pack de sesiones</h2>
+          <h2 className="font-display text-lg text-ink">Pack de sesiones (por defecto)</h2>
           <p className="text-xs text-ink-soft">
-            Descuento por pagar varias sesiones del mismo combo juntas.
+            Descuento por pagar varias sesiones del mismo combo juntas. Es el valor que se usa
+            cuando cotizás zonas sueltas en el momento, y el que heredan los combos que no
+            definen el suyo. Un combo puede tener uno propio desde la solapa Combos.
           </p>
           <div className="flex flex-wrap gap-3">
             <Field
@@ -839,6 +841,10 @@ function PreciosForm({
             Los packs fijos (Cuerpo Full, Cuerpo Completo, Esenciales) tienen precio propio de
             catálogo. Se cobran a ese precio aunque la fórmula dé otro, y se editan en la solapa
             Combos.
+          </p>
+          <p className="text-xs text-ink-soft">
+            Ahí mismo, cada combo puede además definir su propio pack de sesiones —otra cantidad
+            y otro descuento— en vez de heredar el de acá arriba.
           </p>
           {cuerpoFullCargando ? (
             <p className="text-sm text-ink-soft">Cargando…</p>
