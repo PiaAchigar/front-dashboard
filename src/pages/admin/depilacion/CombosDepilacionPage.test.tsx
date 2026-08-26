@@ -404,6 +404,25 @@ describe("CombosDepilacionPage", () => {
       expect(screen.getByText(/dejó de ser un pack/i)).toBeInTheDocument();
     });
 
+    it("el armador de abajo muestra EL MISMO pack que el bloque de arriba", async () => {
+      const user = userEvent.setup();
+      render(<CombosDepilacionPage />, { wrapper });
+      await abrirEdicion(user, "Combo con zona archivada");
+
+      // Con el global, los dos dicen 3 sesiones.
+      expect(await screen.findAllByText(/Pack de 3 sesiones/i)).toHaveLength(2);
+
+      await user.click(screen.getByRole("radio", { name: /Definir uno para este combo/i }));
+      await user.clear(screen.getByLabelText("Sesiones"));
+      await user.type(screen.getByLabelText("Sesiones"), "5");
+
+      // Al definir uno propio, los dos tienen que pasar a 5. Antes el armador
+      // se quedaba en 3 y la pantalla mostraba dos precios distintos para lo
+      // mismo — la forma más rápida de cobrar mal.
+      expect(screen.getAllByText(/Pack de 5 sesiones/i)).toHaveLength(2);
+      expect(screen.queryByText(/Pack de 3 sesiones/i)).not.toBeInTheDocument();
+    });
+
     it("en un pack fijo el pack se calcula sobre su precio de catálogo, no sobre la fórmula", async () => {
       const user = userEvent.setup();
       render(<CombosDepilacionPage />, { wrapper });

@@ -304,6 +304,9 @@ export function CombosDepilacionPage() {
     const precio = calcularPrecioPack(base, config, propia);
     return {
       ...politica,
+      // La política cruda (o `null`), para pasársela al armador y que su
+      // "Pack de N sesiones" diga lo mismo que este bloque.
+      propia,
       base,
       precio,
       ahorro: base * politica.sesiones - precio,
@@ -589,6 +592,7 @@ export function CombosDepilacionPage() {
         {config && (
           <ArmadorCombo
             zonas={zonasActivas}
+            packPropio={previewPack?.propia ?? null}
             zonasArchivadasIncluidas={zonasArchivadasDelCombo}
             exclusiones={exclusiones}
             config={config}

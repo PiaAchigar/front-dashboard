@@ -6,6 +6,7 @@ import {
   calcularDuracionTurno,
   calcularPrecioCombo,
   calcularPrecioPack,
+  politicaDePack,
   zonasBloqueadas,
   type Categoria,
   type Cotizacion,
@@ -13,6 +14,7 @@ import {
   type Exclusion,
   type LineaCotizacion,
   type PackFijo,
+  type PackPolitica,
   type Sexo,
   type ZonaParaCotizar,
 } from "../../lib/depilation-pricing";
@@ -41,6 +43,12 @@ export type ArmadorComboState = {
 export type ArmadorComboProps = {
   /** Zonas seleccionables (ya filtradas a activas por quien monta el componente). */
   zonas: ZonaParaCotizar[];
+  /** Pack propio del combo que se está armando, si tiene uno. Sin esto el
+   *  armador cotizaría el pack con la política global mientras el formulario
+   *  de arriba muestra otra: dos números distintos para lo mismo en la misma
+   *  pantalla, que es la forma más rápida de cobrar mal. `null` = el global,
+   *  que es lo correcto para una cotización al vuelo. */
+  packPropio?: PackPolitica | null;
   exclusiones: Exclusion[];
   config: DepilationConfig;
   packs: PackFijo[];
@@ -71,6 +79,7 @@ export function ArmadorCombo({
   onCambio,
   zonaIdsIniciales,
   zonasArchivadasIncluidas = [],
+  packPropio = null,
 }: ArmadorComboProps) {
   const [zonaIds, setZonaIds] = useState<string[]>(zonaIdsIniciales ?? []);
   const [sexo, setSexo] = useState<Sexo>("mujer");
@@ -126,11 +135,12 @@ export function ArmadorCombo({
   // El total que se muestra y del que sale el pack de 3: el fijo del pack si
   // hay uno, si no la fórmula. Nunca al revés.
   const totalMostrado = packFijo ? packFijo.precioFijo : cotizacion.total;
+  const packPolitica = useMemo(() => politicaDePack(config, packPropio), [config, packPropio]);
   const packTotal = useMemo(
-    () => calcularPrecioPack(totalMostrado, config),
-    [totalMostrado, config],
+    () => calcularPrecioPack(totalMostrado, config, packPropio),
+    [totalMostrado, config, packPropio],
   );
-  const packAhorro = totalMostrado * config.packSesiones - packTotal;
+  const packAhorro = totalMostrado * packPolitica.sesiones - packTotal;
 
   useEffect(() => {
     onCambio?.({ zonaIds, sexo, cotizacion, duracionMinutos, packFijo });
@@ -272,7 +282,7 @@ export function ArmadorCombo({
             className="w-full space-y-0.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-left transition-colors hover:bg-primary/10"
           >
             <p className="text-xs font-medium text-ink-soft">
-              Pack de {config.packSesiones} sesiones
+              Pack de {packPolitica.sesiones} sesiones
             </p>
             <p className="font-display text-base text-ink">{money(packTotal)}</p>
             <p className="text-xs text-ink-soft">Ahorrás {money(packAhorro)}</p>
