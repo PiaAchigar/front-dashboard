@@ -62,6 +62,10 @@ export default function App() {
                 <Route path="admin" element={<AdminLayout />}>
                   <Route index element={<Navigate to="/admin/servicios" replace />} />
                   <Route path="servicios" element={<ServiciosAdminPage />} />
+                  <Route
+                    path="sin-clasificar"
+                    element={<ServiciosAdminPage soloSinArea />}
+                  />
                   {AREAS.map((a) => (
                     <Route
                       key={a.path}

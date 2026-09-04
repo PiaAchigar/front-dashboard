@@ -3,12 +3,31 @@ import { useAuth } from "../../auth/AuthContext";
 import { can, type Role } from "../../lib/permissions";
 import { SectionSubnav } from "../../components/SectionSubnav";
 import { PESTANAS, acentoDe } from "../../lib/admin-nav";
+import { useServicesAdmin } from "../../hooks/useServicesAdmin";
+import { nombresDeArea, useAreas } from "../../hooks/useAreas";
+import { contarSinArea } from "../../lib/areas";
 
 export function AdminLayout() {
   const { role } = useAuth();
+
+  // "Sin clasificar" es una pestaña de rescate: aparece SOLO cuando hay algo
+  // que rescatar. Una pestaña permanente en cero enseña a ignorarla, y esta
+  // tiene que llamar la atención justo el día que deje de estar vacía.
+  // Las dos consultas ya están cacheadas por las pantallas de adentro.
+  const { data: servicios = [] } = useServicesAdmin(false);
+  const { data: areas = [] } = useAreas();
+  const huerfanos = contarSinArea(servicios, nombresDeArea(areas));
+
   const items = PESTANAS.filter((it) => can(role as Role | null, it.section, "view")).map(
     ({ to, label, grupo }) => ({ to, label, accent: acentoDe(grupo) }),
   );
+  if (huerfanos > 0 && can(role as Role | null, "catalogo", "view")) {
+    items.push({
+      to: "/admin/sin-clasificar",
+      label: `Sin clasificar (${huerfanos})`,
+      accent: acentoDe("promo"),
+    });
+  }
 
   return (
     <div className="flex h-full flex-col">

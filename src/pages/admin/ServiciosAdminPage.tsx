@@ -23,6 +23,8 @@ import {
 } from "../../hooks/useServicesAdmin";
 import { useMachinesList } from "../../hooks/useMachinesAdmin";
 import { useCategoriesAdmin } from "../../hooks/useCategoriesAdmin";
+import { nombresDeArea, useAreas } from "../../hooks/useAreas";
+import { otrasAreas, sinArea } from "../../lib/areas";
 import { useProvidersAdmin } from "../../hooks/useProvidersAdmin";
 import { useServiceAgreements } from "../../hooks/useServiceAgreements";
 
@@ -284,7 +286,9 @@ const num = (s: string) => (s.trim() === "" ? null : Number(s));
  *
  * Sin `area`, la página es la de siempre: todos los servicios.
  */
-export function ServiciosAdminPage({ area }: { area?: string } = {}) {
+export function ServiciosAdminPage(
+  { area, soloSinArea }: { area?: string; soloSinArea?: boolean } = {},
+) {
   const { role } = useAuth();
   const r = role as Role | null;
   const canEdit = can(r, "catalogo", "edit");
@@ -310,15 +314,26 @@ export function ServiciosAdminPage({ area }: { area?: string } = {}) {
   const setAgreements = useSetServiceAgreements();
   const { data: machines = [] } = useMachinesList();
   const { data: categoryTree = [] } = useCategoriesAdmin(false);
+  const { data: areas = [] } = useAreas();
+  const AREAS_NOMBRES = useMemo(() => nombresDeArea(areas), [areas]);
+  const idsDeArea = useMemo(() => new Set(areas.map((a) => a.id)), [areas]);
+
+  // Las áreas están archivadas para que no salgan en el sitio público, así que
+  // `useCategoriesAdmin(false)` no las trae. Sin esto el formulario no las
+  // ofrece y no habría forma de asignarle un área a ningún servicio.
+  const arbolConAreas = useMemo(() => {
+    const yaEstan = new Set(categoryTree.map((c) => c.id));
+    return [...areas.filter((a) => !yaEstan.has(a.id)), ...categoryTree];
+  }, [categoryTree, areas]);
   const { data: providersAll = [] } = useProvidersAdmin(false);
-  const totalCategorias = useMemo(() => contarCategorias(categoryTree), [categoryTree]);
+  const totalCategorias = useMemo(() => contarCategorias(arbolConAreas), [arbolConAreas]);
 
   // El editor de acuerdos mantiene su propio estado; lo leemos al guardar.
   const agreementsRef = useRef<AgreementsHandle>(null);
 
   const rows = useMemo(
-    () => filtrarServicios(services, area, search),
-    [services, search, area],
+    () => filtrarServicios(services, { area, soloSinArea, nombresDeArea: AREAS_NOMBRES, search }),
+    [services, search, area, soloSinArea, AREAS_NOMBRES],
   );
 
   const columns: Column<Service>[] = [
@@ -356,13 +371,45 @@ export function ServiciosAdminPage({ area }: { area?: string } = {}) {
     {
       key: "cats",
       header: "Categorías",
-      width: 240,
-      render: (s) =>
-        s.categories.length > 0 ? (
-          <span className="text-ink-soft">{s.categories.map((c) => c.name).join(", ")}</span>
-        ) : (
-          "—"
-        ),
+      width: 280,
+      render: (s) => {
+        // El chip nombra el OTRO área, no la propia: parada en Estética, ver
+        // "también en Medicina y Dermatología" te dice a dónde ir. Un
+        // resaltado genérico sólo diría "pasa algo acá".
+        //
+        // Lleva texto, no sólo color: quien no distingue esos tonos tiene que
+        // poder leerlo igual.
+        const otras = otrasAreas(s, area, AREAS_NOMBRES);
+        const tecnicas = s.categories
+          .map((c) => c.name)
+          .filter((n): n is string => n !== null && !AREAS_NOMBRES.includes(n));
+
+        if (s.categories.length === 0) return "—";
+        return (
+          <div className="flex flex-wrap items-center gap-1">
+            {otras.map((a) => (
+              <span
+                key={a}
+                title={`Este servicio también aparece en la pestaña ${a}`}
+                className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs text-primary"
+              >
+                también en {a}
+              </span>
+            ))}
+            {tecnicas.length > 0 && (
+              <span className="text-ink-soft">{tecnicas.join(", ")}</span>
+            )}
+            {sinArea(s, AREAS_NOMBRES) && AREAS_NOMBRES.length > 0 && (
+              <span
+                title="No aparece en ninguna pestaña de área. Asignale una para que se encuentre."
+                className="rounded-full border border-promo/40 bg-promo/10 px-2 py-0.5 text-xs text-promo"
+              >
+                sin área
+              </span>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -429,6 +476,19 @@ export function ServiciosAdminPage({ area }: { area?: string } = {}) {
         rate: a.rate.trim() === "" ? null : Number(a.rate),
       }));
 
+    // Sin área, el servicio no aparece en ninguna pestaña y se vuelve
+    // invisible. No es teórico: 19 servicios quedaron fuera del árbol de la
+    // 1.26.0 y nadie los vio hasta contarlos a mano. Con N:N no hay NOT NULL
+    // que lo impida, así que se valida acá.
+    const areasElegidas = form.categoryIds.filter((id) => idsDeArea.has(id));
+    if (AREAS_NOMBRES.length > 0 && areasElegidas.length === 0) {
+      setFormError(
+        "Elegí al menos un área (Estética, Depilación, Medicina y Dermatología, " +
+          "Masajes y Bienestar…). Sin área, el servicio no aparece en ninguna pestaña.",
+      );
+      return;
+    }
+
     setFormError(null);
     try {
       // 1) Servicio (alta u edición) → obtener el id. 2) Categorías. 3) Acuerdos.
@@ -464,7 +524,7 @@ export function ServiciosAdminPage({ area }: { area?: string } = {}) {
   return (
     <>
       <ResourceManager<Service>
-        title={area ?? "Servicios"}
+        title={soloSinArea ? "Sin clasificar" : (area ?? "Servicios")}
         rows={rows}
         columns={columns}
         loading={isLoading}
@@ -645,7 +705,7 @@ export function ServiciosAdminPage({ area }: { area?: string } = {}) {
             // parte al medio entre las dos columnas. Con columnas CSS y
             // `break-inside-avoid` cada categoría madre queda entera.
             <div className="columns-2 gap-x-6">
-              {categoryTree.map((n) => (
+              {arbolConAreas.map((n) => (
                 <div key={n.id} className="mb-3 break-inside-avoid">
                   <RamaCategorias
                     nodo={n}
