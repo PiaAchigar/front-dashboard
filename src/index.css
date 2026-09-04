@@ -62,3 +62,15 @@ h3 {
 .modal-scroll::-webkit-scrollbar-button {
   display: none;
 }
+/* La tira de pestañas de las secciones (SectionSubnav) desborda a propósito,
+   pero se navega con las flechas de los extremos, no con una barra de scroll:
+   una barra horizontal debajo de las pestañas se lee como parte del diseño y
+   queda mal. Se esconde la barra, no el desborde — la rueda y el swipe siguen
+   funcionando igual. */
+.subnav-tira {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.subnav-tira::-webkit-scrollbar {
+  display: none;
+}

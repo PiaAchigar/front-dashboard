@@ -24,7 +24,8 @@ import {
 import { useMachinesList } from "../../hooks/useMachinesAdmin";
 import { useCategoriesAdmin } from "../../hooks/useCategoriesAdmin";
 import { nombresDeArea, useAreas } from "../../hooks/useAreas";
-import { otrasAreas, sinArea } from "../../lib/areas";
+import { preseleccionDeArea } from "../../lib/areas";
+import { etiquetaDeCategorias } from "../../lib/categorias";
 import { useProvidersAdmin } from "../../hooks/useProvidersAdmin";
 import { useServiceAgreements } from "../../hooks/useServiceAgreements";
 
@@ -318,15 +319,8 @@ export function ServiciosAdminPage(
   const AREAS_NOMBRES = useMemo(() => nombresDeArea(areas), [areas]);
   const idsDeArea = useMemo(() => new Set(areas.map((a) => a.id)), [areas]);
 
-  // Las áreas están archivadas para que no salgan en el sitio público, así que
-  // `useCategoriesAdmin(false)` no las trae. Sin esto el formulario no las
-  // ofrece y no habría forma de asignarle un área a ningún servicio.
-  const arbolConAreas = useMemo(() => {
-    const yaEstan = new Set(categoryTree.map((c) => c.id));
-    return [...areas.filter((a) => !yaEstan.has(a.id)), ...categoryTree];
-  }, [categoryTree, areas]);
   const { data: providersAll = [] } = useProvidersAdmin(false);
-  const totalCategorias = useMemo(() => contarCategorias(arbolConAreas), [arbolConAreas]);
+  const totalCategorias = useMemo(() => contarCategorias(categoryTree), [categoryTree]);
 
   // El editor de acuerdos mantiene su propio estado; lo leemos al guardar.
   const agreementsRef = useRef<AgreementsHandle>(null);
@@ -372,50 +366,22 @@ export function ServiciosAdminPage(
       key: "cats",
       header: "Categorías",
       width: 280,
-      render: (s) => {
-        // El chip nombra el OTRO área, no la propia: parada en Estética, ver
-        // "también en Medicina y Dermatología" te dice a dónde ir. Un
-        // resaltado genérico sólo diría "pasa algo acá".
-        //
-        // Lleva texto, no sólo color: quien no distingue esos tonos tiene que
-        // poder leerlo igual.
-        const otras = otrasAreas(s, area, AREAS_NOMBRES);
-        const tecnicas = s.categories
-          .map((c) => c.name)
-          .filter((n): n is string => n !== null && !AREAS_NOMBRES.includes(n));
-
-        if (s.categories.length === 0) return "—";
-        return (
-          <div className="flex flex-wrap items-center gap-1">
-            {otras.map((a) => (
-              <span
-                key={a}
-                title={`Este servicio también aparece en la pestaña ${a}`}
-                className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs text-primary"
-              >
-                también en {a}
-              </span>
-            ))}
-            {tecnicas.length > 0 && (
-              <span className="text-ink-soft">{tecnicas.join(", ")}</span>
-            )}
-            {sinArea(s, AREAS_NOMBRES) && AREAS_NOMBRES.length > 0 && (
-              <span
-                title="No aparece en ninguna pestaña de área. Asignale una para que se encuentre."
-                className="rounded-full border border-promo/40 bg-promo/10 px-2 py-0.5 text-xs text-promo"
-              >
-                sin área
-              </span>
-            )}
-          </div>
-        );
-      },
+      // Todas las categorías del servicio, separadas por comas y con el área
+      // adelante. Antes eran chips de colores ("también en Medicina", "sin
+      // área") y no se entendían: obligaban a aprender qué quería decir cada
+      // uno antes de poder leer la fila.
+      render: (s) => (
+        <span className="text-ink-soft">{etiquetaDeCategorias(s, AREAS_NOMBRES)}</span>
+      ),
     },
   ];
 
   function openCreate() {
     setEditing(null);
-    setForm(EMPTY);
+    // El área de la pestaña viene tildada: estando en Estética, lo normal es
+    // que el servicio nuevo sea de Estética. Se puede destildar y se pueden
+    // marcar otras.
+    setForm({ ...EMPTY, categoryIds: preseleccionDeArea(areas, area) });
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -695,9 +661,46 @@ export function ServiciosAdminPage(
           />
         </div>
 
-        {/* Categorías (M:N) — agrupadas por categoría madre, ver RamaCategorias */}
+        {/* El área decide en qué pestaña del panel vive el servicio; las
+            categorías de abajo son las del sitio público. Son dos cosas
+            distintas y estaban mezcladas en una sola lista, donde "Estética"
+            parecía una categoría de la web más. */}
         <div className="space-y-2 rounded-xl border border-surface-high p-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">Categorías</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+            Área del panel
+          </p>
+          <p className="text-xs leading-relaxed text-ink-soft">
+            Decide en qué pestaña de Administración aparece el servicio.{" "}
+            <span className="font-medium text-ink">No se muestra en la web.</span> Podés marcar
+            más de una: el servicio aparece en las dos pestañas siendo la misma ficha, y editarlo
+            desde cualquiera lo edita en las dos.
+          </p>
+          {areas.length === 0 ? (
+            <p className="text-sm text-ink-soft">No hay áreas cargadas.</p>
+          ) : (
+            <div className="columns-2 gap-x-6">
+              {areas.map((a) => (
+                <div key={a.id} className="break-inside-avoid">
+                  <Checkbox
+                    label={a.name ?? "—"}
+                    checked={form.categoryIds.includes(a.id)}
+                    onChange={() => toggleCategory(a.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Categorías de la web (M:N) — agrupadas por categoría madre, ver RamaCategorias */}
+        <div className="space-y-2 rounded-xl border border-surface-high p-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+            Categorías de la web
+          </p>
+          <p className="text-xs leading-relaxed text-ink-soft">
+            Son las que ve la clienta en el sitio público: el menú de servicios y el buscador de
+            tratamientos.
+          </p>
           {totalCategorias === 0 ? (
             <p className="text-sm text-ink-soft">No hay categorías cargadas.</p>
           ) : (
@@ -705,7 +708,7 @@ export function ServiciosAdminPage(
             // parte al medio entre las dos columnas. Con columnas CSS y
             // `break-inside-avoid` cada categoría madre queda entera.
             <div className="columns-2 gap-x-6">
-              {arbolConAreas.map((n) => (
+              {categoryTree.map((n) => (
                 <div key={n.id} className="mb-3 break-inside-avoid">
                   <RamaCategorias
                     nodo={n}

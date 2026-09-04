@@ -21,24 +21,6 @@ export function areasDe(servicio: ConCategorias, nombresDeArea: readonly string[
 }
 
 /**
- * Las áreas del servicio **distintas** de la que se está mirando.
- *
- * Es lo que nombra el chip: parada en Estética, ver "también en Medicina y
- * Dermatología" te dice a dónde ir. Un resaltado genérico sólo diría "pasa algo
- * acá" y obligaría a abrir el registro para saber qué.
- *
- * Sin área actual (la vista "Todos los servicios") devuelve todas: ahí no hay
- * un "propio" del cual distinguirse.
- */
-export function otrasAreas(
-  servicio: ConCategorias,
-  actual: string | undefined,
-  nombresDeArea: readonly string[],
-): string[] {
-  return areasDe(servicio, nombresDeArea).filter((a) => a !== actual);
-}
-
-/**
  * Un servicio sin ninguna área.
  *
  * No es un caso teórico: 19 servicios quedaron fuera del árbol de categorías
@@ -55,4 +37,24 @@ export function contarSinArea(
   nombresDeArea: readonly string[],
 ): number {
   return servicios.filter((s) => sinArea(s, nombresDeArea)).length;
+}
+
+/**
+ * El área que ya viene tildada al abrir "Nuevo servicio".
+ *
+ * Si estás parada en la pestaña Estética, lo normal es que el servicio que vas
+ * a crear sea de Estética; tener que tildarlo a mano es un paso que se olvida y
+ * deja el servicio sin pestaña. Es una preselección, no un candado: se puede
+ * destildar y se pueden tildar otras.
+ *
+ * Devuelve un array —no un id suelto— porque es lo que consume el formulario,
+ * que guarda las categorías como lista.
+ */
+export function preseleccionDeArea(
+  areas: readonly { id: string; name: string | null }[],
+  area: string | undefined,
+): string[] {
+  if (!area) return [];
+  const encontrada = areas.find((a) => a.name === area);
+  return encontrada ? [encontrada.id] : [];
 }

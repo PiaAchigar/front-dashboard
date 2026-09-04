@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 
 vi.mock("../../auth/AuthContext", () => ({
   useAuth: () => ({ role: "admin", session: null, user: null, loading: false, signOut: vi.fn() }),
@@ -154,5 +154,141 @@ describe("SectionSubnav — el acento se aplica sin perder el nombre", () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole("link", { name: "Equis" })).toBeInTheDocument();
+  });
+});
+
+/**
+ * Las flechas reemplazan la barra de scroll: la tira sigue desbordando, pero el
+ * desborde se navega con dos controles en los extremos en vez de con un
+ * scrollbar horizontal.
+ *
+ * happy-dom no hace layout, así que todos los anchos son 0 y la tira nunca
+ * desborda sola. Los tests que necesitan desborde lo fingen sobre el nodo real
+ * y disparan `scroll`, que es lo mismo que hace el navegador.
+ */
+describe("SectionSubnav — las flechas de los extremos", () => {
+  const items = [
+    { to: "/admin/promos", label: "Promos" },
+    { to: "/admin/estetica", label: "Estética" },
+  ];
+
+  // El desplazamiento por hover corre sobre requestAnimationFrame. Lo
+  // reemplazamos por una cola que avanzamos a mano: así el test controla los
+  // cuadros en vez de depender del reloj.
+  let cuadros = new Map<number, FrameRequestCallback>();
+  let siguienteId = 1;
+  let ahora = 0;
+
+  beforeEach(() => {
+    cuadros = new Map();
+    siguienteId = 1;
+    ahora = 0;
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      const id = siguienteId++;
+      cuadros.set(id, cb);
+      return id;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+      cuadros.delete(id);
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  function correrCuadros(n: number) {
+    for (let i = 0; i < n; i++) {
+      const pendientes = [...cuadros.values()];
+      cuadros.clear();
+      ahora += 16;
+      act(() => {
+        for (const cb of pendientes) cb(ahora);
+      });
+    }
+  }
+
+  function montar() {
+    render(
+      <MemoryRouter initialEntries={["/admin/promos"]}>
+        <SectionSubnav items={items} />
+      </MemoryRouter>,
+    );
+    // Los enlaces son hijos directos de la tira que scrollea.
+    const tira = screen.getByRole("link", { name: "Promos" }).parentElement!;
+    return tira;
+  }
+
+  function fingirDesborde(tira: HTMLElement, scrollLeft: number) {
+    Object.defineProperty(tira, "scrollWidth", { value: 800, configurable: true });
+    Object.defineProperty(tira, "clientWidth", { value: 400, configurable: true });
+    tira.scrollLeft = scrollLeft;
+    fireEvent.scroll(tira);
+  }
+
+  const derecha = () => screen.queryByRole("button", { name: /derecha/i });
+  const izquierda = () => screen.queryByRole("button", { name: /izquierda/i });
+
+  it("si las pestañas entran, no hay ninguna flecha", () => {
+    montar();
+    expect(derecha()).toBeNull();
+    expect(izquierda()).toBeNull();
+  });
+
+  it("con pestañas cortadas a la derecha aparece la flecha derecha", () => {
+    const tira = montar();
+    fingirDesborde(tira, 0);
+    expect(derecha()).toBeInTheDocument();
+  });
+
+  it("al principio de la tira la flecha izquierda no aparece: no hay nada atrás", () => {
+    const tira = montar();
+    fingirDesborde(tira, 0);
+    expect(izquierda()).toBeNull();
+  });
+
+  it("desplazada al medio aparecen las dos", () => {
+    const tira = montar();
+    fingirDesborde(tira, 200);
+    expect(izquierda()).toBeInTheDocument();
+    expect(derecha()).toBeInTheDocument();
+  });
+
+  it("al final desaparece la derecha y queda la izquierda", () => {
+    const tira = montar();
+    fingirDesborde(tira, 400);
+    expect(izquierda()).toBeInTheDocument();
+    expect(derecha()).toBeNull();
+  });
+
+  it("el hover sobre la flecha derecha desplaza hacia la derecha", () => {
+    const tira = montar();
+    fingirDesborde(tira, 0);
+    fireEvent.mouseEnter(derecha()!);
+    correrCuadros(3);
+    expect(tira.scrollLeft).toBeGreaterThan(0);
+  });
+
+  it("el hover sobre la flecha izquierda desplaza hacia la izquierda", () => {
+    const tira = montar();
+    fingirDesborde(tira, 200);
+    fireEvent.mouseEnter(izquierda()!);
+    correrCuadros(3);
+    expect(tira.scrollLeft).toBeLessThan(200);
+  });
+
+  // Sin esto la tira se seguiría moviendo sola después de sacar el mouse, que
+  // es peor que no tener flechas.
+  it("al sacar el mouse se detiene", () => {
+    const tira = montar();
+    fingirDesborde(tira, 0);
+    fireEvent.mouseEnter(derecha()!);
+    correrCuadros(3);
+    fireEvent.mouseLeave(derecha()!);
+    const donde = tira.scrollLeft;
+    correrCuadros(5);
+    expect(tira.scrollLeft).toBe(donde);
+  });
+
+  it("la tira esconde su barra de scroll — para eso están las flechas", () => {
+    const tira = montar();
+    expect(tira.className).toContain("subnav-tira");
   });
 });

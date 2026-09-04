@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { areasDe, contarSinArea, otrasAreas, sinArea, type ConCategorias } from "./areas";
+import {
+  areasDe,
+  contarSinArea,
+  preseleccionDeArea,
+  sinArea,
+  type ConCategorias,
+} from "./areas";
 
 const ESTETICA = "Estética";
 const MEDICINA = "Medicina y Dermatología";
@@ -34,34 +40,6 @@ describe("areasDe", () => {
   });
 });
 
-describe("otrasAreas — lo que nombra el chip", () => {
-  it("parada en Estética, nombra Medicina", () => {
-    expect(otrasAreas(svc(ESTETICA, MEDICINA), ESTETICA, AREAS)).toEqual([MEDICINA]);
-  });
-
-  it("parada en Medicina, nombra Estética — el chip mira al OTRO lado", () => {
-    expect(otrasAreas(svc(ESTETICA, MEDICINA), MEDICINA, AREAS)).toEqual([ESTETICA]);
-  });
-
-  it("nunca nombra el área propia", () => {
-    for (const actual of AREAS) {
-      expect(otrasAreas(svc(...AREAS), actual, AREAS)).not.toContain(actual);
-    }
-  });
-
-  it("un servicio de una sola área no muestra chip", () => {
-    expect(otrasAreas(svc(ESTETICA, "Venus Legacy"), ESTETICA, AREAS)).toEqual([]);
-  });
-
-  it("en 'Todos los servicios' no hay área propia, así que las nombra todas", () => {
-    expect(otrasAreas(svc(ESTETICA, MEDICINA), undefined, AREAS)).toEqual([ESTETICA, MEDICINA]);
-  });
-
-  it("un servicio en tres áreas, parado en una, nombra las otras dos", () => {
-    expect(otrasAreas(svc(...AREAS), ESTETICA, AREAS)).toEqual([MEDICINA, MASAJES]);
-  });
-});
-
 describe("sinArea — la red que evita perder servicios", () => {
   it("un servicio con sólo técnicas está sin clasificar", () => {
     expect(sinArea(svc("Cosmetología", "Arrugas"), AREAS)).toBe(true);
@@ -89,5 +67,39 @@ describe("contarSinArea", () => {
   it("sin áreas definidas, TODO cuenta como sin clasificar", () => {
     // Si las áreas todavía no cargaron, el contador no puede decir "0 problemas".
     expect(contarSinArea([svc(ESTETICA), svc(MEDICINA)], [])).toBe(2);
+  });
+});
+
+describe("preseleccionDeArea — el alta arranca en el área donde estás parada", () => {
+  const AREAS_CAT = [
+    { id: "a1", name: ESTETICA },
+    { id: "a2", name: MEDICINA },
+    { id: "a3", name: MASAJES },
+  ];
+
+  it("parada en Estética, preselecciona el id de Estética", () => {
+    expect(preseleccionDeArea(AREAS_CAT, ESTETICA)).toEqual(["a1"]);
+  });
+
+  it("parada en Medicina, preselecciona el id de Medicina — no el de la primera", () => {
+    expect(preseleccionDeArea(AREAS_CAT, MEDICINA)).toEqual(["a2"]);
+  });
+
+  // "Todos los servicios" y "Sin clasificar" no son un área: ahí no hay nada
+  // que preseleccionar y el formulario exige elegir una a mano.
+  it("sin área actual no preselecciona nada", () => {
+    expect(preseleccionDeArea(AREAS_CAT, undefined)).toEqual([]);
+  });
+
+  it("un área que no existe en la base no preselecciona nada", () => {
+    expect(preseleccionDeArea(AREAS_CAT, "Manicuría")).toEqual([]);
+  });
+
+  it("compara el nombre completo: 'Estética' no matchea 'Estética Corporal'", () => {
+    expect(preseleccionDeArea([{ id: "x", name: "Estética Corporal" }], ESTETICA)).toEqual([]);
+  });
+
+  it("sin áreas cargadas todavía, devuelve vacío en vez de romperse", () => {
+    expect(preseleccionDeArea([], ESTETICA)).toEqual([]);
   });
 });
