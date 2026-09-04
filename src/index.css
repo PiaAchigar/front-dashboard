@@ -14,6 +14,16 @@
   --color-ink: #3d342c;
   --color-ink-soft: #6f6357;
 
+  /* Acentos de las pestañas de Administración (E2).
+     Se usan como ACENTO —subrayado y texto activo—, nunca como relleno: como
+     fondo, promo y primary necesitan texto oscuro para pasar AA mientras que
+     resource e ink necesitan texto blanco, y el color del texto cambiaría de
+     pestaña en pestaña. Como acento sobre --color-surface los cuatro pasan.
+     El par más cercano de los cuatro está en ΔE 20.9. */
+  --color-promo: #bf5a0b;      /* PROMOS: la única pestaña comercial */
+  --color-resource: #763c0e;   /* PROVEEDORES · MÁQUINAS · INSUMOS */
+  /* Los 6 ejes usan --color-primary y CATEGORÍAS usa --color-ink. */
+
   /* Sidebar del dashboard */
   --color-sidebar: #2a2320;
   --color-sidebar-hover: #3d342c;

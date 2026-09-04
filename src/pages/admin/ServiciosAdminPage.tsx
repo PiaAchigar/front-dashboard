@@ -1,3 +1,4 @@
+import { filtrarServicios } from "../../lib/filtrar-servicios";
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
@@ -274,7 +275,16 @@ const EMPTY: Form = {
 const money = (n: number | null) => (n != null ? `$${n.toLocaleString("es-AR")}` : "—");
 const num = (s: string) => (s.trim() === "" ? null : Number(s));
 
-export function ServiciosAdminPage() {
+/**
+ * `area` acota la lista a un área del catálogo (Estética, Medicina y
+ * Dermatología, Masajes y Bienestar). Es un filtro de VISTA, no de datos: el
+ * alta, la edición y el borrado siguen operando sobre el mismo servicio, así
+ * que editar desde una pestaña se ve desde la otra. Un servicio que esté en
+ * dos áreas aparece en las dos, sin duplicarse.
+ *
+ * Sin `area`, la página es la de siempre: todos los servicios.
+ */
+export function ServiciosAdminPage({ area }: { area?: string } = {}) {
   const { role } = useAuth();
   const r = role as Role | null;
   const canEdit = can(r, "catalogo", "edit");
@@ -306,14 +316,10 @@ export function ServiciosAdminPage() {
   // El editor de acuerdos mantiene su propio estado; lo leemos al guardar.
   const agreementsRef = useRef<AgreementsHandle>(null);
 
-  const rows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return services;
-    return services.filter(
-      (s) =>
-        (s.name ?? "").toLowerCase().includes(q) || (s.code ?? "").toLowerCase().includes(q),
-    );
-  }, [services, search]);
+  const rows = useMemo(
+    () => filtrarServicios(services, area, search),
+    [services, search, area],
+  );
 
   const columns: Column<Service>[] = [
     {
@@ -458,7 +464,7 @@ export function ServiciosAdminPage() {
   return (
     <>
       <ResourceManager<Service>
-        title="Servicios"
+        title={area ?? "Servicios"}
         rows={rows}
         columns={columns}
         loading={isLoading}

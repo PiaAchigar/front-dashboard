@@ -2,23 +2,12 @@ import { Outlet } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { can, type Role } from "../../lib/permissions";
 import { SectionSubnav } from "../../components/SectionSubnav";
-
-const SUBNAV = [
-  { to: "/admin/servicios", label: "Servicios", section: "catalogo" as const },
-  { to: "/admin/proveedoras", label: "Proveedoras", section: "proveedoras" as const },
-  { to: "/admin/categorias", label: "Categorías", section: "catalogo" as const },
-  { to: "/admin/maquinas", label: "Máquinas", section: "catalogo" as const },
-  { to: "/admin/promos", label: "Promos", section: "catalogo" as const },
-  { to: "/admin/combos", label: "Combos", section: "catalogo" as const },
-  { to: "/admin/actividades", label: "Actividades", section: "catalogo" as const },
-  { to: "/admin/suscripciones", label: "Suscripciones", section: "catalogo" as const },
-  { to: "/admin/depilacion", label: "Depilación", section: "catalogo" as const },
-];
+import { PESTANAS, acentoDe } from "../../lib/admin-nav";
 
 export function AdminLayout() {
   const { role } = useAuth();
-  const items = SUBNAV.filter((it) => can(role as Role | null, it.section, "view")).map(
-    ({ to, label }) => ({ to, label }),
+  const items = PESTANAS.filter((it) => can(role as Role | null, it.section, "view")).map(
+    ({ to, label, grupo }) => ({ to, label, accent: acentoDe(grupo) }),
   );
 
   return (

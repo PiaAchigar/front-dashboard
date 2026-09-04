@@ -12,6 +12,7 @@ import { ToastProvider } from "./components/ui/Toast";
 import { AdminLayout } from "./pages/admin/AdminLayout";
 import { CategoriasAdminPage } from "./pages/admin/CategoriasAdminPage";
 import { ServiciosAdminPage } from "./pages/admin/ServiciosAdminPage";
+import { AREAS } from "./lib/admin-nav";
 import { ProveedorasAdminPage } from "./pages/admin/ProveedorasAdminPage";
 import { MaquinasAdminPage } from "./pages/admin/MaquinasAdminPage";
 import { PromosAdminPage } from "./pages/admin/PromosAdminPage";
@@ -61,6 +62,13 @@ export default function App() {
                 <Route path="admin" element={<AdminLayout />}>
                   <Route index element={<Navigate to="/admin/servicios" replace />} />
                   <Route path="servicios" element={<ServiciosAdminPage />} />
+                  {AREAS.map((a) => (
+                    <Route
+                      key={a.path}
+                      path={a.path}
+                      element={<ServiciosAdminPage area={a.categoria} />}
+                    />
+                  ))}
                   <Route path="proveedoras" element={<ProveedorasAdminPage />} />
                   <Route path="categorias" element={<CategoriasAdminPage />} />
                   <Route path="maquinas" element={<MaquinasAdminPage />} />
