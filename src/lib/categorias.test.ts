@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { categoriasDeLaWeb, etiquetaDeCategorias } from "./categorias";
+import {
+  agruparParaElFormulario,
+  categoriasDelFormulario,
+  etiquetaDeCategorias,
+  NO_SE_TILDAN,
+} from "./categorias";
 
 const svc = (...cats: (string | null)[]) => ({
   categories: cats.map((name, i) => ({ id: String(i), name })),
@@ -57,7 +62,7 @@ const nodo = (id: string, kind: string, children: Nodo[] = []): Nodo => ({
   children,
 });
 
-describe("categoriasDeLaWeb — el árbol del modal, sin las áreas del panel", () => {
+describe("categoriasDelFormulario — el árbol del modal, podado", () => {
   // Estética, Medicina y Masajes están archivadas, así que no llegan al árbol.
   // Depilación Definitiva, Actividades y Capacitaciones NO lo están, y se
   // colaban entre las categorías de la web como si fueran una más.
@@ -74,17 +79,17 @@ describe("categoriasDeLaWeb — el árbol del modal, sin las áreas del panel", 
   const nombres = (ns: Nodo[]) => ns.map((n) => n.id);
 
   it("saca las raíces que son área", () => {
-    expect(nombres(categoriasDeLaWeb(ARBOL))).toEqual(["Cosmetología", "Manicuría"]);
+    expect(nombres(categoriasDelFormulario(ARBOL))).toEqual(["Cosmetología", "Manicuría"]);
   });
 
   it("se lleva también las hijas del área, no las deja sueltas", () => {
-    const todos = JSON.stringify(categoriasDeLaWeb(ARBOL));
+    const todos = JSON.stringify(categoriasDelFormulario(ARBOL));
     expect(todos).not.toContain("Depilación Definitiva Facial");
     expect(todos).not.toContain("Pilates Reformer");
   });
 
   it("no toca las ramas que no son área", () => {
-    const cosmeto = categoriasDeLaWeb(ARBOL)[0];
+    const cosmeto = categoriasDelFormulario(ARBOL)[0];
     expect(nombres(cosmeto.children)).toEqual(["Facial"]);
     expect(nombres(cosmeto.children[0].children)).toEqual(["Aparatología"]);
   });
@@ -92,20 +97,83 @@ describe("categoriasDeLaWeb — el árbol del modal, sin las áreas del panel", 
   // Hoy las áreas sólo viven en la raíz, pero nada en la base lo impide.
   it("un área colgada en el medio también se saca, con su rama", () => {
     const arbol = [nodo("Raíz", "tecnica", [nodo("Área", "area", [nodo("Hija", "tecnica")])])];
-    expect(categoriasDeLaWeb(arbol)[0].children).toEqual([]);
+    expect(categoriasDelFormulario(arbol)[0].children).toEqual([]);
   });
 
   it("no modifica el árbol original", () => {
     const antes = JSON.stringify(ARBOL);
-    categoriasDeLaWeb(ARBOL);
+    categoriasDelFormulario(ARBOL);
     expect(JSON.stringify(ARBOL)).toBe(antes);
   });
 
   it("un árbol vacío devuelve vacío, no rompe", () => {
-    expect(categoriasDeLaWeb([])).toEqual([]);
+    expect(categoriasDelFormulario([])).toEqual([]);
   });
 
   it("un árbol que es todo áreas queda vacío", () => {
-    expect(categoriasDeLaWeb([nodo("Actividades", "area")])).toEqual([]);
+    expect(categoriasDelFormulario([nodo("Actividades", "area")])).toEqual([]);
+  });
+});
+
+describe("categoriasDelFormulario — lo comercial tampoco se tilda a mano", () => {
+  it("saca Promos del Mes y Combos: van a ser pestañas propias, no categorías", () => {
+    const arbol = [
+      nodo("Promos del Mes", "tecnica"),
+      nodo("Combos", "tecnica"),
+      nodo("Manicuría", "tecnica"),
+    ];
+    expect(categoriasDelFormulario(arbol).map((n) => n.id)).toEqual(["Manicuría"]);
+  });
+
+  // Verificado contra producción el 2026-09-04. No prueba la base —no puede—
+  // pero un cambio de nombre acá tiene que ser deliberado.
+  it("los nombres son los exactos de la base", () => {
+    expect(NO_SE_TILDAN).toEqual(["Promos del Mes", "Combos"]);
+  });
+
+  it("no se lleva una categoría que sólo CONTIENE la palabra", () => {
+    // "Combos de Depilación" no es "Combos".
+    const arbol = [nodo("Combos de Depilación", "tecnica")];
+    expect(categoriasDelFormulario(arbol)).toHaveLength(1);
+  });
+});
+
+describe("agruparParaElFormulario — las raíces sueltas van bajo un título", () => {
+  const ARBOL = [
+    nodo("Tratamientos Faciales", "tecnica", [nodo("Manchas", "objetivo")]),
+    nodo("Belleza", "tecnica"),
+    nodo("Aparatología", "tecnica", [nodo("Venus Legacy", "maquina")]),
+    nodo("Manicuría", "tecnica"),
+  ];
+
+  it("separa las raíces con hijas de las que no tienen", () => {
+    const { ramas, generales } = agruparParaElFormulario(ARBOL);
+    expect(ramas.map((n) => n.id)).toEqual(["Tratamientos Faciales", "Aparatología"]);
+    expect(generales.map((n) => n.id)).toEqual(["Belleza", "Manicuría"]);
+  });
+
+  it("respeta el orden en que vienen dentro de cada grupo", () => {
+    const { generales } = agruparParaElFormulario([nodo("Z", "tecnica"), nodo("A", "tecnica")]);
+    expect(generales.map((n) => n.id)).toEqual(["Z", "A"]);
+  });
+
+  // Masajes hoy no tiene hijas y mañana va a tener cuatro: tiene que saltar
+  // sola de un grupo al otro, sin listas fijas que actualizar.
+  it("una raíz que gana hijas deja de ser general", () => {
+    const antes = agruparParaElFormulario([nodo("Masajes", "tecnica")]);
+    expect(antes.generales.map((n) => n.id)).toEqual(["Masajes"]);
+
+    const despues = agruparParaElFormulario([nodo("Masajes", "tecnica", [nodo("Reflexología", "tecnica")])]);
+    expect(despues.generales).toEqual([]);
+    expect(despues.ramas.map((n) => n.id)).toEqual(["Masajes"]);
+  });
+
+  it("un árbol sin raíces sueltas deja Generales vacío", () => {
+    const { generales } = agruparParaElFormulario([nodo("A", "tecnica", [nodo("B", "tecnica")])]);
+    expect(generales).toEqual([]);
+  });
+
+  it("un árbol vacío no rompe", () => {
+    expect(agruparParaElFormulario([])).toEqual({ ramas: [], generales: [] });
   });
 });

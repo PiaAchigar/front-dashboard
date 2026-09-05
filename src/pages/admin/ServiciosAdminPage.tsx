@@ -25,7 +25,11 @@ import { useMachinesList } from "../../hooks/useMachinesAdmin";
 import { useCategoriesAdmin } from "../../hooks/useCategoriesAdmin";
 import { nombresDeArea, useAreas } from "../../hooks/useAreas";
 import { preseleccionDeArea } from "../../lib/areas";
-import { categoriasDeLaWeb, etiquetaDeCategorias } from "../../lib/categorias";
+import {
+  agruparParaElFormulario,
+  categoriasDelFormulario,
+  etiquetaDeCategorias,
+} from "../../lib/categorias";
 import { useProvidersAdmin } from "../../hooks/useProvidersAdmin";
 import { useServiceAgreements } from "../../hooks/useServiceAgreements";
 
@@ -322,7 +326,9 @@ export function ServiciosAdminPage(
   const { data: providersAll = [] } = useProvidersAdmin(false);
   // Depilación Definitiva, Actividades y Capacitaciones son áreas y están
   // activas, así que venían en el árbol de categorías como si fueran del sitio.
-  const arbolWeb = useMemo(() => categoriasDeLaWeb(categoryTree), [categoryTree]);
+  // Promos y Combos se van con ellas: describen cómo se vende, no qué es.
+  const arbolWeb = useMemo(() => categoriasDelFormulario(categoryTree), [categoryTree]);
+  const { ramas, generales } = useMemo(() => agruparParaElFormulario(arbolWeb), [arbolWeb]);
   const totalCategorias = useMemo(() => contarCategorias(arbolWeb), [arbolWeb]);
 
   // El editor de acuerdos mantiene su propio estado; lo leemos al guardar.
@@ -711,7 +717,7 @@ export function ServiciosAdminPage(
             // parte al medio entre las dos columnas. Con columnas CSS y
             // `break-inside-avoid` cada categoría madre queda entera.
             <div className="columns-2 gap-x-6">
-              {arbolWeb.map((n) => (
+              {ramas.map((n) => (
                 <div key={n.id} className="mb-3 break-inside-avoid">
                   <RamaCategorias
                     nodo={n}
@@ -721,6 +727,27 @@ export function ServiciosAdminPage(
                   />
                 </div>
               ))}
+              {/* Las raíces sin hijas, juntas bajo un encabezado. Suelto, un
+                  checkbox de primer nivel entre grupos que sí tienen título
+                  parece una opción huérfana. "Generales" es un título de esta
+                  pantalla, no una categoría: no se tilda ni se guarda. */}
+              {generales.length > 0 && (
+                <div className="mb-3 break-inside-avoid">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink">
+                    Generales
+                  </p>
+                  <div className="mt-0.5 space-y-0.5 pl-2">
+                    {generales.map((n) => (
+                      <Checkbox
+                        key={n.id}
+                        label={n.name ?? "—"}
+                        checked={form.categoryIds.includes(n.id)}
+                        onChange={() => toggleCategory(n.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

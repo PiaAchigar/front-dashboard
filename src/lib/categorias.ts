@@ -33,25 +33,66 @@ export function etiquetaDeCategorias(
 }
 
 /**
- * El árbol de categorías del sitio público, sin las áreas del panel.
+ * Categorías que existen en la base pero NO se tildan a mano en el formulario
+ * de servicio.
+ *
+ * "Promos del Mes" y "Combos" no describen qué ES un servicio: describen cómo
+ * se vende. Van a tener pestaña propia, y hasta entonces sólo ensucian la
+ * lista — hoy tienen cero servicios, así que la web tampoco las muestra.
+ *
+ * Es una lista por nombre y eso es frágil: la comparación es por igualdad
+ * exacta, así que un acento de menos la deja sin efecto. El test fija los dos
+ * nombres verificados contra producción el 2026-09-04 — no puede comprobar la
+ * base desde un test, pero obliga a mirar si alguien los cambia. Cuando
+ * existan las pestañas, estas dos se archivan en la base y esta constante se
+ * borra.
+ */
+export const NO_SE_TILDAN = ["Promos del Mes", "Combos"];
+
+/**
+ * El árbol que ve el formulario de servicio: sin las áreas del panel y sin lo
+ * comercial.
  *
  * Las áreas son un eje aparte (`categories.kind='area'`, migración 1.37.0) y
- * tienen su propio bloque en el formulario. Tres de las seis —Estética,
- * Medicina y Dermatología, Masajes y Bienestar— están archivadas, así que el
- * árbol de categorías activas no las traía y nadie las veía dos veces. Las
- * otras tres —Depilación Definitiva, Actividades, Capacitaciones— están
- * activas, y se colaban entre las categorías de la web como si "Depilación
- * Definitiva" fuera una categoría del sitio más, arrastrando sus hijas.
+ * tienen su propio bloque. Tres de las seis —Estética, Medicina y
+ * Dermatología, Masajes y Bienestar— están archivadas, así que el árbol de
+ * categorías activas no las traía y nadie las veía dos veces. Las otras tres
+ * —Depilación Definitiva, Actividades, Capacitaciones— están activas, y se
+ * colaban como si "Depilación Definitiva" fuera una categoría del sitio más,
+ * arrastrando sus hijas.
  *
  * Sacar el nodo se lleva la rama entera, que es lo que se quiere: las hijas de
  * un área tampoco son categorías de la web. Depilación se administra en su
  * propia pestaña, con `body_zone` en vez de `service`, y Actividades tiene su
  * propia pantalla.
  */
-export function categoriasDeLaWeb<T extends { kind: string; children: T[] }>(
-  arbol: readonly T[],
-): T[] {
+export function categoriasDelFormulario<
+  T extends { name: string | null; kind: string; children: T[] },
+>(arbol: readonly T[]): T[] {
   return arbol
-    .filter((n) => n.kind !== "area")
-    .map((n) => ({ ...n, children: categoriasDeLaWeb(n.children ?? []) }) as T);
+    .filter((n) => n.kind !== "area" && !NO_SE_TILDAN.includes(n.name ?? ""))
+    .map((n) => ({ ...n, children: categoriasDelFormulario(n.children ?? []) }) as T);
+}
+
+/**
+ * Parte el árbol en las ramas (raíces con hijas) y las **generales** (raíces
+ * sueltas, sin hijas).
+ *
+ * Sin esto, una raíz sin hijas se dibuja como un checkbox flotando al principio
+ * de una columna, sin encabezado, entre grupos que sí lo tienen: parece una
+ * opción huérfana en vez de una categoría de primer nivel. Agrupadas bajo un
+ * título se leen como lo que son.
+ *
+ * "Generales" es un encabezado de la pantalla, no una categoría de la base: no
+ * se puede tildar y nada queda asignado a ella. La pertenencia se calcula sola,
+ * así que una categoría que mañana gane hijas —Masajes, en cuanto tenga sus
+ * cuatro— se mueve de grupo sin tocar código.
+ */
+export function agruparParaElFormulario<T extends { children: T[] }>(
+  arbol: readonly T[],
+): { ramas: T[]; generales: T[] } {
+  return {
+    ramas: arbol.filter((n) => (n.children ?? []).length > 0),
+    generales: arbol.filter((n) => (n.children ?? []).length === 0),
+  };
 }
