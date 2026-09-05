@@ -88,6 +88,8 @@ export type CategoryNode = {
   description: string | null;
   displayOrder: number | null;
   isActive: boolean | null;
+  /** El eje al que pertenece: area | tecnica | objetivo | maquina (migración 1.37.0). */
+  kind: string;
   children: CategoryNode[];
 };
 

@@ -25,7 +25,7 @@ import { useMachinesList } from "../../hooks/useMachinesAdmin";
 import { useCategoriesAdmin } from "../../hooks/useCategoriesAdmin";
 import { nombresDeArea, useAreas } from "../../hooks/useAreas";
 import { preseleccionDeArea } from "../../lib/areas";
-import { etiquetaDeCategorias } from "../../lib/categorias";
+import { categoriasDeLaWeb, etiquetaDeCategorias } from "../../lib/categorias";
 import { useProvidersAdmin } from "../../hooks/useProvidersAdmin";
 import { useServiceAgreements } from "../../hooks/useServiceAgreements";
 
@@ -320,7 +320,10 @@ export function ServiciosAdminPage(
   const idsDeArea = useMemo(() => new Set(areas.map((a) => a.id)), [areas]);
 
   const { data: providersAll = [] } = useProvidersAdmin(false);
-  const totalCategorias = useMemo(() => contarCategorias(categoryTree), [categoryTree]);
+  // Depilación Definitiva, Actividades y Capacitaciones son áreas y están
+  // activas, así que venían en el árbol de categorías como si fueran del sitio.
+  const arbolWeb = useMemo(() => categoriasDeLaWeb(categoryTree), [categoryTree]);
+  const totalCategorias = useMemo(() => contarCategorias(arbolWeb), [arbolWeb]);
 
   // El editor de acuerdos mantiene su propio estado; lo leemos al guardar.
   const agreementsRef = useRef<AgreementsHandle>(null);
@@ -673,7 +676,7 @@ export function ServiciosAdminPage(
             Decide en qué pestaña de Administración aparece el servicio.{" "}
             <span className="font-medium text-ink">No se muestra en la web.</span> Podés marcar
             más de una: el servicio aparece en las dos pestañas siendo la misma ficha, y editarlo
-            desde cualquiera lo edita en las dos.
+            desde cualquiera, lo edita en las dos.
           </p>
           {areas.length === 0 ? (
             <p className="text-sm text-ink-soft">No hay áreas cargadas.</p>
@@ -708,7 +711,7 @@ export function ServiciosAdminPage(
             // parte al medio entre las dos columnas. Con columnas CSS y
             // `break-inside-avoid` cada categoría madre queda entera.
             <div className="columns-2 gap-x-6">
-              {categoryTree.map((n) => (
+              {arbolWeb.map((n) => (
                 <div key={n.id} className="mb-3 break-inside-avoid">
                   <RamaCategorias
                     nodo={n}
