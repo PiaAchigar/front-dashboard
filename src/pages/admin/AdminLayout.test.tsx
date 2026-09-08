@@ -33,6 +33,22 @@ describe("PESTANAS — el orden y los grupos que pidió Pia", () => {
     expect(etiquetas).not.toContain("Proveedoras");
   });
 
+  // La etiqueta se renombró en E2 pero la RUTA quedó en /admin/proveedoras
+  // hasta E4. Nada más que este test lo agarra: un link roto no rompe el build
+  // ni ningún otro test, sólo lleva a una pantalla en blanco.
+  it("la ruta de Proveedores también dice proveedores", () => {
+    const ruta = PESTANAS.find((p) => p.label === "Proveedores")?.to;
+    expect(ruta).toBe("/admin/proveedores");
+  });
+
+  it("Capacitaciones tiene su pestaña, al lado de Actividades", () => {
+    const capacitaciones = PESTANAS.find((p) => p.label === "Capacitaciones");
+    expect(capacitaciones?.to).toBe("/admin/capacitaciones");
+    // Las dos son clases que se dictan: van juntas y con el mismo acento.
+    expect(capacitaciones?.grupo).toBe("eje");
+    expect(etiquetas.indexOf("Capacitaciones")).toBe(etiquetas.indexOf("Actividades") + 1);
+  });
+
   it("ninguna pestaña apunta a una ruta vacía", () => {
     for (const p of PESTANAS) expect(p.to).toMatch(/^\/admin\/.+/);
   });

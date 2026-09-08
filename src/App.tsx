@@ -10,6 +10,7 @@ import { BillerFrame } from "./components/BillerFrame";
 import { CrmFrame } from "./components/CrmFrame";
 import { ToastProvider } from "./components/ui/Toast";
 import { AdminLayout } from "./pages/admin/AdminLayout";
+import { CapacitacionesAdminPage } from "./pages/admin/CapacitacionesAdminPage";
 import { CategoriasAdminPage } from "./pages/admin/CategoriasAdminPage";
 import { ServiciosAdminPage } from "./pages/admin/ServiciosAdminPage";
 import { AREAS } from "./lib/admin-nav";
@@ -73,7 +74,8 @@ export default function App() {
                       element={<ServiciosAdminPage area={a.categoria} />}
                     />
                   ))}
-                  <Route path="proveedoras" element={<ProveedorasAdminPage />} />
+                  <Route path="capacitaciones" element={<CapacitacionesAdminPage />} />
+                  <Route path="proveedores" element={<ProveedorasAdminPage />} />
                   <Route path="categorias" element={<CategoriasAdminPage />} />
                   <Route path="maquinas" element={<MaquinasAdminPage />} />
                   <Route path="promos" element={<PromosAdminPage />} />

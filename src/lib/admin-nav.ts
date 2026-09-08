@@ -48,11 +48,11 @@ export type Pestana = {
  * después el catálogo por área, después los recursos que lo habilitan, y
  * Categorías al final porque es meta.
  *
- * Faltan tres de las once del diseño y es a propósito, no un olvido:
- *   - INSUMOS: no existe pantalla de productos todavía
- *   - CAPACITACIONES: no hay ni datos ni pantalla
- *   - las sub-pestañas Combos/Packs de cada área: `combos` está vacía y los
- *     packs llegan con V1 de venta y consumo
+ * Falta INSUMOS y es a propósito, no un olvido: la tabla `products` existe
+ * pero está vacía, y nadie definió todavía si se usa para costear tratamientos
+ * o para llevar stock. Una pantalla de inventario sin ese requisito se
+ * construye mal. También faltan las sub-pestañas Combos/Packs de cada área:
+ * `combos` está vacía y los packs llegan con V1 de venta y consumo.
  * Una pestaña que no lleva a ningún lado enseña a desconfiar de la barra, así
  * que se agregan cuando tengan destino.
  */
@@ -63,9 +63,10 @@ export const PESTANAS: Pestana[] = [
   { to: "/admin/medicina", label: "Medicina y Dermatología", grupo: "eje", section: "catalogo" },
   { to: "/admin/masajes", label: "Masajes y Bienestar", grupo: "eje", section: "catalogo" },
   { to: "/admin/actividades", label: "Actividades", grupo: "eje", section: "catalogo" },
+  { to: "/admin/capacitaciones", label: "Capacitaciones", grupo: "eje", section: "catalogo" },
   { to: "/admin/suscripciones", label: "Suscripciones", grupo: "eje", section: "catalogo" },
   { to: "/admin/servicios", label: "Todos los servicios", grupo: "eje", section: "catalogo" },
-  { to: "/admin/proveedoras", label: "Proveedores", grupo: "recurso", section: "proveedoras" },
+  { to: "/admin/proveedores", label: "Proveedores", grupo: "recurso", section: "proveedoras" },
   { to: "/admin/maquinas", label: "Máquinas", grupo: "recurso", section: "catalogo" },
   { to: "/admin/combos", label: "Combos", grupo: "recurso", section: "catalogo" },
   { to: "/admin/categorias", label: "Categorías", grupo: "meta", section: "catalogo" },
