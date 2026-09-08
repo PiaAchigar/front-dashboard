@@ -49,9 +49,14 @@ export type Pestana = {
  * Categorías al final porque es meta.
  *
  * Falta INSUMOS y es a propósito, no un olvido: la tabla `products` existe
- * pero está vacía, y nadie definió todavía si se usa para costear tratamientos
- * o para llevar stock. Una pantalla de inventario sin ese requisito se
- * construye mal. También faltan las sub-pestañas Combos/Packs de cada área:
+ * pero está vacía. Laura ya definió los requisitos (2026-09-08): sirve para
+ * COSTEAR y para llevar STOCK; el stock baja SOLO cada vez que se realiza un
+ * servicio que consume el insumo (hace falta una tabla receta
+ * `service_product`: qué insumo usa cada servicio y en qué cantidad, más el
+ * enganche en el momento en que un turno pasa a `completed`); no quiere
+ * historial de compras por ahora; y sí quiere aviso de stock mínimo.
+ * Queda por decidir qué pasa si se completa un servicio sin stock.
+ * También faltan las sub-pestañas Combos/Packs de cada área:
  * `combos` está vacía y los packs llegan con V1 de venta y consumo.
  * Una pestaña que no lleva a ningún lado enseña a desconfiar de la barra, así
  * que se agregan cuando tengan destino.
