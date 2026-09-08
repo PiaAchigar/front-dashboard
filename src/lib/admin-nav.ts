@@ -49,13 +49,13 @@ export type Pestana = {
  * Categorías al final porque es meta.
  *
  * INSUMOS entra acá, entre los recursos: habilita al catálogo pero no se vende.
- * Por ahora es sólo el catálogo (etapa 1). Falta la tabla receta
- * `service_product` — qué insumo consume cada servicio y en qué cantidad — y el
- * descuento automático al pasar un turno a `completed`. Cuando un servicio se
- * completa sin stock, el insumo queda en negativo y se avisa; no se bloquea el
- * turno (decisión de Laura, 2026-09-08: bloquear un turno ya hecho por un dato
- * de inventario mal cargado le frena la caja).
- * También faltan las sub-pestañas Combos/Packs de cada área:
+ * Está completo (1.41.0 a 1.44.0): catálogo, receta por servicio
+ * (`service_product`, editable desde el modal de Servicio o en masa desde el
+ * insumo) y descuento automático al pasar un turno a `completed`. Si no
+ * alcanza, el insumo queda en negativo y la agenda avisa con un modal; NO se
+ * bloquea el turno (decisión de Laura, 2026-09-08: bloquear un turno ya hecho
+ * por un dato de inventario mal cargado le frena la caja).
+ * Faltan las sub-pestañas Combos/Packs de cada área:
  * `combos` está vacía y los packs llegan con V1 de venta y consumo.
  * Una pestaña que no lleva a ningún lado enseña a desconfiar de la barra, así
  * que se agregan cuando tengan destino.
