@@ -101,12 +101,6 @@ const SuppliesEditor = forwardRef<SuppliesHandle, { initial: Cantidades; catalog
               </p>
             ) : (
               <>
-                <TextInput
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="Buscar insumo…"
-                />
-
                 {elegidos.length > 0 && (
                   <div>
                     <p className="mb-0.5 text-xs font-medium text-ink-soft">Los que usa</p>
@@ -129,7 +123,15 @@ const SuppliesEditor = forwardRef<SuppliesHandle, { initial: Cantidades; catalog
                 )}
 
                 <div>
-                  <p className="mb-0.5 text-xs font-medium text-ink-soft">
+                  {/* El buscador va acá y no arriba de todo: filtra ESTA lista.
+                      Arriba dejaba el bloque "Los que usa" flotando en el medio
+                      entre el input y la lista, sin pertenecer a ninguno. */}
+                  <TextInput
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    placeholder="Buscar insumo…"
+                  />
+                  <p className="mb-0.5 mt-2 text-xs font-medium text-ink-soft">
                     {elegidos.length > 0 ? "Todos" : "Elegí los que usa"}
                   </p>
                   <ul className="max-h-56 overflow-y-auto rounded-lg border border-surface-high bg-white px-2.5 py-1">
