@@ -3,10 +3,11 @@ import { useAuth } from "../../auth/AuthContext";
 import { can, type Role } from "../../lib/permissions";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
-import { Field, TextArea, TextInput } from "../../components/form";
+import { Checkbox, Field, TextArea, TextInput } from "../../components/form";
 import { useToast } from "../../components/ui/Toast";
 import { money } from "../../lib/format";
 import { etiquetaDeStock, paraReponer, textoDelAviso } from "../../lib/insumos";
+import { margenDesdePrecio, precioDesdeMargen } from "../../lib/margen";
 import {
   useArchiveInsumo,
   useCreateInsumo,
@@ -25,6 +26,8 @@ type Form = {
   unitCost: string;
   supplierInfo: string;
   description: string;
+  seVende: boolean;
+  unitPrice: string;
 };
 
 const EMPTY: Form = {
@@ -36,6 +39,8 @@ const EMPTY: Form = {
   unitCost: "",
   supplierInfo: "",
   description: "",
+  seVende: false,
+  unitPrice: "",
 };
 
 const num = (s: string) => (s.trim() === "" ? null : Number(s));
@@ -57,6 +62,10 @@ export function InsumosAdminPage() {
   const [editing, setEditing] = useState<Insumo | null>(null);
   const [form, setForm] = useState<Form>(EMPTY);
   const [formError, setFormError] = useState<string | null>(null);
+  // El margen no se guarda en la base: se deriva de costo y precio. Vive en el
+  // formulario porque mientras se escribe puede quedar en un estado que no
+  // corresponde todavía a ningún precio ("1", camino a "150").
+  const [margen, setMargen] = useState("");
 
   const { data: insumos = [], isLoading, error } = useInsumos(showArchived);
   const create = useCreateInsumo();
@@ -123,6 +132,18 @@ export function InsumosAdminPage() {
       render: (i) => (i.unitCost != null ? <span className="tabular-nums">{money(i.unitCost)}</span> : "—"),
     },
     {
+      key: "venta",
+      header: "Venta",
+      width: 110,
+      // Sin esta columna hay que abrir cada insumo para saber cuáles se venden.
+      render: (i) =>
+        i.unitPrice != null ? (
+          <span className="tabular-nums text-ink">{money(i.unitPrice)}</span>
+        ) : (
+          <span className="text-ink-soft">No</span>
+        ),
+    },
+    {
       key: "sup",
       header: "Proveedor",
       width: 200,
@@ -133,6 +154,7 @@ export function InsumosAdminPage() {
   function openCreate() {
     setEditing(null);
     setForm(EMPTY);
+    setMargen("");
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -148,7 +170,13 @@ export function InsumosAdminPage() {
       unitCost: i.unitCost?.toString() ?? "",
       supplierInfo: i.supplierInfo ?? "",
       description: i.description ?? "",
+      // Tener precio de venta ES ser producto vendible: no hace falta otra
+      // columna para saberlo.
+      seVende: i.unitPrice != null,
+      unitPrice: i.unitPrice?.toString() ?? "",
     });
+    const m = margenDesdePrecio(i.unitCost, i.unitPrice);
+    setMargen(m == null ? "" : String(m));
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -163,6 +191,9 @@ export function InsumosAdminPage() {
       unitCost: num(form.unitCost),
       supplierInfo: form.supplierInfo.trim() || null,
       description: form.description.trim() || null,
+      // Destildar "se vende" borra el precio: es justamente lo que lo saca del
+      // circuito de venta. Dejarlo cargado haría que siguiera facturándose.
+      unitPrice: form.seVende ? num(form.unitPrice) : null,
     };
     const handlers = {
       onSuccess: () => {
@@ -176,6 +207,7 @@ export function InsumosAdminPage() {
   }
 
   const saving = create.isPending || update.isPending;
+  const costoNum = num(form.unitCost);
 
   return (
     <>
@@ -302,7 +334,14 @@ export function InsumosAdminPage() {
               min={0}
               step="0.01"
               value={form.unitCost}
-              onChange={(e) => setForm({ ...form, unitCost: e.target.value })}
+              onChange={(e) => {
+                // Si cambia el costo, el margen que se mostraba ya no
+                // corresponde a este precio: se recalcula en vez de quedar
+                // mintiendo.
+                const m = margenDesdePrecio(num(e.target.value), num(form.unitPrice));
+                setForm({ ...form, unitCost: e.target.value });
+                setMargen(m == null ? "" : String(m));
+              }}
               placeholder="—"
             />
           </Field>
@@ -310,6 +349,59 @@ export function InsumosAdminPage() {
             Lo que <strong>cuesta</strong> comprarlo, no lo que se cobra. Sirve para saber cuánto
             sale cada tratamiento.
           </p>
+        </div>
+
+        {/* ── También se vende ────────────────────────────────────────────
+            `products` es la misma tabla que usa la facturación, así que un
+            insumo puede además venderse. Lo que lo hace vendible es tener
+            precio: no hace falta otra columna. */}
+        <div className="rounded-xl border border-surface-high bg-surface-low p-3">
+          <Checkbox
+            label="También se vende a las clientas"
+            checked={form.seVende}
+            onChange={(v) => setForm({ ...form, seVende: v, unitPrice: v ? form.unitPrice : "" })}
+          />
+          {form.seVende && (
+            <div className="mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="% sobre el costo">
+                  <TextInput
+                    type="number"
+                    step="0.1"
+                    value={margen}
+                    onChange={(e) => {
+                      const p = precioDesdeMargen(costoNum, num(e.target.value));
+                      setMargen(e.target.value);
+                      setForm((f) => ({ ...f, unitPrice: p == null ? f.unitPrice : String(p) }));
+                    }}
+                    placeholder={costoNum == null ? "Cargá el costo" : "Ej: 100"}
+                    disabled={costoNum == null}
+                  />
+                </Field>
+                <Field label="Precio de venta">
+                  <TextInput
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={form.unitPrice}
+                    onChange={(e) => {
+                      // Los dos campos se calculan uno al otro: Laura escribe
+                      // el que tenga a mano, no el que le pidamos.
+                      const m = margenDesdePrecio(costoNum, num(e.target.value));
+                      setForm({ ...form, unitPrice: e.target.value });
+                      setMargen(m == null ? "" : String(m));
+                    }}
+                    placeholder="—"
+                  />
+                </Field>
+              </div>
+              <p className="mt-1 text-xs text-ink-soft">
+                {costoNum == null
+                  ? "Cargá primero el costo por unidad para calcular el precio."
+                  : "Escribí el porcentaje o el precio: el otro se completa solo."}
+              </p>
+            </div>
+          )}
         </div>
 
         <Field label="Proveedor">
