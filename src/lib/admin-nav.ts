@@ -48,14 +48,13 @@ export type Pestana = {
  * después el catálogo por área, después los recursos que lo habilitan, y
  * Categorías al final porque es meta.
  *
- * Falta INSUMOS y es a propósito, no un olvido: la tabla `products` existe
- * pero está vacía. Laura ya definió los requisitos (2026-09-08): sirve para
- * COSTEAR y para llevar STOCK; el stock baja SOLO cada vez que se realiza un
- * servicio que consume el insumo (hace falta una tabla receta
- * `service_product`: qué insumo usa cada servicio y en qué cantidad, más el
- * enganche en el momento en que un turno pasa a `completed`); no quiere
- * historial de compras por ahora; y sí quiere aviso de stock mínimo.
- * Queda por decidir qué pasa si se completa un servicio sin stock.
+ * INSUMOS entra acá, entre los recursos: habilita al catálogo pero no se vende.
+ * Por ahora es sólo el catálogo (etapa 1). Falta la tabla receta
+ * `service_product` — qué insumo consume cada servicio y en qué cantidad — y el
+ * descuento automático al pasar un turno a `completed`. Cuando un servicio se
+ * completa sin stock, el insumo queda en negativo y se avisa; no se bloquea el
+ * turno (decisión de Laura, 2026-09-08: bloquear un turno ya hecho por un dato
+ * de inventario mal cargado le frena la caja).
  * También faltan las sub-pestañas Combos/Packs de cada área:
  * `combos` está vacía y los packs llegan con V1 de venta y consumo.
  * Una pestaña que no lleva a ningún lado enseña a desconfiar de la barra, así
@@ -73,6 +72,7 @@ export const PESTANAS: Pestana[] = [
   { to: "/admin/servicios", label: "Todos los servicios", grupo: "eje", section: "catalogo" },
   { to: "/admin/proveedores", label: "Proveedores", grupo: "recurso", section: "proveedoras" },
   { to: "/admin/maquinas", label: "Máquinas", grupo: "recurso", section: "catalogo" },
+  { to: "/admin/insumos", label: "Insumos", grupo: "recurso", section: "catalogo" },
   { to: "/admin/combos", label: "Combos", grupo: "recurso", section: "catalogo" },
   { to: "/admin/categorias", label: "Categorías", grupo: "meta", section: "catalogo" },
 ];

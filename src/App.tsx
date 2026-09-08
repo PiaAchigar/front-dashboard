@@ -15,6 +15,7 @@ import { CategoriasAdminPage } from "./pages/admin/CategoriasAdminPage";
 import { ServiciosAdminPage } from "./pages/admin/ServiciosAdminPage";
 import { AREAS } from "./lib/admin-nav";
 import { ProveedorasAdminPage } from "./pages/admin/ProveedorasAdminPage";
+import { InsumosAdminPage } from "./pages/admin/InsumosAdminPage";
 import { MaquinasAdminPage } from "./pages/admin/MaquinasAdminPage";
 import { PromosAdminPage } from "./pages/admin/PromosAdminPage";
 import { CombosAdminPage } from "./pages/admin/CombosAdminPage";
@@ -78,6 +79,7 @@ export default function App() {
                   <Route path="proveedores" element={<ProveedorasAdminPage />} />
                   <Route path="categorias" element={<CategoriasAdminPage />} />
                   <Route path="maquinas" element={<MaquinasAdminPage />} />
+                  <Route path="insumos" element={<InsumosAdminPage />} />
                   <Route path="promos" element={<PromosAdminPage />} />
                   <Route path="combos" element={<CombosAdminPage />} />
                   <Route path="actividades" element={<ActividadesAdminPage />} />

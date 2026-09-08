@@ -49,6 +49,14 @@ describe("PESTANAS — el orden y los grupos que pidió Pia", () => {
     expect(etiquetas.indexOf("Capacitaciones")).toBe(etiquetas.indexOf("Actividades") + 1);
   });
 
+  it("Insumos tiene su pestaña, entre los recursos", () => {
+    const insumos = PESTANAS.find((p) => p.label === "Insumos");
+    expect(insumos?.to).toBe("/admin/insumos");
+    // No se vende: habilita al catálogo, como Máquinas. Si quedara en "eje" se
+    // pintaría como si fuera un área del catálogo.
+    expect(insumos?.grupo).toBe("recurso");
+  });
+
   it("ninguna pestaña apunta a una ruta vacía", () => {
     for (const p of PESTANAS) expect(p.to).toMatch(/^\/admin\/.+/);
   });
