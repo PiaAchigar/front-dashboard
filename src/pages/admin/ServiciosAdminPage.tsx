@@ -3,6 +3,8 @@ import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "reac
 import { useAuth } from "../../auth/AuthContext";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
+import { SuppliesSection, type SuppliesHandle } from "./SuppliesSection";
+import { useSetServiceSupplies } from "../../hooks/useRecetas";
 import { BenefitsInput } from "../../components/Services/BenefitsInput";
 import { EmbeddingsPendientesAviso } from "../../components/EmbeddingsPendientesAviso";
 import { Checkbox, Field, Select, TextArea, TextInput } from "../../components/form";
@@ -392,6 +394,7 @@ export function ServiciosAdminPage(
   const hardDelete = useHardDeleteService();
   const setCategories = useSetServiceCategories();
   const setAgreements = useSetServiceAgreements();
+  const setSupplies = useSetServiceSupplies();
   const { data: machines = [] } = useMachinesList();
   const { data: categoryTree = [] } = useCategoriesAdmin(false);
   const { data: areas = [] } = useAreas();
@@ -408,6 +411,7 @@ export function ServiciosAdminPage(
 
   // El editor de acuerdos mantiene su propio estado; lo leemos al guardar.
   const agreementsRef = useRef<AgreementsHandle>(null);
+  const suppliesRef = useRef<SuppliesHandle>(null);
 
   const rows = useMemo(
     () => filtrarServicios(services, { area, soloSinArea, nombresDeArea: AREAS_NOMBRES, search }),
@@ -554,6 +558,10 @@ export function ServiciosAdminPage(
       if (!serviceId) throw new Error("No se pudo guardar el servicio.");
       await setCategories.mutateAsync({ id: serviceId, categoryIds: form.categoryIds });
       await setAgreements.mutateAsync({ id: serviceId, agreements });
+      await setSupplies.mutateAsync({
+        id: serviceId,
+        supplies: suppliesRef.current?.getSupplies() ?? [],
+      });
       toast.success(editing ? "Servicio actualizado" : "Servicio creado");
       setDrawerOpen(false);
     } catch (e) {
@@ -562,7 +570,11 @@ export function ServiciosAdminPage(
   }
 
   const saving =
-    create.isPending || update.isPending || setCategories.isPending || setAgreements.isPending;
+    create.isPending ||
+    update.isPending ||
+    setCategories.isPending ||
+    setAgreements.isPending ||
+    setSupplies.isPending;
 
   /** Un grupo está abierto si la usuaria lo abrió, y si no, si tiene algo tildado. */
   function grupoAbierto(id: string, elegidas: number) {
@@ -868,6 +880,9 @@ export function ServiciosAdminPage(
           providers={providersAll}
           editorRef={agreementsRef}
         />
+
+        {/* Insumos que consume el servicio (migración 1.43.0) */}
+        <SuppliesSection serviceId={editing?.id ?? null} editorRef={suppliesRef} />
 
         {/* Contenido RAG: alimenta la búsqueda de tratamientos y el chatbot (migración 1.4.0) */}
         <div className="space-y-1 rounded-xl border border-surface-high p-3">

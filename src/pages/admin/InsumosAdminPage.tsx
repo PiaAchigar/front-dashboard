@@ -5,6 +5,8 @@ import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
 import { Checkbox, Field, TextArea, TextInput } from "../../components/form";
 import { useToast } from "../../components/ui/Toast";
+import { LayoutGrid } from "../../components/icons";
+import { AsignarInsumoDrawer } from "./AsignarInsumoDrawer";
 import { money } from "../../lib/format";
 import { etiquetaDeStock, paraReponer, textoDelAviso } from "../../lib/insumos";
 import { margenDesdePrecio, precioDesdeMargen } from "../../lib/margen";
@@ -66,6 +68,7 @@ export function InsumosAdminPage() {
   // formulario porque mientras se escribe puede quedar en un estado que no
   // corresponde todavía a ningún precio ("1", camino a "150").
   const [margen, setMargen] = useState("");
+  const [asignando, setAsignando] = useState<Insumo | null>(null);
 
   const { data: insumos = [], isLoading, error } = useInsumos(showArchived);
   const create = useCreateInsumo();
@@ -245,6 +248,19 @@ export function InsumosAdminPage() {
         }}
         canCreate={canManage}
         canArchive={canManage}
+        // Cargar la receta desde cada servicio son 120 modales. Desde acá, un
+        // insumo se asigna a todos los servicios que lo usan de una sola vez.
+        rowActions={(i) =>
+          canEdit ? (
+            <button
+              onClick={() => setAsignando(i)}
+              title="Asignar a servicios"
+              className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-primary"
+            >
+              <LayoutGrid size={16} />
+            </button>
+          ) : null
+        }
         onAdd={openCreate}
         onEdit={canEdit ? openEdit : undefined}
         archiving={archive.isPending}
@@ -262,6 +278,8 @@ export function InsumosAdminPage() {
           })
         }
       />
+
+      <AsignarInsumoDrawer insumo={asignando} onClose={() => setAsignando(null)} />
 
       <EntityDrawer
         open={drawerOpen}
