@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   agruparParaElFormulario,
   categoriasDelFormulario,
+  contarSeleccionadas,
   etiquetaDeCategorias,
   NO_SE_TILDAN,
 } from "./categorias";
@@ -175,5 +176,50 @@ describe("agruparParaElFormulario — las raíces sueltas van bajo un título", 
 
   it("un árbol vacío no rompe", () => {
     expect(agruparParaElFormulario([])).toEqual({ ramas: [], generales: [] });
+  });
+});
+
+describe("contarSeleccionadas — lo que muestra el grupo plegado", () => {
+  const arbol = nodo("Tratamientos Médicos", "tecnica", [
+    nodo("Dermatología", "tecnica", [
+      nodo("Dermatología Estética", "tecnica", [
+        nodo("Facial", "objetivo", [
+          nodo("Arrugas y Flaccidez", "objetivo", [
+            nodo("Bioestimuladores", "tecnica", [nodo("Radiesse", "tecnica"), nodo("Profhilo", "tecnica")]),
+          ]),
+        ]),
+      ]),
+    ]),
+  ]);
+
+  it("sin nada tildado cuenta cero", () => {
+    expect(contarSeleccionadas(arbol, [])).toBe(0);
+  });
+
+  // Es el caso que justifica el contador: la categoría tildada está a seis
+  // niveles de profundidad y el grupo está cerrado. Sin el número, el grupo
+  // plegado no da ninguna pista de que adentro hay algo.
+  it("encuentra una tildada en el fondo del árbol", () => {
+    expect(contarSeleccionadas(arbol, ["Radiesse"])).toBe(1);
+  });
+
+  it("suma varias de distinta profundidad", () => {
+    expect(contarSeleccionadas(arbol, ["Radiesse", "Profhilo", "Facial"])).toBe(3);
+  });
+
+  it("cuenta también la raíz del grupo", () => {
+    expect(contarSeleccionadas(arbol, ["Tratamientos Médicos"])).toBe(1);
+  });
+
+  it("no cuenta ids que no pertenecen a la rama", () => {
+    expect(contarSeleccionadas(arbol, ["Manicuría", "Belleza"])).toBe(0);
+  });
+
+  it("un id repetido en la lista no se cuenta dos veces", () => {
+    expect(contarSeleccionadas(arbol, ["Radiesse", "Radiesse"])).toBe(1);
+  });
+
+  it("una rama sin hijas cuenta sólo por sí misma", () => {
+    expect(contarSeleccionadas(nodo("Manicuría", "tecnica"), ["Manicuría"])).toBe(1);
   });
 });

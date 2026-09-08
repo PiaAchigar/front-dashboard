@@ -6,7 +6,7 @@ import { EntityDrawer } from "../../components/EntityDrawer";
 import { BenefitsInput } from "../../components/Services/BenefitsInput";
 import { EmbeddingsPendientesAviso } from "../../components/EmbeddingsPendientesAviso";
 import { Checkbox, Field, Select, TextArea, TextInput } from "../../components/form";
-import { Plus, Trash } from "../../components/icons";
+import { ChevronRight, Plus, Trash } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
 import type { CategoryNode, ProviderAdmin, Service } from "../../lib/api-types";
 import { can, type Role } from "../../lib/permissions";
@@ -28,6 +28,7 @@ import { preseleccionDeArea } from "../../lib/areas";
 import {
   agruparParaElFormulario,
   categoriasDelFormulario,
+  contarSeleccionadas,
   etiquetaDeCategorias,
 } from "../../lib/categorias";
 import { useProvidersAdmin } from "../../hooks/useProvidersAdmin";
@@ -66,17 +67,22 @@ function contarCategorias(nodes: CategoryNode[]): number {
  * general. Sin ese checkbox, los servicios que hoy cuelgan de una categoría
  * madre —11 al momento de escribir esto, 7 de Cosmetología y 4 de Estética
  * Corporal— quedarían asignados sin forma de verlo ni de sacarlo.
+ *
+ * `sinTitulo` sirve para las raíces: ahí el nombre ya lo muestra la cabecera
+ * del grupo plegable, y repetirlo adentro lo diría dos veces seguidas.
  */
 function RamaCategorias({
   nodo,
   nivel,
   seleccionadas,
   onToggle,
+  sinTitulo = false,
 }: {
   nodo: CategoryNode;
   nivel: number;
   seleccionadas: string[];
   onToggle: (id: string) => void;
+  sinTitulo?: boolean;
 }) {
   const hijas = nodo.children ?? [];
   const nombre = nodo.name ?? "—";
@@ -98,25 +104,89 @@ function RamaCategorias({
       ? "text-xs font-semibold uppercase tracking-wide text-ink"
       : "text-xs font-medium text-ink-soft";
 
+  const contenido = (
+    <div
+      className={
+        sinTitulo ? "space-y-0.5" : `mt-0.5 space-y-0.5 ${nivel === 0 ? "pl-2" : "pl-3"}`
+      }
+    >
+      {hijas.map((h) => (
+        <RamaCategorias
+          key={h.id}
+          nodo={h}
+          nivel={sinTitulo ? nivel : nivel + 1}
+          seleccionadas={seleccionadas}
+          onToggle={onToggle}
+        />
+      ))}
+      <Checkbox
+        label={`${nombre} (general)`}
+        checked={seleccionadas.includes(nodo.id)}
+        onChange={() => onToggle(nodo.id)}
+      />
+    </div>
+  );
+
+  if (sinTitulo) return contenido;
+
   return (
     <div className={nivel === 0 ? "" : "mt-1"}>
       <p className={`${claseTitulo} ${nivel === 0 ? "" : "pl-1"}`}>{nombre}</p>
-      <div className={`mt-0.5 space-y-0.5 ${nivel === 0 ? "pl-2" : "pl-3"}`}>
-        {hijas.map((h) => (
-          <RamaCategorias
-            key={h.id}
-            nodo={h}
-            nivel={nivel + 1}
-            seleccionadas={seleccionadas}
-            onToggle={onToggle}
-          />
-        ))}
-        <Checkbox
-          label={`${nombre} (general)`}
-          checked={seleccionadas.includes(nodo.id)}
-          onChange={() => onToggle(nodo.id)}
+      {contenido}
+    </div>
+  );
+}
+
+/**
+ * Un grupo de primer nivel del árbol de categorías, plegable.
+ *
+ * Arrancan cerrados. Con el árbol de la 1.38.0 son ~150 casilleros en siete
+ * niveles: abiertos de entrada, el formulario obliga a scrollear una pantalla
+ * y media para llegar al botón de guardar, y la rama de Tratamientos Médicos
+ * sola es más alta que el resto junto.
+ *
+ * Cerrado, el grupo tiene que seguir diciendo algo, y por eso lleva el contador
+ * de tildadas: una categoría elegida puede estar seis niveles adentro, y sin el
+ * número no habría forma de saber que está ahí sin abrir los nueve grupos.
+ */
+function GrupoPlegable({
+  titulo,
+  elegidas,
+  abierto,
+  onToggle,
+  children,
+}: {
+  titulo: string;
+  elegidas: number;
+  abierto: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-surface-high">
+      <button
+        type="button"
+        aria-expanded={abierto}
+        onClick={onToggle}
+        className="flex w-full items-center gap-2 px-2.5 py-2 text-left transition-colors hover:bg-surface-container"
+      >
+        {/* `rotate-90` va escrito entero y no armado en runtime: Tailwind
+            escanea el código como texto plano y una clase compuesta no llega
+            al CSS compilado. */}
+        <ChevronRight
+          size={14}
+          className={`shrink-0 text-ink-soft transition-transform ${abierto ? "rotate-90" : ""}`}
         />
-      </div>
+        <span className="flex-1 text-xs font-semibold uppercase tracking-wide text-ink">
+          {titulo}
+        </span>
+        {elegidas > 0 && (
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            {elegidas}
+          </span>
+        )}
+      </button>
+      {abierto && <div className="border-t border-surface-high px-2.5 py-2">{children}</div>}
     </div>
   );
 }
@@ -307,6 +377,11 @@ export function ServiciosAdminPage(
   const [editing, setEditing] = useState<Service | null>(null);
   const [form, setForm] = useState<Form>(EMPTY);
   const [formError, setFormError] = useState<string | null>(null);
+  // Sólo los grupos que la usuaria abrió o cerró a mano. Lo que no está acá se
+  // decide por si tiene algo tildado, así que un grupo se abre solo al editar
+  // un servicio que ya está en esa rama — y sigue funcionando aunque el árbol
+  // llegue después que el servicio, que es lo normal con dos consultas.
+  const [gruposTocados, setGruposTocados] = useState<Record<string, boolean>>({});
 
   const { data: services = [], isLoading, error } = useServicesAdmin(showArchived);
   const create = useCreateService();
@@ -391,6 +466,7 @@ export function ServiciosAdminPage(
     // que el servicio nuevo sea de Estética. Se puede destildar y se pueden
     // marcar otras.
     setForm({ ...EMPTY, categoryIds: preseleccionDeArea(areas, area) });
+    setGruposTocados({});
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -417,6 +493,7 @@ export function ServiciosAdminPage(
       contraindications: s.contraindications ?? "",
       specialAttentionNotes: s.specialAttentionNotes ?? "",
     });
+    setGruposTocados({});
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -486,6 +563,15 @@ export function ServiciosAdminPage(
 
   const saving =
     create.isPending || update.isPending || setCategories.isPending || setAgreements.isPending;
+
+  /** Un grupo está abierto si la usuaria lo abrió, y si no, si tiene algo tildado. */
+  function grupoAbierto(id: string, elegidas: number) {
+    return gruposTocados[id] ?? elegidas > 0;
+  }
+
+  function alternarGrupo(id: string, elegidas: number) {
+    setGruposTocados((g) => ({ ...g, [id]: !grupoAbierto(id, elegidas) }));
+  }
 
   function toggleCategory(id: string) {
     setForm((f) => ({
@@ -716,38 +802,62 @@ export function ServiciosAdminPage(
             // `columns-2` en vez de `grid-cols-2`: con grid, un grupo largo se
             // parte al medio entre las dos columnas. Con columnas CSS y
             // `break-inside-avoid` cada categoría madre queda entera.
-            <div className="columns-2 gap-x-6">
-              {ramas.map((n) => (
-                <div key={n.id} className="mb-3 break-inside-avoid">
-                  <RamaCategorias
-                    nodo={n}
-                    nivel={0}
-                    seleccionadas={form.categoryIds}
-                    onToggle={toggleCategory}
-                  />
-                </div>
-              ))}
+            // Una sola columna, no dos. Con `columns-2` el bloque de
+            // Tratamientos Médicos es más alto que una columna entera y, como
+            // un grupo no se puede partir al medio, todo lo que viene después
+            // se apila en la misma columna dejando la izquierda vacía. Además
+            // el ancho completo le da aire a los nombres de nivel 5 y 6, que
+            // llegan a 49 caracteres.
+            <div className="space-y-1.5">
+              {ramas.map((n) => {
+                const elegidas = contarSeleccionadas(n, form.categoryIds);
+                return (
+                  <GrupoPlegable
+                    key={n.id}
+                    titulo={n.name ?? "—"}
+                    elegidas={elegidas}
+                    abierto={grupoAbierto(n.id, elegidas)}
+                    onToggle={() => alternarGrupo(n.id, elegidas)}
+                  >
+                    <RamaCategorias
+                      nodo={n}
+                      nivel={0}
+                      sinTitulo
+                      seleccionadas={form.categoryIds}
+                      onToggle={toggleCategory}
+                    />
+                  </GrupoPlegable>
+                );
+              })}
               {/* Las raíces sin hijas, juntas bajo un encabezado. Suelto, un
                   checkbox de primer nivel entre grupos que sí tienen título
                   parece una opción huérfana. "Generales" es un título de esta
                   pantalla, no una categoría: no se tilda ni se guarda. */}
-              {generales.length > 0 && (
-                <div className="mb-3 break-inside-avoid">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink">
-                    Generales
-                  </p>
-                  <div className="mt-0.5 space-y-0.5 pl-2">
-                    {generales.map((n) => (
-                      <Checkbox
-                        key={n.id}
-                        label={n.name ?? "—"}
-                        checked={form.categoryIds.includes(n.id)}
-                        onChange={() => toggleCategory(n.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+              {generales.length > 0 &&
+                (() => {
+                  const elegidas = generales.filter((n) =>
+                    form.categoryIds.includes(n.id),
+                  ).length;
+                  return (
+                    <GrupoPlegable
+                      titulo="Generales"
+                      elegidas={elegidas}
+                      abierto={grupoAbierto("__generales", elegidas)}
+                      onToggle={() => alternarGrupo("__generales", elegidas)}
+                    >
+                      <div className="space-y-0.5">
+                        {generales.map((n) => (
+                          <Checkbox
+                            key={n.id}
+                            label={n.name ?? "—"}
+                            checked={form.categoryIds.includes(n.id)}
+                            onChange={() => toggleCategory(n.id)}
+                          />
+                        ))}
+                      </div>
+                    </GrupoPlegable>
+                  );
+                })()}
             </div>
           )}
         </div>

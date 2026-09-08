@@ -96,3 +96,27 @@ export function agruparParaElFormulario<T extends { children: T[] }>(
     generales: arbol.filter((n) => (n.children ?? []).length === 0),
   };
 }
+
+/**
+ * Cuántas categorías de una rama están tildadas, contando la raíz y bajando
+ * hasta el fondo.
+ *
+ * Es lo que muestra el número al costado de un grupo plegado. Sin él, un grupo
+ * cerrado no da ninguna pista de que adentro hay algo elegido — y con siete
+ * niveles de profundidad, "adentro" puede ser un nieto de sexto grado.
+ */
+export function contarSeleccionadas<T extends { id: string; children: T[] }>(
+  nodo: T,
+  seleccionadas: readonly string[],
+): number {
+  // `Set` y no `includes` en bucle: se llama una vez por grupo en cada render
+  // del formulario, y la lista de tildadas crece con cada categoría marcada.
+  return contar(nodo, new Set(seleccionadas));
+}
+
+function contar<T extends { id: string; children: T[] }>(nodo: T, elegidas: Set<string>): number {
+  return (
+    (elegidas.has(nodo.id) ? 1 : 0) +
+    (nodo.children ?? []).reduce((acc, h) => acc + contar(h, elegidas), 0)
+  );
+}
