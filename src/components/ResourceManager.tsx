@@ -69,7 +69,13 @@ type Props<T> = {
   archiveName?: (row: T) => string;
 
   /** Hard-delete real (irreversible), separado de Archivar. Solo admin. */
-  canHardDelete?: boolean;
+  /**
+   * Quién muestra el botón de eliminar definitivamente. Un booleano lo pone en
+   * todas las filas (como en Servicios); una función lo decide fila por fila
+   * —Categorías lo ofrece sólo sobre las archivadas, porque una activa puede
+   * estar en el menú del sitio público—.
+   */
+  canHardDelete?: boolean | ((row: T) => boolean);
   onHardDeletePreview?: (row: T) => Promise<DeleteImpact>;
   onHardDelete?: (row: T) => void;
   hardDeleteName?: (row: T) => string;
@@ -136,7 +142,7 @@ export function ResourceManager<T>({
   const visibleRows = rows.filter((r) => isArchived(r) === showArchived);
 
   const showActions = Boolean(
-    rowActions || onEdit || (canArchive && (onArchive || onRestore)) || canHardDelete,
+    rowActions || onEdit || (canArchive && (onArchive || onRestore)) || canHardDelete !== false,
   );
   const colWidth = (key: string) => widths[key] ?? DEFAULT_WIDTH;
   const totalWidth =
@@ -193,6 +199,10 @@ export function ResourceManager<T>({
     setHardDeleteImpact(null);
   }
 
+  function puedeEliminar(row: T): boolean {
+    return typeof canHardDelete === "function" ? canHardDelete(row) : canHardDelete;
+  }
+
   function cascadeMessage(cascade: Record<string, number>): string {
     const labels: Record<string, string> = {
       agreements: "acuerdo(s) con proveedoras",
@@ -203,6 +213,7 @@ export function ResourceManager<T>({
       saturdaySchedule: "sábado(s) puntuales cargados",
       exceptions: "excepción(es) de disponibilidad",
       mpAccounts: "cuenta(s) de MercadoPago",
+      serviceLinks: "servicio(s) que la tienen asignada",
     };
     const parts = Object.entries(cascade)
       .filter(([, count]) => count > 0)
@@ -263,7 +274,7 @@ export function ResourceManager<T>({
                   <RotateCcw size={16} />
                 </button>
               )}
-              {canHardDelete && onHardDeletePreview && onHardDelete && (
+              {puedeEliminar(row) && onHardDeletePreview && onHardDelete && (
                 <button
                   onClick={() => startHardDelete(row)}
                   disabled={previewingHardDelete && hardDeleteRow === row}

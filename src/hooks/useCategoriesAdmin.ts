@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch } from "../lib/api-client";
 import type { CategoryNode } from "../lib/api-types";
+import type { DeleteImpact } from "../components/ResourceManager";
 
 export type CategoryInput = {
   name: string;
@@ -75,6 +76,26 @@ export function useRestoreCategory() {
   return useMutation({
     mutationFn: (id: string) =>
       apiFetch(`/api/agenda/categories/${id}/restore`, token, { method: "POST" }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useCategoryDeleteImpact() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<DeleteImpact>(`/api/agenda/categories/${id}/delete-impact`, token),
+  });
+}
+
+export function useHardDeleteCategory() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch(`/api/agenda/categories/${id}/permanent`, token, { method: "DELETE" }),
     onSuccess: invalidate,
   });
 }

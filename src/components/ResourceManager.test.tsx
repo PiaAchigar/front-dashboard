@@ -118,3 +118,72 @@ describe("ResourceManager — agrupado colapsable", () => {
     expect(filasVisibles()).toEqual(["Pierna entera"]);
   });
 });
+
+describe("ResourceManager — quién muestra el botón de eliminar definitivamente", () => {
+  const CON_ARCHIVADAS: Fila[] = [
+    { id: "1", nombre: "Pierna entera", cat: "grande" },
+    { id: "2", nombre: "Brazos", cat: "grande", archivada: true },
+  ];
+
+  // La tabla ya filtra por el toggle: `showArchived` decide qué mitad se
+  // dibuja. Por eso cada caso se prueba en las DOS vistas — un botón que
+  // aparece "en todas las filas" aparece en una fila por vista, no en dos.
+  const conBorrado = (
+    canHardDelete: boolean | ((r: Fila) => boolean),
+    showArchived: boolean,
+  ) => ({
+    ...base({ rows: CON_ARCHIVADAS, showArchived }),
+    canHardDelete,
+    onHardDeletePreview: vi.fn(async () => ({ blocked: false, cascade: {} })),
+    onHardDelete: vi.fn(),
+  });
+
+  const botones = () => screen.queryAllByTitle("Eliminar definitivamente");
+
+  it("sin la prop no aparece en ninguna vista", () => {
+    render(<ResourceManager<Fila> {...base({ rows: CON_ARCHIVADAS })} />);
+    expect(botones()).toHaveLength(0);
+  });
+
+  // Regresión: Servicios pasa un booleano y tiene que seguir mostrándolo tanto
+  // sobre los activos como sobre los archivados.
+  it("con `true` aparece en las dos vistas", () => {
+    const { unmount } = render(<ResourceManager<Fila> {...conBorrado(true, false)} />);
+    expect(screen.getByText("Pierna entera")).toBeInTheDocument();
+    expect(botones()).toHaveLength(1);
+    unmount();
+
+    render(<ResourceManager<Fila> {...conBorrado(true, true)} />);
+    expect(screen.getByText("Brazos")).toBeInTheDocument();
+    expect(botones()).toHaveLength(1);
+  });
+
+  it("con `false` no aparece en ninguna vista", () => {
+    const { unmount } = render(<ResourceManager<Fila> {...conBorrado(false, false)} />);
+    expect(botones()).toHaveLength(0);
+    unmount();
+
+    render(<ResourceManager<Fila> {...conBorrado(false, true)} />);
+    expect(botones()).toHaveLength(0);
+  });
+
+  // Lo que necesita Categorías: sólo del lado de archivados. Es la diferencia
+  // que justifica que la prop acepte una función y no siga siendo un booleano.
+  it("con una función decide fila por fila", () => {
+    const soloArchivadas = (r: Fila) => Boolean(r.archivada);
+
+    const { unmount } = render(<ResourceManager<Fila> {...conBorrado(soloArchivadas, false)} />);
+    expect(screen.getByText("Pierna entera")).toBeInTheDocument();
+    expect(botones()).toHaveLength(0);
+    unmount();
+
+    render(<ResourceManager<Fila> {...conBorrado(soloArchivadas, true)} />);
+    const filaArchivada = screen.getByText("Brazos").closest("tr")!;
+    expect(within(filaArchivada).getByTitle("Eliminar definitivamente")).toBeInTheDocument();
+  });
+
+  it("una función que nunca da true se comporta igual que `false`", () => {
+    render(<ResourceManager<Fila> {...conBorrado(() => false, true)} />);
+    expect(botones()).toHaveLength(0);
+  });
+});

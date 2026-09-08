@@ -11,7 +11,9 @@ import type { CategoryNode } from "../../lib/api-types";
 import {
   useArchiveCategory,
   useCategoriesAdmin,
+  useCategoryDeleteImpact,
   useCreateCategory,
+  useHardDeleteCategory,
   useRestoreCategory,
   useUpdateCategory,
 } from "../../hooks/useCategoriesAdmin";
@@ -55,6 +57,7 @@ export function CategoriasAdminPage() {
   const r = role as Role | null;
   const canEdit = can(r, "catalogo", "edit");
   const canManage = can(r, "catalogo", "manage");
+  const isAdmin = r === "admin";
   const toast = useToast();
 
   const [search, setSearch] = useState("");
@@ -75,6 +78,8 @@ export function CategoriasAdminPage() {
   const update = useUpdateCategory();
   const archive = useArchiveCategory();
   const restore = useRestoreCategory();
+  const deleteImpact = useCategoryDeleteImpact();
+  const hardDelete = useHardDeleteCategory();
 
   const flat = useMemo(() => flatten(tree), [tree]);
   const conHijas = useMemo(() => idsConHijas(flat), [flat]);
@@ -244,6 +249,19 @@ export function CategoriasAdminPage() {
         onRestore={(c) =>
           restore.mutate(c.id, {
             onSuccess: () => toast.success("Categoría restaurada"),
+            onError: (e: Error) => toast.error(e.message),
+          })
+        }
+        // Sólo sobre las archivadas, y sólo admin. Una categoría activa puede
+        // estar en el menú del sitio público: borrarla lo cambiaría sin aviso.
+        // El backend lo vuelve a chequear — esto es la conveniencia, no la
+        // regla.
+        canHardDelete={(c) => isAdmin && c.isActive === false}
+        onHardDeletePreview={(c) => deleteImpact.mutateAsync(c.id)}
+        hardDeleteName={(c) => c.name ?? "esta categoría"}
+        onHardDelete={(c) =>
+          hardDelete.mutate(c.id, {
+            onSuccess: () => toast.success("Categoría eliminada definitivamente"),
             onError: (e: Error) => toast.error(e.message),
           })
         }
