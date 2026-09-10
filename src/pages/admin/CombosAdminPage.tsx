@@ -11,6 +11,7 @@ import { useServices } from "../../hooks/useServices";
 import { computeComboFinalPrice, computeComboSubtotal } from "../../lib/combo-pricing";
 import {
   useArchiveCombo,
+  useChequeoDeDuplicados,
   useCombosAdmin,
   useCreateCombo,
   useDeleteCombo,
@@ -18,6 +19,8 @@ import {
   useUpdateComboAdmin,
   type ComboInput,
 } from "../../hooks/useCombosAdmin";
+import { useAreas } from "../../hooks/useAreas";
+import { idDeArea } from "../../lib/areas";
 import type { ComboAdmin } from "../../lib/api-types";
 
 const money = (n: number | null | undefined) =>
@@ -26,6 +29,8 @@ const money = (n: number | null | undefined) =>
 /** Línea en edición: todo string, porque son inputs controlados. */
 type DraftLine = {
   serviceId: string;
+  /** Sólo lectura desde la 1.50.0: el formulario ya no lo edita (spec §4.3).
+   *  Se conserva para poder mostrar lo que traiga un combo viejo. */
   sessionsIncluded: string;
   /**
    * Nombre del servicio tal como vino del combo guardado. Sólo se usa para
@@ -52,6 +57,8 @@ type Form = {
   validityMonths: string;
   isVisibleWeb: boolean;
   displayOrder: string;
+  /** §4.4 — los servicios se hacen en la misma visita. */
+  servicesTogether: boolean;
   lines: DraftLine[];
 };
 
@@ -63,6 +70,10 @@ const EMPTY: Form = {
   validityMonths: "12",
   isVisibleWeb: true,
   displayOrder: "0",
+  // Desmarcado por decisión de Pia (2026-09-10): ante un descuido de quien
+  // carga, que quede la opción MÁS libre de agendar. Al revés bloquearía
+  // turnos que sí se podían dar.
+  servicesTogether: false,
   lines: [],
 };
 
@@ -73,24 +84,23 @@ const EMPTY_LINE: DraftLine = {
   servicePrice: null,
 };
 
-/** Tope de sesiones por línea, igual al que valida el backend (zod, combos.ts). */
-const MAX_SESSIONS_INCLUDED = 999;
-
 /** Una fila del combo: servicio + cuántas sesiones de ese servicio incluye. */
 function LineRow({
   line,
   services,
   precio,
+  bloqueado,
   onChange,
   onRemove,
 }: {
   line: DraftLine;
   services: { id: string; name: string | null }[];
   precio: number;
+  /** La composición de un combo guardado no se edita (spec §4.2). */
+  bloqueado: boolean;
   onChange: (l: DraftLine) => void;
   onRemove: () => void;
 }) {
-  const sesiones = Number(line.sessionsIncluded) || 0;
   // El <Select> sólo lista servicios activos. Si esta línea trae un
   // serviceId que ya no está entre ellos, es porque el servicio se archivó
   // — usamos el nombre guardado para que la fila diga a quién hay que
@@ -111,6 +121,7 @@ function LineRow({
             )}
             <Select
               value={line.serviceId}
+              disabled={bloqueado}
               onChange={(e) =>
                 onChange({ ...line, serviceId: e.target.value, serviceName: null })
               }
@@ -124,33 +135,22 @@ function LineRow({
             </Select>
           </Field>
         </div>
-        <button
-          type="button"
-          onClick={onRemove}
-          title="Quitar servicio"
-          className="mt-6 shrink-0 rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700"
-        >
-          <Trash size={15} />
-        </button>
+        {!bloqueado && (
+          <button
+            type="button"
+            onClick={onRemove}
+            title="Quitar servicio"
+            className="mt-6 shrink-0 rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700"
+          >
+            <Trash size={15} />
+          </button>
+        )}
       </div>
-      <div className="flex items-end gap-2">
-        <Field
-          label="Sesiones"
-          help="Cuántas sesiones de ESTE servicio incluye el combo. Cada servicio lleva su propia cantidad."
-        >
-          <TextInput
-            inputMode="numeric"
-            value={line.sessionsIncluded}
-            onChange={(e) => onChange({ ...line, sessionsIncluded: e.target.value })}
-            placeholder="8"
-          />
-        </Field>
-        <p className="pb-2 text-sm text-ink-soft">
-          {sesiones > 0 && precio > 0
-            ? `${sesiones} × ${money(precio)} = ${money(sesiones * precio)}`
-            : "—"}
-        </p>
-      </div>
+      {/* El campo "sesiones" se sacó en la 1.50.0 (spec §4.3): un combo es UNA
+          sesión de cada servicio. Repetir es trabajo de un pack, y tener dos
+          formas de armar lo mismo hacía imposible explicar por qué algo
+          aparecía en una solapa y no en la otra. */}
+      <p className="text-sm text-ink-soft">{precio > 0 ? money(precio) : "—"}</p>
     </li>
   );
 }
@@ -175,7 +175,14 @@ function ComboDependenciaAviso() {
   );
 }
 
-export function CombosAdminPage() {
+/**
+ * Los combos de un área.
+ *
+ * `area` es el NOMBRE de la categoría ("Estética"), igual que en
+ * `ServiciosAdminPage`, porque es lo que sabe la ruta. La traducción a id la
+ * hace `idDeArea`.
+ */
+export function CombosAdminPage({ area }: { area?: string } = {}) {
   const { role } = useAuth();
   const r = role as Role | null;
   const canEdit = can(r, "catalogo", "edit");
@@ -189,8 +196,16 @@ export function CombosAdminPage() {
   const [form, setForm] = useState<Form>(EMPTY);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const { data: combos = [], isLoading, error } = useCombosAdmin(showArchived);
+  const { data: areas = [] } = useAreas();
+  const areaCategoryId = idDeArea(areas, area);
+  const {
+    data: combos = [],
+    isLoading,
+    error,
+  } = useCombosAdmin(showArchived, { areaCategoryId, kind: "combo" });
   const { data: services = [] } = useServices();
+  const chequearDuplicados = useChequeoDeDuplicados();
+  const [duplicados, setDuplicados] = useState<{ id: string; name: string }[]>([]);
   const create = useCreateCombo();
   const update = useUpdateComboAdmin();
   const archive = useArchiveCombo();
@@ -215,11 +230,10 @@ export function CombosAdminPage() {
   const precioPreview = (l: DraftLine) => priceById.get(l.serviceId) ?? l.servicePrice ?? 0;
 
   // Preview en vivo: mismo cálculo que combo-pricing.ts del backend.
+  // Una sesión de cada servicio (spec §4.3): el subtotal es la suma de los
+  // precios, sin multiplicar por nada.
   const subtotalPreview = computeComboSubtotal(
-    form.lines.map((l) => ({
-      servicePrice: precioPreview(l),
-      sessionsIncluded: Number(l.sessionsIncluded) || 0,
-    })),
+    form.lines.map((l) => ({ servicePrice: precioPreview(l), sessionsIncluded: 1 })),
   );
   const priceValue = form.priceValue.trim() === "" ? null : Number(form.priceValue);
   const finalPreview = computeComboFinalPrice(
@@ -252,14 +266,22 @@ export function CombosAdminPage() {
       render: (c) => <span className="text-ink-soft">{c.lines.length}</span>,
     },
     {
-      key: "sesiones",
-      header: "Sesiones",
-      width: 90,
-      render: (c) => (
-        <span className="text-ink-soft">
-          {c.lines.reduce((acc, l) => acc + (l.sessionsIncluded ?? 0), 0)}
-        </span>
-      ),
+      key: "juntos",
+      header: "Se hacen",
+      width: 130,
+      render: (c) =>
+        c.lines.length < 2 ? (
+          <span className="text-ink-soft">—</span>
+        ) : c.servicesTogether ? (
+          <span
+            className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary-dark"
+            title="Hay que agendarlos el mismo día"
+          >
+            Juntos
+          </span>
+        ) : (
+          <span className="text-xs text-ink-soft">Por separado</span>
+        ),
     },
     {
       key: "subtotal",
@@ -302,6 +324,7 @@ export function CombosAdminPage() {
     setEditing(null);
     setForm(EMPTY);
     setFormError(null);
+    setDuplicados([]);
     setDrawerOpen(true);
   }
 
@@ -318,6 +341,7 @@ export function CombosAdminPage() {
       validityMonths: c.validityMonths != null ? String(c.validityMonths) : "12",
       isVisibleWeb: c.isVisibleWeb ?? true,
       displayOrder: c.displayOrder != null ? String(c.displayOrder) : "0",
+      servicesTogether: c.servicesTogether,
       lines: c.lines.map((l) => ({
         serviceId: l.serviceId ?? "",
         sessionsIncluded: l.sessionsIncluded != null ? String(l.sessionsIncluded) : "",
@@ -326,6 +350,7 @@ export function CombosAdminPage() {
       })),
     });
     setFormError(null);
+    setDuplicados([]);
     setDrawerOpen(true);
   }
 
@@ -340,15 +365,27 @@ export function CombosAdminPage() {
       validityMonths: Number(form.validityMonths) || 0,
       isVisibleWeb: form.isVisibleWeb,
       displayOrder: Number(form.displayOrder) || 0,
-      lines: form.lines
-        .filter((l) => l.serviceId && Number(l.sessionsIncluded) > 0)
-        .map((l) => ({
-          serviceId: l.serviceId,
-          sessionsIncluded: Number(l.sessionsIncluded),
-        })),
+      areaCategoryId: areaCategoryId ?? "",
+      kind: "combo",
+      // "Se hacen juntos" con un solo servicio no significa nada, y el backend
+      // lo rechaza: no se manda.
+      servicesTogether: form.lines.length >= 2 ? form.servicesTogether : false,
+      // Sin `sessionsIncluded`: el backend lo pone en 1 (spec §4.3).
+      lines: form.lines.filter((l) => l.serviceId).map((l) => ({ serviceId: l.serviceId })),
     };
   }
 
+  /**
+   * Guarda, avisando primero si ya existe uno igual.
+   *
+   * El aviso corta el primer intento y muestra qué encontró; el segundo click
+   * guarda igual. Es un aviso, no un candado: Pia pidió *"que el sistema le
+   * avise"*, no que le prohíba. Bloquear obligaría a adivinar los casos
+   * legítimos que todavía no aparecieron.
+   *
+   * Sólo al crear: editar un combo guardado no cambia su composición, así que
+   * no puede volverse duplicado de nada.
+   */
   async function save() {
     setFormError(null);
     try {
@@ -356,6 +393,13 @@ export function CombosAdminPage() {
         await update.mutateAsync({ id: editing.id, ...buildPayload() });
         toast.success("Combo actualizado");
       } else {
+        if (duplicados.length === 0) {
+          const r = await chequearDuplicados.mutateAsync(buildPayload());
+          if (r.duplicados.length > 0) {
+            setDuplicados(r.duplicados);
+            return;
+          }
+        }
         await create.mutateAsync(buildPayload());
         toast.success("Combo creado");
       }
@@ -365,19 +409,14 @@ export function CombosAdminPage() {
     }
   }
 
-  const saving = create.isPending || update.isPending;
+  const saving = create.isPending || update.isPending || chequearDuplicados.isPending;
   // El botón se habilita sólo si el combo puede existir: nombre, al menos un
-  // servicio con sesiones, y el precio que su tipo exige.
-  const lineasValidas = form.lines.filter(
-    (l) => l.serviceId && Number(l.sessionsIncluded) > 0,
-  ).length;
-  const hayLineaConSesionesExcedidas = form.lines.some(
-    (l) => Number(l.sessionsIncluded) > MAX_SESSIONS_INCLUDED,
-  );
+  // servicio, un área y el precio que su tipo exige.
+  const lineasValidas = form.lines.filter((l) => l.serviceId).length;
   const puedeGuardar =
     form.name.trim().length >= 1 &&
     lineasValidas >= 1 &&
-    !hayLineaConSesionesExcedidas &&
+    !!areaCategoryId &&
     form.priceValue.trim() !== "" &&
     Number(form.validityMonths) >= 1;
 
@@ -428,13 +467,41 @@ export function CombosAdminPage() {
 
       <EntityDrawer
         open={drawerOpen}
-        title={editing ? "Editar combo" : "Nuevo combo"}
+        title={editing ? "Editar combo" : `Nuevo combo${area ? ` — ${area}` : ""}`}
         error={formError}
         busy={saving}
         canSubmit={puedeGuardar}
         onSubmit={save}
         onClose={() => setDrawerOpen(false)}
       >
+        {duplicados.length > 0 && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <p className="font-medium">
+              {duplicados.length === 1
+                ? "Ya existe un combo con estos mismos servicios:"
+                : "Ya existen combos con estos mismos servicios:"}
+            </p>
+            <ul className="mt-1 list-inside list-disc">
+              {duplicados.map((d) => (
+                <li key={d.id}>{d.name}</li>
+              ))}
+            </ul>
+            <p className="mt-1.5">
+              Si igual querés crearlo, volvé a apretar Guardar. Ojo que dos combos iguales con
+              precios distintos son un problema en el mostrador.
+            </p>
+          </div>
+        )}
+
+        {editing && (
+          <p className="rounded-lg border border-surface-high bg-surface-low px-3 py-2 text-sm text-ink-soft">
+            De un combo guardado se edita el <strong>precio</strong> y cómo se muestra. Los
+            servicios que lo forman no se cambian: sería otro combo, y las compras viejas
+            quedarían apuntando a algo que no es lo que se vendió. Si está mal cargado, borralo y
+            armalo de nuevo.
+          </p>
+        )}
+
         <Field label="Nombre *">
           <TextInput
             value={form.name}
@@ -510,8 +577,9 @@ export function CombosAdminPage() {
         {/* Servicios del combo: cada uno con su propia cantidad de sesiones */}
         <div className="space-y-3 rounded-xl border border-surface-high p-3">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-            Servicios y sesiones
+            Servicios del combo
           </p>
+          <p className="text-xs text-ink-soft">Una sesión de cada uno.</p>
           {form.lines.length === 0 ? (
             <p className="text-sm text-ink-soft">Sin servicios. Agregá al menos uno.</p>
           ) : (
@@ -522,6 +590,7 @@ export function CombosAdminPage() {
                   line={l}
                   services={services}
                   precio={precioPreview(l)}
+                  bloqueado={!!editing}
                   onChange={(nl) =>
                     setForm({ ...form, lines: form.lines.map((x, idx) => (idx === i ? nl : x)) })
                   }
@@ -532,19 +601,44 @@ export function CombosAdminPage() {
               ))}
             </ul>
           )}
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setForm({ ...form, lines: [...form.lines, { ...EMPTY_LINE }] })}
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
-            >
-              <Plus size={15} />
-              Agregar servicio
-            </button>
-          </div>
+          {!editing && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, lines: [...form.lines, { ...EMPTY_LINE }] })}
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+              >
+                <Plus size={15} />
+                Agregar servicio
+              </button>
+            </div>
+          )}
+
+          {/* §4.4 — Cómo se consume el combo. Sólo aparece con dos o más
+              servicios: con uno solo no hay nada que juntar. */}
+          {form.lines.length >= 2 && (
+            <div className="rounded-lg border border-surface-high bg-surface-low p-2.5">
+              <label className="flex items-start gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={form.servicesTogether}
+                  onChange={(e) => setForm({ ...form, servicesTogether: e.target.checked })}
+                  className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]"
+                />
+                <span>
+                  <span className="font-medium">Se hacen juntos</span>
+                  <span className="mt-0.5 block text-xs text-ink-soft">
+                    {form.servicesTogether
+                      ? "La clienta viene una sola vez y recibe todo. Hay que agendar los servicios el mismo día — no hace falta que sean seguidos."
+                      : "Cada servicio se agenda cuando la clienta quiera, en días distintos si le conviene."}
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
 
           <div className="flex justify-between border-t border-surface-high pt-2 text-sm">
-            <span className="text-ink-soft">Subtotal (sesiones sueltas)</span>
+            <span className="text-ink-soft">Subtotal (servicios sueltos)</span>
             <span className="text-ink">{money(subtotalPreview)}</span>
           </div>
           <div className="flex justify-between text-sm">
@@ -558,7 +652,7 @@ export function CombosAdminPage() {
           )}
           {finalPreview > subtotalPreview && (
             <p className="text-xs text-amber-700">
-              El combo sale más caro que las sesiones sueltas. Revisá el precio.
+              El combo sale más caro que los servicios sueltos. Revisá el precio.
             </p>
           )}
         </div>

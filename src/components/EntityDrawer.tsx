@@ -38,7 +38,14 @@ export function EntityDrawer({
   if (!open) return null;
   return (
     <div className="modal-scroll fixed inset-0 z-50 flex justify-end bg-ink/40" onClick={onClose}>
+      {/* `role="dialog"` + `aria-modal`: es un modal de verdad —tapa la pantalla
+          y atrapa el click— y sin el rol un lector de pantalla lo anuncia como
+          un bloque más de la página, sin decir que lo de atrás quedó inerte.
+          `aria-label` lo nombra con su propio título. */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className={`flex h-full w-full ${widthClass} flex-col bg-surface-low shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >

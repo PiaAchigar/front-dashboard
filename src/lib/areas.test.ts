@@ -4,8 +4,7 @@ import {
   contarSinArea,
   preseleccionDeArea,
   sinArea,
-  type ConCategorias,
-} from "./areas";
+  type ConCategorias, idDeArea } from "./areas";
 
 const ESTETICA = "Estética";
 const MEDICINA = "Medicina y Dermatología";
@@ -101,5 +100,29 @@ describe("preseleccionDeArea — el alta arranca en el área donde estás parada
 
   it("sin áreas cargadas todavía, devuelve vacío en vez de romperse", () => {
     expect(preseleccionDeArea([], ESTETICA)).toEqual([]);
+  });
+});
+
+describe("idDeArea", () => {
+  const AREAS = [
+    { id: "a1", name: ESTETICA },
+    { id: "a2", name: MEDICINA },
+    { id: "a3", name: null },
+  ];
+
+  it("traduce el nombre de la pestaña al id que guardan los combos", () => {
+    expect(idDeArea(AREAS, ESTETICA)).toBe("a1");
+  });
+
+  it("devuelve null sin nombre: la pestaña todavía no sabe cuál es", () => {
+    expect(idDeArea(AREAS, undefined)).toBeNull();
+  });
+
+  it("devuelve null si el nombre no existe, en vez de agarrar cualquiera", () => {
+    expect(idDeArea(AREAS, "Cosmetología")).toBeNull();
+  });
+
+  it("no se confunde con una categoría sin nombre", () => {
+    expect(idDeArea(AREAS, "")).toBeNull();
   });
 });

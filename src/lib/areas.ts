@@ -58,3 +58,21 @@ export function preseleccionDeArea(
   const encontrada = areas.find((a) => a.name === area);
   return encontrada ? [encontrada.id] : [];
 }
+
+/**
+ * El id de la categoría de área que se llama así.
+ *
+ * Las pestañas y las rutas trabajan con el NOMBRE del área ("Estética"), pero
+ * los combos la guardan por id. Esta es la traducción, en un solo lugar.
+ *
+ * Devuelve `null` si todavía no cargaron las categorías o si el nombre no
+ * existe: quien la use tiene que esperar antes de pedir combos, porque sin
+ * área el listado traería los de todas.
+ */
+export function idDeArea(
+  areas: readonly { id: string; name: string | null }[],
+  nombre: string | undefined,
+): string | null {
+  if (!nombre) return null;
+  return areas.find((a) => a.name === nombre)?.id ?? null;
+}

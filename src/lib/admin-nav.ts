@@ -55,10 +55,10 @@ export type Pestana = {
  * alcanza, el insumo queda en negativo y la agenda avisa con un modal; NO se
  * bloquea el turno (decisión de Laura, 2026-09-08: bloquear un turno ya hecho
  * por un dato de inventario mal cargado le frena la caja).
- * Faltan las sub-pestañas Combos/Packs de cada área:
- * `combos` está vacía y los packs llegan con V1 de venta y consumo.
- * Una pestaña que no lleva a ningún lado enseña a desconfiar de la barra, así
- * que se agregan cuando tengan destino.
+ * Desde la 1.50.0 cada área abre en su propio layout con tres solapas
+ * (Servicios · Combos · Packs), igual que Depilación. La pestaña `/admin/combos`
+ * de más abajo es la vista vieja sin área y queda mientras haya combos por
+ * reubicar.
  */
 export const PESTANAS: Pestana[] = [
   { to: "/admin/promos", label: "Promos", grupo: "promo", section: "catalogo" },
@@ -85,8 +85,52 @@ export const PESTANAS: Pestana[] = [
  * Depilación no está acá: tiene su propio layout con Zonas, Combos y Precios,
  * y sus zonas no viven en `service` sino en `body_zone`.
  */
-export const AREAS = [
-  { path: "estetica", categoria: "Estética" },
-  { path: "medicina", categoria: "Medicina y Dermatología" },
-  { path: "masajes", categoria: "Masajes y Bienestar" },
+export type AreaDeCatalogo = {
+  path: string;
+  categoria: string;
+  /** La línea que va debajo del título, en el layout del área. */
+  bajada: string;
+  /**
+   * Aclaración chiquita al lado de "Combos" en esa área.
+   *
+   * Sólo Medicina la lleva: Pia pidió que ahí diga "Combos (Tratamientos)",
+   * con la segunda palabra más chica y a modo informativo, porque es como se
+   * lo nombra en el consultorio. Las otras áreas dicen "Combos" a secas.
+   */
+  aliasDeCombos?: string;
+};
+
+export const AREAS: readonly AreaDeCatalogo[] = [
+  {
+    path: "estetica",
+    categoria: "Estética",
+    bajada: "Servicios, combos y packs de estética.",
+  },
+  {
+    path: "medicina",
+    categoria: "Medicina y Dermatología",
+    bajada: "Servicios, tratamientos y packs de medicina y dermatología.",
+    aliasDeCombos: "Tratamientos",
+  },
+  {
+    path: "masajes",
+    categoria: "Masajes y Bienestar",
+    bajada: "Servicios, combos y packs de masajes y bienestar.",
+  },
 ] as const;
+
+/**
+ * Las tres solapas de un área, en orden de lo simple a lo compuesto.
+ *
+ * Se arma acá y no en el componente para poder testear las etiquetas sin
+ * montar React — igual que `PESTANAS`.
+ */
+export function solapasDeArea(area: AreaDeCatalogo) {
+  return [
+    { to: `/admin/${area.path}/servicios`, label: "Servicios" },
+    // El alias va en `sub`, que el subnav pinta más chiquito: la palabra que
+    // manda sigue siendo "Combos".
+    { to: `/admin/${area.path}/combos`, label: "Combos", sub: area.aliasDeCombos },
+    { to: `/admin/${area.path}/packs`, label: "Packs" },
+  ];
+}

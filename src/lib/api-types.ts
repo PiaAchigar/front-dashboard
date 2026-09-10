@@ -162,9 +162,35 @@ export type ComboAdmin = {
   isVisibleWeb: boolean | null;
   displayOrder: number | null;
   servicesSubtotal: number;
+  /** En un PACK es el precio del pack: repetir lo que apunta, con descuento. */
   finalAmount: number;
   hasInactiveService: boolean;
   lines: ComboLineAdmin[];
+  // ── 1.50.0 ───────────────────────────────────────────────────────────────
+  areaCategoryId: string | null;
+  kind: "combo" | "pack";
+  packOfComboId: string | null;
+  packSessions: number | null;
+  /** Descuento propio del pack. NULL = usa el tarifario del área. */
+  packDiscountPercentage: number | null;
+  packRoundingBase: number | null;
+  /** Los servicios se hacen en la MISMA visita (mismo día, no pegados). */
+  servicesTogether: boolean;
+  // Sólo vienen en los packs, calculados al leer:
+  /** Lo que se repite, por unidad. Para mostrar "4 × $12.000". */
+  packUnitAmount?: number;
+  /** De dónde salió el descuento que se aplicó. */
+  packDiscountSource?: "area" | "propio";
+  packEffectiveDiscount?: number;
+};
+
+/** El tarifario de packs de un área (1.50.0). */
+export type TarifarioDeArea = {
+  areaCategoryId: string;
+  areaName: string | null;
+  packSessions: number;
+  packDiscountPercentage: number;
+  packRoundingBase: number;
 };
 
 export type OpenHour = {

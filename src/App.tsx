@@ -19,6 +19,8 @@ import { InsumosAdminPage } from "./pages/admin/InsumosAdminPage";
 import { MaquinasAdminPage } from "./pages/admin/MaquinasAdminPage";
 import { PromosAdminPage } from "./pages/admin/PromosAdminPage";
 import { CombosAdminPage } from "./pages/admin/CombosAdminPage";
+import { PacksAdminPage } from "./pages/admin/PacksAdminPage";
+import { AreaLayout } from "./pages/admin/AreaLayout";
 import { ActividadesAdminPage } from "./pages/admin/ActividadesAdminPage";
 import { SubscriptionsAdminPage } from "./pages/admin/SubscriptionsAdminPage";
 import { DepilacionLayout } from "./pages/admin/depilacion/DepilacionLayout";
@@ -68,12 +70,20 @@ export default function App() {
                     path="sin-clasificar"
                     element={<ServiciosAdminPage soloSinArea />}
                   />
+                  {/* Cada área abre en su layout con tres solapas —Servicios ·
+                      Combos · Packs— igual que Depilación. El índice redirige a
+                      Servicios: es lo primero que hay que cargar, y sin
+                      servicios no hay combo ni pack posible. */}
                   {AREAS.map((a) => (
-                    <Route
-                      key={a.path}
-                      path={a.path}
-                      element={<ServiciosAdminPage area={a.categoria} />}
-                    />
+                    <Route key={a.path} path={a.path} element={<AreaLayout area={a} />}>
+                      <Route index element={<Navigate to="servicios" replace />} />
+                      <Route
+                        path="servicios"
+                        element={<ServiciosAdminPage area={a.categoria} />}
+                      />
+                      <Route path="combos" element={<CombosAdminPage area={a.categoria} />} />
+                      <Route path="packs" element={<PacksAdminPage area={a.categoria} />} />
+                    </Route>
                   ))}
                   <Route path="capacitaciones" element={<CapacitacionesAdminPage />} />
                   <Route path="proveedores" element={<ProveedorasAdminPage />} />

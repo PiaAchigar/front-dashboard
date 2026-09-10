@@ -7,6 +7,16 @@ export type SubnavItem = {
   to: string;
   label: string;
   /**
+   * Aclaración chiquita al lado de la etiqueta, entre paréntesis.
+   *
+   * Es un campo aparte y no parte de `label` porque va en otro tamaño: Pia
+   * pidió "Combos (Tratamientos)" con la segunda palabra más chica, a modo
+   * informativo. Con `label` siendo un string no hay forma de darle otro
+   * tamaño, y volverlo ReactNode obligaría a que la config de las pestañas
+   * fuera JSX y dejara de poder testearse sin montar React.
+   */
+  sub?: string;
+  /**
    * Acento de la pestaña: las dos clases, escritas enteras. No se deriva una de
    * la otra — Tailwind no compila clases que no aparezcan literales en el
    * código, y el subrayado quedaría invisible.
@@ -134,6 +144,9 @@ export function SectionSubnav({ items }: { items: SubnavItem[] }) {
               {({ isActive }) => (
                 <>
                   {it.label}
+                  {it.sub && (
+                    <span className="ml-1 text-[0.7em] text-ink-soft">({it.sub})</span>
+                  )}
                   {isActive && (
                     <span
                       className={`absolute inset-x-2 -bottom-px h-0.5 rounded-full ${acento.barra}`}
