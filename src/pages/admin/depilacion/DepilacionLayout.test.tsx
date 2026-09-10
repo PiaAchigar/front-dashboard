@@ -68,8 +68,17 @@ describe("DepilacionLayout", () => {
 
   it("conserva las tres solapas de depilación", () => {
     montar();
-    for (const nombre of ["Zonas", "Precios", "Combos"]) {
+    for (const nombre of ["Zonas", "Combos"]) {
       expect(screen.getByRole("link", { name: nombre })).toBeInTheDocument();
     }
+  });
+
+  it("Precios aclara que ahí adentro también se arman los packs", () => {
+    montar();
+    // Depilación es la única área sin solapa Packs propia: su pack se
+    // configura dentro de Precios y sin la aclaración nadie lo encuentra.
+    expect(screen.getByRole("link", { name: /^Precios/ })).toHaveTextContent(
+      "Precios(Packs)",
+    );
   });
 });

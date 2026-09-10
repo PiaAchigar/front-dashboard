@@ -5,7 +5,11 @@ import type { ContextoDeArea } from "../contexto-de-area";
 
 const SUBNAV = [
   { to: "/admin/depilacion/zonas", label: "Zonas" },
-  { to: "/admin/depilacion/precios", label: "Precios" },
+  // "Packs" en chiquito porque el armado del pack de depilación vive acá
+  // adentro —"Pack de sesiones (por defecto)"— y no en una solapa propia como
+  // en el resto de las áreas. Sin la aclaración nadie lo encuentra: es la
+  // única área donde Packs no figura en la barra (pedido de Pia, 2026-09-10).
+  { to: "/admin/depilacion/precios", label: "Precios", sub: "Packs" },
   { to: "/admin/depilacion/combos", label: "Combos" },
 ];
 
