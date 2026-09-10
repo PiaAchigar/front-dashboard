@@ -5,6 +5,7 @@ import { ArmadorCombo, type ArmadorComboState } from "../../../components/depila
 import { EntityDrawer } from "../../../components/EntityDrawer";
 import { Checkbox, Field, TextArea, TextInput } from "../../../components/form";
 import { ResourceManager, type Column } from "../../../components/ResourceManager";
+import { useContextoDeArea } from "../contexto-de-area";
 import { useToast } from "../../../components/ui/Toast";
 import { money } from "../../../lib/format";
 import {
@@ -72,6 +73,7 @@ function parseEntero(raw: string): number | null {
 }
 
 export function CombosDepilacionPage() {
+  const contextoDeArea = useContextoDeArea();
   const { role } = useAuth();
   const r = role as Role | null;
   const canEdit = can(r, "catalogo", "edit");
@@ -397,6 +399,8 @@ export function CombosDepilacionPage() {
     <>
       <ResourceManager
         title="Combos"
+        slotAcciones={contextoDeArea?.slotAcciones ?? null}
+        alturaLibre={!!contextoDeArea}
         rows={combosVisibles}
         columns={COLUMNAS}
         loading={loading}

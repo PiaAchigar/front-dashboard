@@ -4,6 +4,7 @@ import { can, type Role } from "../../../lib/permissions";
 import { EntityDrawer } from "../../../components/EntityDrawer";
 import { Checkbox, Field, Select, TextInput } from "../../../components/form";
 import { ResourceManager, type Column, type Group } from "../../../components/ResourceManager";
+import { useContextoDeArea } from "../contexto-de-area";
 import { useToast } from "../../../components/ui/Toast";
 import {
   useArchivarZona,
@@ -44,6 +45,7 @@ function parseDisplayOrder(raw: string): number | null {
 }
 
 export function ZonasPage() {
+  const contextoDeArea = useContextoDeArea();
   const { role } = useAuth();
   const r = role as Role | null;
   const canEdit = can(r, "catalogo", "edit");
@@ -174,6 +176,8 @@ export function ZonasPage() {
     <>
       <ResourceManager
         title="Zonas"
+        slotAcciones={contextoDeArea?.slotAcciones ?? null}
+        alturaLibre={!!contextoDeArea}
         rows={filtradas}
         columns={COLUMNAS}
         loading={isLoading}
