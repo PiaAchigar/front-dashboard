@@ -22,6 +22,7 @@ import {
   type ComboInput,
 } from "../../hooks/useCombosAdmin";
 import type { ComboAdmin, TarifarioDeArea } from "../../lib/api-types";
+import { listar } from "../../lib/listar";
 
 const money = (n: number | null | undefined) =>
   n == null ? "—" : `$${n.toLocaleString("es-AR")}`;
@@ -396,14 +397,19 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
   }
 
   const saving = create.isPending || update.isPending || chequearDuplicados.isPending;
-  const eligioQueRepetir =
-    form.repite === "combo" ? !!form.comboId : !!form.serviceId;
-  const puedeGuardar =
-    form.name.trim().length >= 1 &&
-    !!areaCategoryId &&
-    eligioQueRepetir &&
-    Number(form.packSessions) >= 2 &&
-    Number(form.validityMonths) >= 1;
+  const eligioQueRepetir = form.repite === "combo" ? !!form.comboId : !!form.serviceId;
+
+  // Mismo criterio que en Combos: la lista entera, no el primer faltante.
+  const faltantes: string[] = [];
+  if (form.name.trim().length < 1) faltantes.push("el nombre");
+  if (!eligioQueRepetir) {
+    faltantes.push(form.repite === "combo" ? "el combo que repite" : "el servicio que repite");
+  }
+  if (Number(form.packSessions) < 2) faltantes.push("cuántas veces se repite (al menos 2)");
+  if (Number(form.validityMonths) < 1) faltantes.push("la vigencia");
+  if (!areaCategoryId) faltantes.push("el área");
+
+  const puedeGuardar = faltantes.length === 0;
 
   return (
     <>
@@ -464,6 +470,7 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
         error={formError}
         busy={saving}
         canSubmit={puedeGuardar}
+        faltante={listar(faltantes)}
         onSubmit={save}
         onClose={() => setDrawerOpen(false)}
       >

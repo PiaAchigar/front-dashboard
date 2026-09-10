@@ -14,6 +14,7 @@ export function EntityDrawer({
   submitLabel = "Guardar",
   widthClass = "max-w-md",
   readOnly = false,
+  faltante = null,
   headerAction,
   onSubmit,
   onClose,
@@ -33,6 +34,16 @@ export function EntityDrawer({
   /** Nodo opcional a la derecha del título (ej. botón "Editar"). */
   headerAction?: ReactNode;
   onSubmit: () => void;
+  /**
+   * Qué falta para poder guardar. Se muestra sólo mientras el botón está
+   * apagado.
+   *
+   * Un botón deshabilitado sin explicación es una pared: quien carga ve que no
+   * puede seguir y no tiene forma de saber qué le falta, sobre todo en un
+   * formulario largo donde el campo vacío quedó fuera de la pantalla. Pasó con
+   * el alta de combos (2026-09-10).
+   */
+  faltante?: string | null;
   onClose: () => void;
 }) {
   if (!open) return null;
@@ -67,6 +78,9 @@ export function EntityDrawer({
         <div className="shrink-0 border-t border-surface-high px-6 py-4">
           {error && (
             <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800">{error}</p>
+          )}
+          {!readOnly && !canSubmit && faltante && (
+            <p className="mb-2 text-xs text-ink-soft">Falta {faltante}.</p>
           )}
           <div className="flex justify-end gap-2">
             {readOnly ? (

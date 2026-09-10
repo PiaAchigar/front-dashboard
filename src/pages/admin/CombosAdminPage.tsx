@@ -22,11 +22,13 @@ import {
 import { useAreas } from "../../hooks/useAreas";
 import { useContextoDeArea } from "./contexto-de-area";
 import { idDeArea } from "../../lib/areas";
+import { listar } from "../../lib/listar";
 import { AREAS } from "../../lib/admin-nav";
 import type { ComboAdmin } from "../../lib/api-types";
 
 const money = (n: number | null | undefined) =>
   n == null ? "—" : `$${n.toLocaleString("es-AR")}`;
+
 
 /** Línea en edición: todo string, porque son inputs controlados. */
 type DraftLine = {
@@ -433,12 +435,23 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
   // El botón se habilita sólo si el combo puede existir: nombre, al menos un
   // servicio, un área y el precio que su tipo exige.
   const lineasValidas = form.lines.filter((l) => l.serviceId).length;
-  const puedeGuardar =
-    form.name.trim().length >= 1 &&
-    lineasValidas >= 1 &&
-    !!areaCategoryId &&
-    form.priceValue.trim() !== "" &&
-    Number(form.validityMonths) >= 1;
+  /**
+   * Qué falta para poder guardar, en el orden en que está el formulario.
+   *
+   * Se arma la lista entera y no sólo lo primero: en un formulario largo, con
+   * los servicios abajo de todo, ir descubriendo los faltantes de a uno es
+   * peor que verlos juntos.
+   */
+  const faltantes: string[] = [];
+  if (form.name.trim().length < 1) faltantes.push("el nombre");
+  if (form.priceValue.trim() === "") {
+    faltantes.push(form.priceType === "fixed" ? "el precio del combo" : "el porcentaje");
+  }
+  if (Number(form.validityMonths) < 1) faltantes.push("la vigencia");
+  if (lineasValidas < 1) faltantes.push("al menos un servicio");
+  if (!areaCategoryId) faltantes.push("el área");
+
+  const puedeGuardar = faltantes.length === 0;
 
   return (
     <>
@@ -493,6 +506,7 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
         error={formError}
         busy={saving}
         canSubmit={puedeGuardar}
+        faltante={listar(faltantes)}
         onSubmit={save}
         onClose={() => setDrawerOpen(false)}
       >
@@ -560,7 +574,15 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
               inputMode="numeric"
               value={form.priceValue}
               onChange={(e) => setForm({ ...form, priceValue: e.target.value })}
-              placeholder={form.priceType === "fixed" ? "120000" : "20"}
+              // El subtotal real como pista: quien arma un combo casi siempre
+              // parte de ahí y le baja algo. Un número inventado no ayuda.
+              placeholder={
+                form.priceType === "fixed"
+                  ? subtotalPreview > 0
+                    ? String(subtotalPreview)
+                    : "120000"
+                  : "20"
+              }
             />
           </Field>
         </div>

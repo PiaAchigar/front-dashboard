@@ -287,6 +287,42 @@ describe("CombosAdminPage — el aviso de duplicados", () => {
   });
 });
 
+describe("CombosAdminPage — por qué no se puede guardar", () => {
+  it("dice qué falta en vez de apagar el botón y callarse", async () => {
+    // Un botón deshabilitado sin explicación es una pared: en un formulario
+    // largo, el campo vacío puede estar fuera de la pantalla (lo encontró Pia
+    // armando un combo de Estética, 2026-09-10).
+    const user = userEvent.setup();
+    render(<CombosAdminPage area="Estética" />, { wrapper });
+    await user.click(await screen.findByRole("button", { name: /agregar/i }));
+
+    expect(await screen.findByText(/falta el nombre/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^guardar$/i })).toBeDisabled();
+  });
+
+  it("con los servicios puestos, lo que falta es el precio", async () => {
+    const user = userEvent.setup();
+    render(<CombosAdminPage area="Estética" />, { wrapper });
+    const dialog = await armarComboDeDos(user);
+    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial Completo");
+
+    expect(await screen.findByText(/falta el precio del combo/i)).toBeInTheDocument();
+  });
+
+  it("una vez completo, el aviso se va y el botón se prende", async () => {
+    const user = userEvent.setup();
+    render(<CombosAdminPage area="Estética" />, { wrapper });
+    const dialog = await armarComboDeDos(user);
+    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial Completo");
+    await user.type(within(dialog).getByLabelText(/precio del combo/i), "250000");
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^guardar$/i })).not.toBeDisabled(),
+    );
+    expect(screen.queryByText(/^falta /i)).not.toBeInTheDocument();
+  });
+});
+
 describe("CombosAdminPage — la composición no se edita (§4.2)", () => {
   it("al editar, los servicios quedan bloqueados y lo explica", async () => {
     vi.stubGlobal("fetch", makeFetchMock({ combos: [COMBO_GUARDADO] }));
