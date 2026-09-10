@@ -12,7 +12,7 @@ export function EntityDrawer({
   busy = false,
   canSubmit = true,
   submitLabel = "Guardar",
-  widthClass = "max-w-md",
+  widthClass = "max-w-xl",
   readOnly = false,
   faltante = null,
   headerAction,
@@ -26,8 +26,14 @@ export function EntityDrawer({
   busy?: boolean;
   canSubmit?: boolean;
   submitLabel?: string;
-  /** Ancho máximo del panel (clase Tailwind). Default angosto; formularios con
-   *  más campos pueden pedir uno más ancho para mejor UX. */
+  /**
+   * Ancho máximo del panel (clase Tailwind).
+   *
+   * El default (`max-w-xl`, 576px) es el piso cómodo para un formulario
+   * corriente. Los formularios largos —Servicios, Combos, Packs— piden
+   * `max-w-2xl`: a 448px, que era el default viejo, los campos entraban tan
+   * apretados que costaba leer y escribir (pedido de Pia, 2026-09-10).
+   */
   widthClass?: string;
   /** Modo solo lectura: oculta Cancelar/Guardar y muestra solo "Cerrar". */
   readOnly?: boolean;

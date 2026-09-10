@@ -470,6 +470,7 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
         error={formError}
         busy={saving}
         canSubmit={puedeGuardar}
+        widthClass="max-w-2xl"
         faltante={listar(faltantes)}
         onSubmit={save}
         onClose={() => setDrawerOpen(false)}

@@ -100,7 +100,7 @@ export function MachineLogsDrawer({
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-ink/40" onClick={onClose}>
       <div
-        className="flex h-full w-full max-w-lg flex-col bg-surface-low shadow-xl"
+        className="flex h-full w-full max-w-xl flex-col bg-surface-low shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 border-b border-surface-high px-6 py-4">

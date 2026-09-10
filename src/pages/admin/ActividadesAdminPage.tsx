@@ -449,7 +449,7 @@ export function ActividadesAdminPage() {
           />
 
           {/* Drawer */}
-          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto bg-white shadow-lg">
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-xl overflow-y-auto bg-white shadow-lg">
             <div className="flex items-center justify-between border-b border-surface-high px-6 py-4">
               <h2 className="text-lg font-semibold text-ink">
                 {editing ? "Editar Actividad" : "Nueva Actividad"}
