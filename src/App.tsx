@@ -91,7 +91,6 @@ export default function App() {
                   <Route path="maquinas" element={<MaquinasAdminPage />} />
                   <Route path="insumos" element={<InsumosAdminPage />} />
                   <Route path="promos" element={<PromosAdminPage />} />
-                  <Route path="combos" element={<CombosAdminPage />} />
                   <Route path="actividades" element={<ActividadesAdminPage />} />
                   <Route path="suscripciones" element={<SubscriptionsAdminPage />} />
                   <Route path="depilacion" element={<DepilacionLayout />}>

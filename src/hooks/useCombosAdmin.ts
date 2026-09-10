@@ -56,8 +56,9 @@ export function useCombosAdmin(
   return useQuery({
     queryKey: [KEY, showArchived, filtro.areaCategoryId ?? null, filtro.kind ?? null],
     queryFn: () => apiFetch<ComboAdmin[]>(`/api/agenda/combos/admin${qs}`, token),
-    // Sin área no hay nada que pedir: la pantalla todavía está esperando que
-    // carguen las categorías.
+    // `null` significa "pedí un área pero todavía no sé cuál es": no se pide
+    // nada, porque una consulta sin área traería los combos de TODAS.
+    // `undefined` es distinto: es "no filtres por área", y sí se pide.
     enabled: !!token && filtro.areaCategoryId !== null,
     staleTime: 60 * 1000,
   });

@@ -41,7 +41,8 @@ function TarifarioDelArea({
   tarifario,
   puedeEditar,
 }: {
-  areaCategoryId: string | null;
+  /** `null`/`undefined` mientras no se sepa el área: sin ella no se guarda. */
+  areaCategoryId: string | null | undefined;
   tarifario: TarifarioDeArea | null;
   puedeEditar: boolean;
 }) {
@@ -219,7 +220,7 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
   const [duplicados, setDuplicados] = useState<{ id: string; name: string }[]>([]);
 
   const { data: areas = [] } = useAreas();
-  const areaCategoryId = idDeArea(areas, area);
+  const areaCategoryId = area ? idDeArea(areas, area) : undefined;
 
   const {
     data: packs = [],

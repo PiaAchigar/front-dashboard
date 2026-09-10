@@ -197,7 +197,10 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data: areas = [] } = useAreas();
-  const areaCategoryId = idDeArea(areas, area);
+  // `undefined` = sin filtro de área; `null` = hay área pedida pero las
+  // categorías todavía no cargaron. El hook los trata distinto a propósito:
+  // con `null` no pide nada, porque pedir sin área traería los de TODAS.
+  const areaCategoryId = area ? idDeArea(areas, area) : undefined;
   const {
     data: combos = [],
     isLoading,

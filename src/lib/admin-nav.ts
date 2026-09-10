@@ -56,9 +56,12 @@ export type Pestana = {
  * bloquea el turno (decisión de Laura, 2026-09-08: bloquear un turno ya hecho
  * por un dato de inventario mal cargado le frena la caja).
  * Desde la 1.50.0 cada área abre en su propio layout con tres solapas
- * (Servicios · Combos · Packs), igual que Depilación. La pestaña `/admin/combos`
- * de más abajo es la vista vieja sin área y queda mientras haya combos por
- * reubicar.
+ * (Servicios · Combos · Packs), igual que Depilación.
+ *
+ * La pestaña suelta `/admin/combos` se SACÓ ahí: un combo ahora vive
+ * obligatoriamente en un área, así que esa pantalla no podía ni listar (el
+ * filtro necesita un área) ni crear (el alta la exige). Se pudo sacar sin
+ * migrar nada porque `combos` estaba vacía en producción.
  */
 export const PESTANAS: Pestana[] = [
   { to: "/admin/promos", label: "Promos", grupo: "promo", section: "catalogo" },
@@ -73,7 +76,6 @@ export const PESTANAS: Pestana[] = [
   { to: "/admin/proveedores", label: "Proveedores", grupo: "recurso", section: "proveedoras" },
   { to: "/admin/maquinas", label: "Máquinas", grupo: "recurso", section: "catalogo" },
   { to: "/admin/insumos", label: "Insumos", grupo: "recurso", section: "catalogo" },
-  { to: "/admin/combos", label: "Combos", grupo: "recurso", section: "catalogo" },
   { to: "/admin/categorias", label: "Categorías", grupo: "meta", section: "catalogo" },
 ];
 
