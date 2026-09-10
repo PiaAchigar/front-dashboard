@@ -1,4 +1,5 @@
 import { Fragment, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Archive, ChevronRight, Pencil, Plus, RotateCcw, Search, Trash } from "./icons";
 
@@ -61,6 +62,24 @@ type Props<T> = {
   canArchive?: boolean;
 
   onAdd?: () => void;
+  /**
+   * Dónde dibujar el botón Agregar, si no va acá.
+   *
+   * Con esto, la fila del encabezado —el `<h2>` con el nombre de la entidad más
+   * el botón— NO se dibuja: el botón se va por portal al hueco que le pasen y
+   * el título es redundante con la solapa que ya está seleccionada arriba. Le
+   * devuelve casi cincuenta píxeles de alto a la tabla, que en un portátil son
+   * dos filas más.
+   */
+  slotAcciones?: HTMLElement | null;
+  /**
+   * La tabla crece a lo que necesite en vez de scrollear adentro de su caja.
+   *
+   * Va en `true` cuando quien contiene a esta pantalla ya tiene su propio
+   * scroll vertical (el layout de área). Sin esto quedarían dos barras
+   * anidadas: una para la página y otra para la tabla.
+   */
+  alturaLibre?: boolean;
   onEdit?: (row: T) => void;
   onArchive?: (row: T) => void;
   onRestore?: (row: T) => void;
@@ -113,6 +132,8 @@ export function ResourceManager<T>({
   canCreate = false,
   canArchive = false,
   onAdd,
+  slotAcciones = null,
+  alturaLibre = false,
   onEdit,
   onArchive,
   onRestore,
@@ -291,22 +312,33 @@ export function ResourceManager<T>({
     );
   }
 
+  const botonAgregar = canCreate && onAdd && (
+    <button
+      onClick={onAdd}
+      className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+    >
+      <Plus size={16} />
+      Agregar
+    </button>
+  );
+
   return (
-    <div className="flex h-full flex-col gap-3 p-2 pl-4 sm:p-4">
+    <div
+      className={`flex flex-col gap-3 p-2 pl-4 sm:p-4 ${alturaLibre ? "" : "h-full"}`}
+    >
       {avisoSuperior}
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-xl text-ink">{title}</h2>
-        {canCreate && onAdd && (
-          <button
-            onClick={onAdd}
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
-          >
-            <Plus size={16} />
-            Agregar
-          </button>
-        )}
-      </div>
+
+      {/* El encabezado propio sólo existe cuando nadie ofrece un lugar mejor
+          para el botón. Con `slotAcciones`, el botón se va arriba y el título
+          no se dibuja: lo que diría ya está en la solapa activa. */}
+      {slotAcciones ? (
+        botonAgregar && createPortal(botonAgregar, slotAcciones)
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-xl text-ink">{title}</h2>
+          {botonAgregar}
+        </div>
+      )}
 
       {/* Toolbar: búsqueda + toggle activos/archivados */}
       <div className="flex flex-wrap items-center gap-2">
@@ -346,10 +378,18 @@ export function ResourceManager<T>({
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>}
 
       {/* Tabla con columnas redimensionables */}
+      {/* ⚠️ Con `alturaLibre`, el `<thead>` sticky deja de quedar fijo.
+          `overflow-x: auto` con el otro eje en `visible` obliga al navegador a
+          calcular `overflow-y: auto`, así que este div igual cuenta como
+          scrollport — uno que nunca scrollea, porque crece con su contenido — y
+          el sticky se ancla a él en vez de al scroll del área. No hay barra de
+          más, pero el encabezado de columnas se va con el scroll.
+          Se aceptó a cambio de que la tabla se vea entera (pedido de Pia,
+          2026-09-10). Volver atrás es sacarle `alturaLibre` a la pantalla. */}
       <div
-        className={`modal-scroll min-h-0 flex-1 overflow-auto rounded-xl border border-surface-high ${
-          resizing ? "cursor-col-resize select-none" : ""
-        }`}
+        className={`modal-scroll overflow-x-auto rounded-xl border border-surface-high ${
+          alturaLibre ? "" : "min-h-0 flex-1 overflow-y-auto"
+        } ${resizing ? "cursor-col-resize select-none" : ""}`}
       >
         <table className="text-sm" style={{ tableLayout: "fixed", width: "100%", minWidth: totalWidth }}>
           <colgroup>

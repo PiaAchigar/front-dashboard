@@ -45,7 +45,8 @@ export type Pestana = {
 
 /**
  * El orden importa y es el que pidió Pia: primero lo que se vende (Promos),
- * después el catálogo por área, después los recursos que lo habilitan, y
+ * después el catálogo por área —con Depilación adelante de Estética
+ * (2026-09-10)—, después los recursos que lo habilitan, y
  * Categorías al final porque es meta.
  *
  * INSUMOS entra acá, entre los recursos: habilita al catálogo pero no se vende.
@@ -65,8 +66,8 @@ export type Pestana = {
  */
 export const PESTANAS: Pestana[] = [
   { to: "/admin/promos", label: "Promos", grupo: "promo", section: "catalogo" },
-  { to: "/admin/estetica", label: "Estética", grupo: "eje", section: "catalogo" },
   { to: "/admin/depilacion", label: "Depilación", grupo: "eje", section: "catalogo" },
+  { to: "/admin/estetica", label: "Estética", grupo: "eje", section: "catalogo" },
   { to: "/admin/medicina", label: "Medicina y Dermatología", grupo: "eje", section: "catalogo" },
   { to: "/admin/masajes", label: "Masajes y Bienestar", grupo: "eje", section: "catalogo" },
   { to: "/admin/actividades", label: "Actividades", grupo: "eje", section: "catalogo" },

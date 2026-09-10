@@ -20,7 +20,9 @@ import {
   type ComboInput,
 } from "../../hooks/useCombosAdmin";
 import { useAreas } from "../../hooks/useAreas";
+import { useContextoDeArea } from "./contexto-de-area";
 import { idDeArea } from "../../lib/areas";
+import { AREAS } from "../../lib/admin-nav";
 import type { ComboAdmin } from "../../lib/api-types";
 
 const money = (n: number | null | undefined) =>
@@ -161,15 +163,29 @@ function LineRow({
  * que se busca no existe todavía, no va a aparecer en el selector de líneas
  * más abajo — este aviso explica por qué antes de que la usuaria llegue a
  * ese punto y se quede sin entender.
+ *
+ * El link apunta a la solapa Servicios **de esta área**, no a "Todos los
+ * servicios": mandaba a Laura a la pantalla general y perdía el área en la que
+ * estaba parada (bug que encontró ella, 2026-09-10). Si el área no se conoce
+ * —la pantalla montada suelta— el link no se pinta, porque no habría a dónde
+ * mandarla que no sea el lugar equivocado.
  */
-function ComboDependenciaAviso() {
+function ComboDependenciaAviso({ area }: { area?: string }) {
+  const destino = AREAS.find((a) => a.categoria === area);
   return (
     <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
       Un combo se arma con servicios y actividades que ya estén cargados. Si falta alguno,
       cargalo primero en{" "}
-      <Link to="/admin/servicios" className="font-medium underline underline-offset-2">
-        Servicios
-      </Link>
+      {destino ? (
+        <Link
+          to={`/admin/${destino.path}/servicios`}
+          className="font-medium underline underline-offset-2"
+        >
+          Servicios
+        </Link>
+      ) : (
+        <span className="font-medium">Servicios</span>
+      )}
       .
     </div>
   );
@@ -189,6 +205,7 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
   const canManage = can(r, "catalogo", "manage");
   const toast = useToast();
 
+  const contextoDeArea = useContextoDeArea();
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -427,7 +444,9 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
     <>
       <ResourceManager<ComboAdmin>
         title="Combo"
-        avisoSuperior={<ComboDependenciaAviso />}
+        avisoSuperior={<ComboDependenciaAviso area={area} />}
+        slotAcciones={contextoDeArea?.slotAcciones ?? null}
+        alturaLibre={!!contextoDeArea}
         rows={rows}
         columns={columns}
         loading={isLoading}

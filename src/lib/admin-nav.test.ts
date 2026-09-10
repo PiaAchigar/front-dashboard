@@ -43,6 +43,21 @@ describe("solapasDeArea", () => {
   });
 });
 
+describe("PESTANAS", () => {
+  it("Depilación va antes que Estética (pedido de Pia, 2026-09-10)", () => {
+    const orden = PESTANAS.map((p) => p.label);
+    expect(orden.indexOf("Depilación")).toBeLessThan(orden.indexOf("Estética"));
+  });
+
+  it("Promos sigue abriendo la barra: es lo que se vende", () => {
+    expect(PESTANAS[0]?.label).toBe("Promos");
+  });
+
+  it("ya no hay una pestaña de Combos suelta: un combo vive en un área", () => {
+    expect(PESTANAS.some((p) => p.to === "/admin/combos")).toBe(false);
+  });
+});
+
 describe("AREAS", () => {
   it("son las tres del catálogo: depilación tiene su propio motor", () => {
     expect(AREAS.map((a) => a.categoria)).toEqual([

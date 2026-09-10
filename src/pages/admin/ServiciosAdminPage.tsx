@@ -26,6 +26,7 @@ import {
 import { useMachinesList } from "../../hooks/useMachinesAdmin";
 import { useCategoriesAdmin } from "../../hooks/useCategoriesAdmin";
 import { nombresDeArea, useAreas } from "../../hooks/useAreas";
+import { useContextoDeArea } from "./contexto-de-area";
 import { preseleccionDeArea } from "../../lib/areas";
 import {
   agruparParaElFormulario,
@@ -373,6 +374,9 @@ export function ServiciosAdminPage(
   const isAdmin = r === "admin";
   const toast = useToast();
 
+  // `null` cuando la pantalla corre suelta en "Todos los servicios", que es un
+  // caso normal: ahí conserva su encabezado y su scroll propios.
+  const contextoDeArea = useContextoDeArea();
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -598,6 +602,8 @@ export function ServiciosAdminPage(
     <>
       <ResourceManager<Service>
         title={soloSinArea ? "Sin clasificar" : (area ?? "Servicios")}
+        slotAcciones={contextoDeArea?.slotAcciones ?? null}
+        alturaLibre={!!contextoDeArea}
         rows={rows}
         columns={columns}
         loading={isLoading}

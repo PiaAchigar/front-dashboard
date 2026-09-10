@@ -132,7 +132,23 @@ describe("CombosAdminPage", () => {
     render(<CombosAdminPage />, { wrapper });
     expect(await screen.findByText(/se arma con servicios y actividades que ya estén cargados/i))
       .toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /servicios/i })).toHaveAttribute("href", "/admin/servicios");
+  });
+
+  it("el aviso manda a los Servicios DE ESA ÁREA, no a la lista general", async () => {
+    // Mandaba a "Todos los servicios" y le hacía perder a Laura el área en la
+    // que estaba parada (lo encontró ella, 2026-09-10).
+    render(<CombosAdminPage area="Estética" />, { wrapper });
+    await screen.findByText(/se arma con servicios/i);
+    expect(screen.getByRole("link", { name: /servicios/i })).toHaveAttribute(
+      "href",
+      "/admin/estetica/servicios",
+    );
+  });
+
+  it("sin área no pinta link: no habría a dónde mandarla que no sea el lugar equivocado", async () => {
+    render(<CombosAdminPage />, { wrapper });
+    await screen.findByText(/se arma con servicios/i);
+    expect(screen.queryByRole("link", { name: /servicios/i })).not.toBeInTheDocument();
   });
 });
 

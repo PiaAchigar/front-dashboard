@@ -6,6 +6,7 @@ import { EntityDrawer } from "../../components/EntityDrawer";
 import { Field, Select, TextArea, TextInput } from "../../components/form";
 import { useToast } from "../../components/ui/Toast";
 import { useAreas } from "../../hooks/useAreas";
+import { useContextoDeArea } from "./contexto-de-area";
 import { useServices } from "../../hooks/useServices";
 import { idDeArea } from "../../lib/areas";
 import {
@@ -211,6 +212,7 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
   const canManage = can(r, "catalogo", "manage");
   const toast = useToast();
 
+  const contextoDeArea = useContextoDeArea();
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -414,6 +416,8 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
             puedeEditar={canManage}
           />
         }
+        slotAcciones={contextoDeArea?.slotAcciones ?? null}
+        alturaLibre={!!contextoDeArea}
         rows={rows}
         columns={columns}
         loading={isLoading}
