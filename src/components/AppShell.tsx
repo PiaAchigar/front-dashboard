@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { CheckoutHandoffProvider } from "../lib/checkout-handoff";
+import { useAgendarHandoff } from "../lib/agendar-handoff";
 import { can, type Section } from "../lib/permissions";
 import {
   Calendar,
@@ -40,6 +41,9 @@ const navItems: NavItem[] = [
 export function AppShell() {
   const { user, role, signOut } = useAuth();
   const navigate = useNavigate();
+  // "Llevame a agendar" desde la ficha de la clienta del CRM. Va acá y no
+  // dentro de CrmFrame: ese se desmonta al navegar, antes de poder hacerlo.
+  useAgendarHandoff();
   const visibleNavItems = navItems.filter(
     (it) => !it.section || can(role as Parameters<typeof can>[0], it.section, "view"),
   );
