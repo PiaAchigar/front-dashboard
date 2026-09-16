@@ -5,10 +5,11 @@ import { can, type Role } from "../../lib/permissions";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
 import { Field, Select, TextArea, TextInput } from "../../components/form";
-import { Plus, Trash } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
 import { useServices } from "../../hooks/useServices";
 import { useProvidersByService } from "../../hooks/useProvidersByService";
+import { useCombosAdmin } from "../../hooks/useCombosAdmin";
+import { useCombosDepilacion } from "../../hooks/useDepilacion";
 import {
   useArchivePromotion,
   useCreatePromotion,
@@ -19,16 +20,18 @@ import {
   type PromotionInput,
 } from "../../hooks/usePromotionsAdmin";
 import type { PromotionAdmin } from "../../lib/api-types";
+import {
+  erroresDelFormulario,
+  pagosParaEnviar,
+  serviciosADesglosar,
+  type DestinoDraft,
+  type PagoDraft,
+  type ServicioADesglosar,
+  type TipoDeDestino,
+} from "../../lib/promo-form";
 
 const money = (n: number | null | undefined) =>
   n == null ? "—" : `$${n.toLocaleString("es-AR")}`;
-
-// Línea en edición: todo string para los inputs controlados.
-type DraftLine = {
-  serviceId: string;
-  serviceProviderId: string;
-  providerPayment: string;
-};
 
 type Form = {
   name: string;
@@ -38,9 +41,11 @@ type Form = {
   validFrom: string;
   validUntil: string;
   isFeatured: boolean;
+  isVisibleWeb: boolean;
   usageLimit: string;
   notes: string;
-  lines: DraftLine[];
+  destinos: DestinoDraft[];
+  pagos: PagoDraft[];
 };
 
 const EMPTY: Form = {
@@ -51,76 +56,117 @@ const EMPTY: Form = {
   validFrom: "",
   validUntil: "",
   isFeatured: false,
+  isVisibleWeb: false,
   usageLimit: "",
   notes: "",
-  lines: [],
+  destinos: [],
+  pagos: [],
 };
 
-const EMPTY_LINE: DraftLine = { serviceId: "", serviceProviderId: "", providerPayment: "" };
+/** Una opción tildable de un bloque de oferta. `tipo` pisa al del bloque que
+ *  la contiene — así entra depilación dentro del bloque de Combos. */
+type OpcionDeOferta = { id: string; nombre: string; tipo?: TipoDeDestino };
 
-// Mismo cálculo que el backend (lib/promo-pricing) para previsualizar el monto frizado.
-function applyDiscount(
-  subtotal: number,
-  type: Form["promotionType"],
-  value: number | null,
-): number {
-  if (type === "percentage" && value != null) return Math.max(0, subtotal - (subtotal * value) / 100);
-  if (type === "fixed_amount" && value != null) return Math.max(0, subtotal - value);
-  return subtotal;
+/**
+ * Una lista de casillas para un bloque de "qué está en oferta" (Servicios,
+ * Combos o Packs). Tres bloques separados en vez de un desplegable único:
+ * Laura piensa en servicios, combos y packs como cosas distintas, y
+ * mezclarlos la obliga a buscar a ciegas.
+ */
+function BloqueDeOferta({
+  titulo,
+  tipo,
+  opciones,
+  destinos,
+  onToggle,
+}: {
+  titulo: string;
+  tipo: TipoDeDestino;
+  opciones: OpcionDeOferta[];
+  destinos: DestinoDraft[];
+  onToggle: (d: DestinoDraft) => void;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">{titulo}</p>
+      {opciones.length === 0 ? (
+        <p className="mt-1 text-sm text-ink-soft">Nada cargado todavía.</p>
+      ) : (
+        <ul className="mt-1 space-y-1">
+          {opciones.map((o) => {
+            const t = o.tipo ?? tipo;
+            const checked = destinos.some((d) => d.tipo === t && d.id === o.id);
+            return (
+              <li key={`${t}-${o.id}`}>
+                <label className="flex items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onToggle({ tipo: t, id: o.id })}
+                    className="h-4 w-4 accent-[var(--color-primary)]"
+                  />
+                  {o.nombre}
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 }
 
-/** Una fila de servicio dentro de la promo: servicio → proveedora (del servicio) → pago. */
-function LineRow({
-  line,
-  services,
+/**
+ * Una fila de "Pagos acordados": el servicio ya viene dado (sale de lo que
+ * está en oferta, no se elige acá), y sólo se completa proveedora + monto.
+ *
+ * Pedido de Pia: cada fila muestra el nombre, de qué combo sale y su duración
+ * estimada — los datos que hacen falta para saber que se va a poder agendar
+ * — y avisa (sin bloquear) si el servicio no tiene ninguna proveedora: sin
+ * ese aviso Laura pone en oferta algo que después nadie puede atender, y la
+ * clienta paga por un turno que no existe.
+ */
+function FilaDePago({
+  servicio,
+  pago,
   onChange,
-  onRemove,
 }: {
-  line: DraftLine;
-  services: { id: string; name: string | null }[];
-  onChange: (l: DraftLine) => void;
-  onRemove: () => void;
+  servicio: ServicioADesglosar;
+  pago: PagoDraft | undefined;
+  onChange: (p: PagoDraft) => void;
 }) {
-  const { data: providers = [] } = useProvidersByService(line.serviceId || null);
+  const { data: providers = [] } = useProvidersByService(servicio.serviceId);
+  const { data: services = [] } = useServices();
+  const detalle = services.find((s) => s.id === servicio.serviceId);
+  const actual: PagoDraft = pago ?? {
+    serviceId: servicio.serviceId,
+    serviceProviderId: "",
+    providerPayment: "",
+  };
 
   return (
     <li className="space-y-2 rounded-lg border border-surface-high bg-white p-2.5">
-      <div className="flex items-start gap-2">
-        <div className="flex-1">
-          <Field label="Servicio">
-            <Select
-              value={line.serviceId}
-              onChange={(e) =>
-                // al cambiar de servicio se resetea la proveedora elegida
-                onChange({ ...line, serviceId: e.target.value, serviceProviderId: "" })
-              }
-            >
-              <option value="">Elegí un servicio…</option>
-              {services.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name ?? "—"}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-        <button
-          type="button"
-          onClick={onRemove}
-          title="Quitar servicio"
-          className="mt-6 shrink-0 rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700"
-        >
-          <Trash size={15} />
-        </button>
+      <div className="text-sm">
+        <span className="font-medium text-ink">{servicio.serviceName ?? detalle?.name ?? "—"}</span>
+        {servicio.deCombo && <span className="text-ink-soft"> · de {servicio.deCombo}</span>}
+        {detalle?.estimatedDurationMinutes != null && (
+          <span className="text-ink-soft"> · {detalle.estimatedDurationMinutes} min</span>
+        )}
       </div>
+      {providers.length === 0 && (
+        // Avisa, no bloquea: puede que Laura arme la promo antes de asignar
+        // proveedora, pero tiene que enterarse antes de publicarla.
+        <p className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
+          Este servicio no tiene proveedora asignada: no se va a poder agendar.
+        </p>
+      )}
       <div className="flex gap-2">
         <Field label="Proveedora">
           <Select
-            value={line.serviceProviderId}
-            disabled={!line.serviceId}
-            onChange={(e) => onChange({ ...line, serviceProviderId: e.target.value })}
+            value={actual.serviceProviderId}
+            onChange={(e) => onChange({ ...actual, serviceProviderId: e.target.value })}
           >
-            <option value="">{line.serviceId ? "Elegí proveedora…" : "Elegí servicio primero"}</option>
+            <option value="">Sin acuerdo especial</option>
             {providers.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.fullName ?? "—"}
@@ -130,12 +176,12 @@ function LineRow({
         </Field>
         <Field
           label="Se le paga ($)"
-          help="Cuánto recibe esta proveedora por su servicio dentro de la promo. La empresa gana el total de la promo menos la suma de estos pagos."
+          help="Cuánto recibe esta proveedora por su servicio dentro de la promo. Opcional: si no se completa, rige el acuerdo de siempre."
         >
           <TextInput
             inputMode="numeric"
-            value={line.providerPayment}
-            onChange={(e) => onChange({ ...line, providerPayment: e.target.value })}
+            value={actual.providerPayment}
+            onChange={(e) => onChange({ ...actual, providerPayment: e.target.value })}
             placeholder="0"
           />
         </Field>
@@ -147,7 +193,7 @@ function LineRow({
 /**
  * Cartel informativo (no bloqueante) arriba del listado: una promo no crea
  * servicios nuevos, solo combina los que ya están cargados. Si el servicio
- * que se busca no existe todavía, no va a aparecer en el selector de líneas
+ * que se busca no existe todavía, no va a aparecer en los bloques de oferta
  * más abajo — este aviso explica por qué antes de que la usuaria llegue a
  * ese punto y se quede sin entender.
  */
@@ -180,6 +226,11 @@ export function PromosAdminPage() {
 
   const { data: promos = [], isLoading, error } = usePromotionsAdmin(showArchived);
   const { data: services = [] } = useServices();
+  // Sin `areaCategoryId`: acá hace falta el catálogo de combos/packs de TODAS
+  // las áreas, no el de una sola.
+  const { data: combos = [] } = useCombosAdmin(false, { kind: "combo" });
+  const { data: packs = [] } = useCombosAdmin(false, { kind: "pack" });
+  const { data: combosDepilacion = [] } = useCombosDepilacion();
   const create = useCreatePromotion();
   const update = useUpdatePromotionAdmin();
   const archive = useArchivePromotion();
@@ -192,16 +243,12 @@ export function PromosAdminPage() {
     return promos.filter((p) => (p.name ?? "").toLowerCase().includes(q));
   }, [promos, search]);
 
-  // Previsualización del snapshot mientras se edita (precio de lista de cada servicio elegido).
-  const priceById = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const s of services) m.set(s.id, s.unitPriceList ?? 0);
-    return m;
-  }, [services]);
-
-  const subtotalPreview = form.lines.reduce((acc, l) => acc + (priceById.get(l.serviceId) ?? 0), 0);
-  const discountValue = form.discountValue.trim() === "" ? null : Number(form.discountValue);
-  const finalPreview = applyDiscount(subtotalPreview, form.promotionType, discountValue);
+  // Los servicios que necesitan una fila de pago: los sueltos en oferta más
+  // los que aportan los combos y packs en oferta (desglosados y sin repetir).
+  const desglose = useMemo(
+    () => serviciosADesglosar(form.destinos, [...combos, ...packs]),
+    [form.destinos, combos, packs],
+  );
 
   const columns: Column<PromotionAdmin>[] = [
     {
@@ -222,26 +269,28 @@ export function PromosAdminPage() {
             : "—",
     },
     {
-      key: "subtotal",
-      header: "Subtotal",
-      width: 120,
-      render: (p) => <span className="text-ink-soft">{money(p.servicesSubtotal)}</span>,
+      key: "oferta",
+      header: "En oferta",
+      width: 100,
+      render: (p) => <span className="text-ink-soft">{p.destinos.length}</span>,
     },
     {
-      key: "final",
-      header: "Total promo",
-      width: 120,
-      render: (p) => <span className="font-medium text-ink">{money(p.finalAmount)}</span>,
+      key: "pagos",
+      header: "Pagos acordados",
+      width: 130,
+      render: (p) => <span className="text-ink-soft">{p.pagos.length}</span>,
     },
     {
-      key: "featured",
-      header: "Destacada",
-      width: 110,
+      key: "web",
+      header: "Web",
+      width: 130,
       render: (p) =>
         p.isFeatured ? (
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary-dark">
             Destacada
           </span>
+        ) : p.isVisibleWeb ? (
+          <span className="text-ink-soft">Mostrada</span>
         ) : (
           <span className="text-ink-soft">—</span>
         ),
@@ -270,16 +319,42 @@ export function PromosAdminPage() {
       validFrom: p.validFrom ?? "",
       validUntil: p.validUntil ?? "",
       isFeatured: p.isFeatured ?? false,
+      isVisibleWeb: p.isVisibleWeb ?? false,
       usageLimit: p.usageLimit != null ? String(p.usageLimit) : "",
       notes: p.notes ?? "",
-      lines: p.lines.map((l) => ({
-        serviceId: l.serviceId ?? "",
-        serviceProviderId: l.serviceProviderId ?? "",
-        providerPayment: l.providerPayment != null ? String(l.providerPayment) : "",
+      destinos: p.destinos.map((d) => ({ tipo: d.tipo, id: d.id })),
+      pagos: p.pagos.map((pg) => ({
+        serviceId: pg.serviceId,
+        serviceProviderId: pg.serviceProviderId,
+        providerPayment: pg.providerPayment != null ? String(pg.providerPayment) : "",
       })),
     });
     setFormError(null);
     setDrawerOpen(true);
+  }
+
+  function alternarDestino(d: DestinoDraft) {
+    setForm((f) => {
+      const existe = f.destinos.some((x) => x.tipo === d.tipo && x.id === d.id);
+      return {
+        ...f,
+        destinos: existe
+          ? f.destinos.filter((x) => !(x.tipo === d.tipo && x.id === d.id))
+          : [...f.destinos, d],
+      };
+    });
+  }
+
+  function actualizarPago(nuevo: PagoDraft) {
+    setForm((f) => {
+      const existe = f.pagos.some((p) => p.serviceId === nuevo.serviceId);
+      return {
+        ...f,
+        pagos: existe
+          ? f.pagos.map((p) => (p.serviceId === nuevo.serviceId ? nuevo : p))
+          : [...f.pagos, nuevo],
+      };
+    });
   }
 
   function buildPayload(): PromotionInput {
@@ -293,20 +368,29 @@ export function PromosAdminPage() {
       validFrom: form.validFrom || null,
       validUntil: form.validUntil || null,
       isFeatured: form.isFeatured,
+      isVisibleWeb: form.isVisibleWeb,
       usageLimit: form.usageLimit.trim() === "" ? null : Number(form.usageLimit),
       notes: form.notes.trim() || null,
-      lines: form.lines
-        .filter((l) => l.serviceId)
-        .map((l) => ({
-          serviceId: l.serviceId,
-          serviceProviderId: l.serviceProviderId || null,
-          providerPayment: l.providerPayment.trim() === "" ? null : Number(l.providerPayment),
-        })),
+      destinos: form.destinos,
+      pagos: pagosParaEnviar(form.pagos),
     };
   }
 
   async function save() {
     setFormError(null);
+    // Se valida acá, antes de tocar la API: un guardado a medias (por ejemplo
+    // sin nada en oferta) no es un estado que el backend deba rechazar, es
+    // uno que la pantalla tiene que impedir de entrada.
+    const errores = erroresDelFormulario({
+      name: form.name,
+      destinos: form.destinos,
+      isFeatured: form.isFeatured,
+      isVisibleWeb: form.isVisibleWeb,
+    });
+    if (errores.length > 0) {
+      setFormError(errores.join(" "));
+      return;
+    }
     try {
       if (editing) {
         await update.mutateAsync({ id: editing.id, ...buildPayload() });
@@ -445,62 +529,95 @@ export function PromosAdminPage() {
               placeholder="Sin límite"
             />
           </Field>
-          <label className="flex items-center gap-2 self-end pb-2 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={form.isFeatured}
-              onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })}
-              className="h-4 w-4 accent-[var(--color-primary)]"
-            />
-            Destacada en la web
-          </label>
+          <div className="flex flex-col justify-end gap-1 pb-2">
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={form.isVisibleWeb}
+                onChange={(e) => setForm({ ...form, isVisibleWeb: e.target.checked })}
+                className="h-4 w-4 accent-[var(--color-primary)]"
+              />
+              Mostrar en la web
+            </label>
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={form.isFeatured}
+                onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })}
+                className="h-4 w-4 accent-[var(--color-primary)]"
+              />
+              Destacada en la web
+            </label>
+          </div>
+        </div>
+        {/* Dos tildes distintos, no uno solo con más énfasis: Mostrar publica en
+            Servicios, Destacada además la sube al carrusel de la home. Por eso
+            erroresDelFormulario avisa si se tilda Destacada sin Mostrar. */}
+        <p className="-mt-2 text-xs text-ink-soft">
+          Mostrar la publica en la página de Servicios. Destacada la sube además al carrusel de la
+          home — sin Mostrar, Destacada no hace nada.
+        </p>
+
+        {/* Qué está en oferta. Tres bloques en vez de una lista sola: Laura
+            piensa en servicios, combos y packs como cosas distintas, y
+            mezclarlos en un desplegable único la obliga a buscar a ciegas. */}
+        <div className="space-y-4 rounded-xl border border-surface-high p-3">
+          <p className="text-xs text-ink-soft">
+            Elegí uno o varios de cada bloque. Podés mezclar libremente: un servicio suelto, dos
+            combos y un pack pueden estar en la misma promo.
+          </p>
+          <BloqueDeOferta
+            titulo="Servicios en oferta"
+            tipo="servicio"
+            opciones={services.map((s) => ({ id: s.id, nombre: s.name ?? "—" }))}
+            destinos={form.destinos}
+            onToggle={alternarDestino}
+          />
+          <BloqueDeOferta
+            titulo="Combos en oferta"
+            tipo="combo"
+            opciones={[
+              ...combos.map((c) => ({ id: c.id, nombre: c.name ?? "—" })),
+              ...combosDepilacion.map((c) => ({ id: c.id, nombre: c.name, tipo: "depilacion" as const })),
+            ]}
+            destinos={form.destinos}
+            onToggle={alternarDestino}
+          />
+          <BloqueDeOferta
+            titulo="Packs en oferta"
+            tipo="combo"
+            opciones={packs.map((c) => ({ id: c.id, nombre: c.name ?? "—" }))}
+            destinos={form.destinos}
+            onToggle={alternarDestino}
+          />
         </div>
 
-        {/* Servicios de la promo: cada uno con su proveedora y lo que se le paga */}
-        <div className="space-y-3 rounded-xl border border-surface-high p-3">
+        {/* Cuánto se le paga a cada proveedora mientras el servicio está en
+            promo. Es opcional: lo que quede vacío se paga por el acuerdo de
+            siempre. Un combo no aporta un pago propio: aporta sus servicios a
+            esta lista. */}
+        <div className="space-y-2 rounded-xl border border-surface-high p-3">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-            Servicios incluidos
+            Pagos acordados con las proveedoras
           </p>
-          {form.lines.length === 0 ? (
-            <p className="text-sm text-ink-soft">Sin servicios. Agregá al menos uno.</p>
+          {desglose.length === 0 ? (
+            <p className="text-sm text-ink-soft">
+              Elegí algo en oferta y acá van a aparecer sus servicios.
+            </p>
           ) : (
             <ul className="space-y-2">
-              {form.lines.map((l, i) => (
-                <LineRow
-                  key={i}
-                  line={l}
-                  services={services}
-                  onChange={(nl) =>
-                    setForm({ ...form, lines: form.lines.map((x, idx) => (idx === i ? nl : x)) })
-                  }
-                  onRemove={() =>
-                    setForm({ ...form, lines: form.lines.filter((_, idx) => idx !== i) })
-                  }
+              {desglose.map((s) => (
+                <FilaDePago
+                  key={s.serviceId}
+                  servicio={s}
+                  pago={form.pagos.find((p) => p.serviceId === s.serviceId)}
+                  onChange={actualizarPago}
                 />
               ))}
             </ul>
           )}
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setForm({ ...form, lines: [...form.lines, { ...EMPTY_LINE }] })}
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
-            >
-              <Plus size={15} />
-              Agregar servicio
-            </button>
-          </div>
-
-          {/* Preview del snapshot que se va a frizar al guardar */}
-          <div className="flex justify-between border-t border-surface-high pt-2 text-sm">
-            <span className="text-ink-soft">Subtotal servicios</span>
-            <span className="text-ink">{money(subtotalPreview)}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="font-medium text-ink">Total promo</span>
-            <span className="font-semibold text-ink">{money(finalPreview)}</span>
-          </div>
         </div>
+
         <Field label="Notas">
           <TextArea
             rows={2}
