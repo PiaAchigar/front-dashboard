@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./auth/AuthContext";
 import { RequireAuth } from "./auth/RequireAuth";
 import { AppShell } from "./components/AppShell";
+import { UltimaSolapa } from "./components/UltimaSolapa";
 import { LoginPage } from "./pages/LoginPage";
 import { AyudaPage } from "./pages/AyudaPage";
 import { AgendaFrame } from "./components/AgendaFrame";
@@ -64,7 +65,12 @@ export default function App() {
                 <Route index element={<Navigate to="/agenda" replace />} />
                 <Route path="agenda" element={<AgendaFrame />} />
                 <Route path="admin" element={<AdminLayout />}>
-                  <Route index element={<Navigate to="/admin/servicios" replace />} />
+                  {/* Promos primero: es lo que Laura mira más seguido (Pia, 2026-09-16).
+                      Y a partir de la segunda vez, la solapa donde quedó. */}
+                  <Route
+                    index
+                    element={<UltimaSolapa seccion="/admin" porDefecto="/admin/promos" />}
+                  />
                   <Route path="servicios" element={<ServiciosAdminPage />} />
                   <Route
                     path="sin-clasificar"
@@ -76,7 +82,15 @@ export default function App() {
                       servicios no hay combo ni pack posible. */}
                   {AREAS.map((a) => (
                     <Route key={a.path} path={a.path} element={<AreaLayout area={a} />}>
-                      <Route index element={<Navigate to="servicios" replace />} />
+                      <Route
+                        index
+                        element={
+                          <UltimaSolapa
+                            seccion={`/admin/${a.path}`}
+                            porDefecto={`/admin/${a.path}/servicios`}
+                          />
+                        }
+                      />
                       <Route
                         path="servicios"
                         element={<ServiciosAdminPage area={a.categoria} />}
@@ -94,7 +108,15 @@ export default function App() {
                   <Route path="actividades" element={<ActividadesAdminPage />} />
                   <Route path="suscripciones" element={<SubscriptionsAdminPage />} />
                   <Route path="depilacion" element={<DepilacionLayout />}>
-                    <Route index element={<Navigate to="zonas" replace />} />
+                    <Route
+                      index
+                      element={
+                        <UltimaSolapa
+                          seccion="/admin/depilacion"
+                          porDefecto="/admin/depilacion/zonas"
+                        />
+                      }
+                    />
                     <Route path="zonas" element={<ZonasPage />} />
                     <Route path="precios" element={<PreciosPage />} />
                     <Route path="combos" element={<CombosDepilacionPage />} />
@@ -103,7 +125,10 @@ export default function App() {
                 <Route path="facturacion" element={<BillerFrame />} />
                 <Route path="crm" element={<CrmFrame />} />
                 <Route path="sitio-web" element={<SitioWebLayout />}>
-                  <Route index element={<Navigate to="/sitio-web/visibles" replace />} />
+                  <Route
+                    index
+                    element={<UltimaSolapa seccion="/sitio-web" porDefecto="/sitio-web/visibles" />}
+                  />
                   <Route path="visibles" element={<VisiblesWebPage />} />
                   <Route path="destacados" element={<DestacadosWebPage />} />
                   <Route path="textos" element={<TextosWebPage />} />
@@ -112,7 +137,12 @@ export default function App() {
                   <Route path="faq" element={<FaqWebPage />} />
                 </Route>
                 <Route path="configuracion" element={<ConfiguracionLayout />}>
-                  <Route index element={<Navigate to="/configuracion/empresa" replace />} />
+                  <Route
+                    index
+                    element={
+                      <UltimaSolapa seccion="/configuracion" porDefecto="/configuracion/empresa" />
+                    }
+                  />
                   <Route path="empresa" element={<DatosEmpresaPage />} />
                   <Route path="usuarios" element={<UsuariosPage />} />
                   <Route path="facturadores" element={<FacturadoresPage />} />

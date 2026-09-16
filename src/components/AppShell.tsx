@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { CheckoutHandoffProvider } from "../lib/checkout-handoff";
 import { useAgendarHandoff } from "../lib/agendar-handoff";
+import { useRecordarSolapa } from "./UltimaSolapa";
 import { can, type Section } from "../lib/permissions";
 import {
   Calendar,
@@ -44,6 +45,8 @@ export function AppShell() {
   // "Llevame a agendar" desde la ficha de la clienta del CRM. Va acá y no
   // dentro de CrmFrame: ese se desmonta al navegar, antes de poder hacerlo.
   useAgendarHandoff();
+  // En qué solapa quedó cada sección, para devolverla ahí al volver.
+  useRecordarSolapa();
   const visibleNavItems = navItems.filter(
     (it) => !it.section || can(role as Parameters<typeof can>[0], it.section, "view"),
   );
