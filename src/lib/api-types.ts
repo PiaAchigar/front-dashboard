@@ -113,6 +113,7 @@ export type ServiceAgreement = {
 };
 
 // ── Promos en Administración (CRUD con destinos y pagos) ──
+/** Lo que devuelve el backend al leer una promo */
 export type PromoDestinoAdmin = {
   filaId: string;
   tipo: "servicio" | "combo" | "depilacion";
@@ -120,6 +121,7 @@ export type PromoDestinoAdmin = {
   nombre: string | null;
 };
 
+/** Lo que devuelve el backend al leer una promo */
 export type PromoPagoAdmin = {
   id: string;
   serviceId: string;
@@ -147,6 +149,19 @@ export type PromotionAdmin = {
   pagos: PromoPagoAdmin[];
 };
 
+/** Lo que el cliente envía al backend (destino en oferta) */
+export type PromoDestinoInput = {
+  tipo: "servicio" | "combo" | "depilacion";
+  id: string;
+};
+
+/** Lo que el cliente envía al backend (acuerdo de pago con proveedora) */
+export type PromoPagoInput = {
+  serviceId: string;
+  serviceProviderId: string;
+  providerPayment: number;
+};
+
 export type PromotionInput = {
   name: string;
   description?: string | null;
@@ -156,11 +171,11 @@ export type PromotionInput = {
   validFrom?: string | null;
   validUntil?: string | null;
   isFeatured?: boolean | null;
-  isVisibleWeb?: boolean;
+  isVisibleWeb: boolean;
   usageLimit?: number | null;
   notes?: string | null;
-  destinos: PromoDestinoAdmin[];
-  pagos: PromoPagoAdmin[];
+  destinos: PromoDestinoInput[];
+  pagos: PromoPagoInput[];
 };
 
 export type ComboLineAdmin = {

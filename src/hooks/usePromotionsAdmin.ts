@@ -1,27 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
 import { apiFetch } from "../lib/api-client";
-import type { PromotionAdmin } from "../lib/api-types";
+import type { PromotionAdmin, PromotionInput } from "../lib/api-types";
 
-export type PromoLineInput = {
-  serviceId: string;
-  serviceProviderId?: string | null;
-  providerPayment?: number | null;
-};
-
-export type PromotionInput = {
-  name: string;
-  description?: string | null;
-  promotionType?: string | null; // 'percentage' | 'fixed_amount'
-  discountPercentage?: number | null;
-  discountAmount?: number | null;
-  validFrom?: string | null;
-  validUntil?: string | null;
-  isFeatured?: boolean | null;
-  usageLimit?: number | null;
-  notes?: string | null;
-  lines: PromoLineInput[];
-};
+export type { PromotionInput } from "../lib/api-types";
 
 const KEY = "promotions-admin";
 
