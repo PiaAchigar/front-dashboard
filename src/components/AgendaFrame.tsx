@@ -84,7 +84,11 @@ export function AgendaFrame() {
   return (
     <iframe
       ref={iframeRef}
-      src={`${AGENDA_URL}/dia?embed=1`}
+      // A la RAÍZ y no a "/dia": la raíz de la agenda es la que decide dónde
+      // arrancar —la pantalla donde estaba antes de recargar, o la última
+      // vista elegida—. Apuntando a "/dia" esa decisión no corría nunca y la
+      // agenda volvía siempre al día de hoy (Pia, 2026-09-16).
+      src={`${AGENDA_URL}/?embed=1`}
       title="Agenda"
       className="h-full w-full border-0"
     />
