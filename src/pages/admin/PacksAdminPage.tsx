@@ -9,6 +9,7 @@ import { useAreas } from "../../hooks/useAreas";
 import { useContextoDeArea } from "./contexto-de-area";
 import { useServices } from "../../hooks/useServices";
 import { idDeArea } from "../../lib/areas";
+import { serviciosParaCombo } from "../../lib/servicios-de-combo";
 import {
   useArchiveCombo,
   useChequeoDeDuplicados,
@@ -234,6 +235,13 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
   // activos: armar un pack de un combo archivado lo rechaza el backend.
   const { data: combosDelArea = [] } = useCombosAdmin(false, { areaCategoryId, kind: "combo" });
   const { data: services = [] } = useServices();
+
+  // Mismo criterio que el armador de combos: un pack de Estética se arma con
+  // un servicio de Estética. Ver `lib/servicios-de-combo.ts`.
+  const serviciosElegibles = useMemo(
+    () => serviciosParaCombo(services, area, [form.serviceId]),
+    [services, area, form.serviceId],
+  );
   const { data: tarifarios = [] } = useTarifarios();
 
   const tarifario = tarifarios.find((t) => t.areaCategoryId === areaCategoryId) ?? null;
@@ -557,7 +565,7 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
                 onChange={(e) => setForm({ ...form, serviceId: e.target.value })}
               >
                 <option value="">Elegí un servicio…</option>
-                {services.map((s) => (
+                {serviciosElegibles.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name ?? "—"}
                   </option>

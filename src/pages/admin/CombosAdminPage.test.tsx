@@ -26,9 +26,29 @@ const AREAS = [
   { id: "aaaaaaaa-2222-2222-2222-222222222222", name: "Masajes y Bienestar" },
 ];
 
+const BOTOX = "33333333-3333-3333-3333-333333333333";
+const ESTETICA = [{ id: AREA_ESTETICA, name: "Estética" }];
+
+/**
+ * Los servicios llevan su área de verdad: el armador sólo ofrece los del área
+ * del combo, así que un fixture sin categorías no probaría la pantalla real.
+ */
 const SERVICIOS = [
-  { id: LIMPIEZA, name: "Limpieza facial", unitPriceList: 20000, isActive: true, categories: [] },
-  { id: PEELING, name: "Peeling", unitPriceList: 15000, isActive: true, categories: [] },
+  {
+    id: LIMPIEZA,
+    name: "Limpieza facial",
+    unitPriceList: 20000,
+    isActive: true,
+    categories: ESTETICA,
+  },
+  { id: PEELING, name: "Peeling", unitPriceList: 15000, isActive: true, categories: ESTETICA },
+  {
+    id: BOTOX,
+    name: "Baby Botox",
+    unitPriceList: 90000,
+    isActive: true,
+    categories: [{ id: "aaaaaaaa-3333-3333-3333-333333333333", name: "Medicina y Dermatología" }],
+  },
 ];
 
 /** Un combo guardado, para probar la edición. */
@@ -187,6 +207,37 @@ describe("CombosAdminPage — el área", () => {
     await screen.findByText(/se arma con servicios/i);
     const pedidos = fetchMock.mock.calls.map((c) => String(c[0]));
     expect(pedidos.some((u) => u.includes("/api/agenda/combos/admin"))).toBe(false);
+  });
+});
+
+describe("CombosAdminPage — sólo servicios del área", () => {
+  /**
+   * Pasó de verdad: un combo de Estética se armó con "Baby Botox", que es de
+   * Medicina y Dermatología (Pia, 2026-09-15). La regla estaba escrita en el
+   * esquema desde la 1.50.0 y esta pantalla no la cumplía.
+   */
+  it("no ofrece un servicio de otra área", async () => {
+    const user = userEvent.setup();
+    render(<CombosAdminPage area="Estética" />, { wrapper });
+
+    await user.click(await screen.findByRole("button", { name: /agregar/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /agregar servicio/i }));
+
+    expect(within(dialog).queryByRole("option", { name: /baby botox/i })).not.toBeInTheDocument();
+    // Y los del área sí están: el filtro acota, no vacía la lista.
+    expect(within(dialog).getByRole("option", { name: /limpieza facial/i })).toBeInTheDocument();
+  });
+
+  it("sin área los ofrece todos: es la pantalla general", async () => {
+    const user = userEvent.setup();
+    render(<CombosAdminPage />, { wrapper });
+
+    await user.click(await screen.findByRole("button", { name: /agregar/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /agregar servicio/i }));
+
+    expect(within(dialog).getByRole("option", { name: /baby botox/i })).toBeInTheDocument();
   });
 });
 

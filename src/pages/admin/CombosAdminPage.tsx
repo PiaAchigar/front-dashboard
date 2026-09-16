@@ -22,6 +22,7 @@ import {
 import { useAreas } from "../../hooks/useAreas";
 import { useContextoDeArea } from "./contexto-de-area";
 import { idDeArea } from "../../lib/areas";
+import { serviciosParaCombo } from "../../lib/servicios-de-combo";
 import { listar } from "../../lib/listar";
 import { AREAS } from "../../lib/admin-nav";
 import type { ComboAdmin } from "../../lib/api-types";
@@ -226,6 +227,14 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
     error,
   } = useCombosAdmin(showArchived, { areaCategoryId, kind: "combo" });
   const { data: services = [] } = useServices();
+
+  // Sólo los servicios del área del combo. `services` sigue entero porque el
+  // preview de precios necesita mirar cualquiera, incluido uno de otra área
+  // que un combo viejo ya tenga. Ver `lib/servicios-de-combo.ts`.
+  const serviciosElegibles = useMemo(
+    () => serviciosParaCombo(services, area, form.lines.map((l) => l.serviceId)),
+    [services, area, form.lines],
+  );
   const chequearDuplicados = useChequeoDeDuplicados();
   const [duplicados, setDuplicados] = useState<{ id: string; name: string }[]>([]);
   const create = useCreateCombo();
@@ -633,7 +642,7 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
                 <LineRow
                   key={i}
                   line={l}
-                  services={services}
+                  services={serviciosElegibles}
                   precio={precioPreview(l)}
                   bloqueado={!!editing}
                   onChange={(nl) =>

@@ -22,8 +22,15 @@ const LIMPIEZA = "11111111-1111-1111-1111-111111111111";
 const COMBO_FACIAL = "cccccccc-cccc-cccc-cccc-cccccccccccc";
 
 const AREAS = [{ id: AREA, name: "Estética" }];
+// Con su área de verdad: el armador sólo ofrece los servicios del área.
 const SERVICIOS = [
-  { id: LIMPIEZA, name: "Limpieza facial", unitPriceList: 20000, isActive: true, categories: [] },
+  {
+    id: LIMPIEZA,
+    name: "Limpieza facial",
+    unitPriceList: 20000,
+    isActive: true,
+    categories: [{ id: AREA, name: "Estética" }],
+  },
 ];
 const TARIFARIOS = [
   {
