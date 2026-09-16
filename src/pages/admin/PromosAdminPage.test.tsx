@@ -174,4 +174,34 @@ describe("PromosAdminPage — qué está en oferta", () => {
     expect(cuerpo.pagos).toEqual([]);
     expect(cuerpo.isVisibleWeb).toBe(false);
   });
+
+  it("destildar un combo no manda el pago que había quedado cargado para su servicio", async () => {
+    // Fix round 1: Laura tilda el Combo Facial, carga proveedora y monto
+    // para Baby Botox, y se arrepiente — destilda el combo. La fila
+    // desaparece de la pantalla; el pago tiene que desaparecer también del
+    // guardado, no quedar huérfano viajando igual.
+    const enviados: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", makeFetchMock({ enviados }));
+    const user = userEvent.setup();
+    render(<PromosAdminPage />, { wrapper });
+
+    await user.click(await screen.findByRole("button", { name: /agregar/i }));
+    await user.type(screen.getByLabelText(/nombre/i), "Promo Facial");
+    await user.click(await screen.findByLabelText(/combo facial/i));
+
+    await screen.findByText(/baby botox/i);
+    await user.selectOptions(screen.getByLabelText(/^proveedora$/i), "prov1");
+    await user.type(screen.getByLabelText(/se le paga/i), "5000");
+
+    // Se arrepiente: destilda el combo y tilda otra cosa para poder guardar.
+    await user.click(screen.getByLabelText(/combo facial/i));
+    await user.click(await screen.findByLabelText(/servicio sin proveedora/i));
+    await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+    await waitFor(() => expect(enviados.length).toBeGreaterThan(0));
+    const cuerpo = enviados.at(-1)!;
+    expect(cuerpo.destinos).toEqual([{ tipo: "servicio", id: SIN_PROVEEDORA }]);
+    // Ni rastro del pago de Baby Botox: su destino ya no está en oferta.
+    expect(cuerpo.pagos).toEqual([]);
+  });
 });

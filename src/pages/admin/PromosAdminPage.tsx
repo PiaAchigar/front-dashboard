@@ -23,6 +23,7 @@ import type { PromotionAdmin } from "../../lib/api-types";
 import {
   erroresDelFormulario,
   pagosParaEnviar,
+  pagosVigentes,
   serviciosADesglosar,
   type DestinoDraft,
   type PagoDraft,
@@ -284,13 +285,25 @@ export function PromosAdminPage() {
       key: "web",
       header: "Web",
       width: 130,
+      // Misma verdad que el texto de ayuda del formulario: Destacada sin
+      // Mostrar no hace nada, así que no puede leerse igual que una Destacada
+      // que sí está publicada. No debería pasar desde este formulario (lo
+      // bloquea `erroresDelFormulario`), pero una fila que llegue así por
+      // datos viejos o por otra vía no puede mostrarse como si funcionara.
       render: (p) =>
-        p.isFeatured ? (
+        p.isVisibleWeb && p.isFeatured ? (
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary-dark">
             Destacada
           </span>
         ) : p.isVisibleWeb ? (
           <span className="text-ink-soft">Mostrada</span>
+        ) : p.isFeatured ? (
+          <span
+            className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800"
+            title='Destacada sin "Mostrar en la web": no aparece en ningún lado'
+          >
+            Destacada sin mostrar
+          </span>
         ) : (
           <span className="text-ink-soft">—</span>
         ),
@@ -372,7 +385,13 @@ export function PromosAdminPage() {
       usageLimit: form.usageLimit.trim() === "" ? null : Number(form.usageLimit),
       notes: form.notes.trim() || null,
       destinos: form.destinos,
-      pagos: pagosParaEnviar(form.pagos),
+      // Se poda contra el desglose vigente antes de mandar: un pago cargado
+      // para un servicio que Laura después destildó de la oferta no viaja
+      // solo porque quedó en el estado del formulario (ver pagosVigentes).
+      // Se poda contra el desglose vigente antes de mandar: un pago cargado
+      // para un servicio que Laura después destildó de la oferta no viaja
+      // solo porque quedó en el estado del formulario (ver pagosVigentes).
+      pagos: pagosParaEnviar(pagosVigentes(form.pagos, desglose)),
     };
   }
 

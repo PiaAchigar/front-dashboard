@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   erroresDelFormulario,
   pagosParaEnviar,
+  pagosVigentes,
   serviciosADesglosar,
   type DestinoDraft,
+  type ServicioADesglosar,
 } from "./promo-form";
 
 const combo = (id: string, nombre: string, servicios: [string, string][]) =>
@@ -73,6 +75,36 @@ describe("pagosParaEnviar", () => {
     // Laura puede acordar que ese servicio en promo no se le paga.
     const r = pagosParaEnviar([{ serviceId: "s1", serviceProviderId: "p1", providerPayment: "0" }]);
     expect(r).toEqual([{ serviceId: "s1", serviceProviderId: "p1", providerPayment: 0 }]);
+  });
+});
+
+describe("pagosVigentes", () => {
+  const desglose: ServicioADesglosar[] = [
+    { serviceId: "s1", serviceName: "Limpieza", deCombo: "Combo Facial" },
+    { serviceId: "s2", serviceName: "Baby Botox", deCombo: "Combo Facial" },
+  ];
+
+  it("un pago cuyo servicio sigue en oferta se conserva", () => {
+    const pagos = [{ serviceId: "s1", serviceProviderId: "p1", providerPayment: "5000" }];
+    expect(pagosVigentes(pagos, desglose)).toEqual(pagos);
+  });
+
+  it("un pago huérfano —su servicio ya no está en oferta— se descarta", () => {
+    // Laura tildó el Combo Facial, cargó el pago de Baby Botox y después
+    // destildó el combo: la fila desapareció de la pantalla, pero sin esta
+    // poda el pago viejo se mandaría igual en el próximo guardado.
+    const pagos = [
+      { serviceId: "s1", serviceProviderId: "p1", providerPayment: "5000" },
+      { serviceId: "s9", serviceProviderId: "p9", providerPayment: "1000" },
+    ];
+    expect(pagosVigentes(pagos, desglose)).toEqual([
+      { serviceId: "s1", serviceProviderId: "p1", providerPayment: "5000" },
+    ]);
+  });
+
+  it("nada en oferta poda todos los pagos", () => {
+    const pagos = [{ serviceId: "s1", serviceProviderId: "p1", providerPayment: "5000" }];
+    expect(pagosVigentes(pagos, [])).toEqual([]);
   });
 });
 

@@ -60,11 +60,36 @@ export function serviciosADesglosar(
 }
 
 /**
+ * Los pagos cuyo servicio sigue en oferta, descartando los huérfanos.
+ *
+ * Un pago queda huérfano cuando Laura carga proveedora y monto para un
+ * servicio y DESPUÉS destilda el destino que lo traía (el servicio suelto, o
+ * el combo/pack del que salía): `form.pagos` no se entera solo de ese
+ * destilde, así que sin esta poda el pago viejo se manda igual en el próximo
+ * guardado — un acuerdo de pago para algo que ya no está en oferta, que
+ * Laura nunca vio ni confirmó en esa vuelta.
+ *
+ * Se poda acá, al armar lo que se manda, y no en cada tilde/destilde del
+ * formulario: si Laura destilda por error y vuelve a tildar en la misma
+ * edición, recupera lo que ya había cargado en vez de perderlo.
+ */
+export function pagosVigentes(
+  pagos: readonly PagoDraft[],
+  desglose: readonly ServicioADesglosar[],
+): PagoDraft[] {
+  const ids = new Set(desglose.map((s) => s.serviceId));
+  return pagos.filter((p) => ids.has(p.serviceId));
+}
+
+/**
  * Los pagos listos para mandar al backend.
  *
  * El pago es OPCIONAL: lo que Laura no completa se paga por el acuerdo de
  * siempre. Una fila a medio llenar no es un pago y no se manda — el backend
  * rechazaría el guardado entero por ella.
+ *
+ * No filtra por destinos vigentes: eso es trabajo de `pagosVigentes`, que se
+ * corre antes. Esta función sólo decide qué fila cuenta como pago completo.
  */
 export function pagosParaEnviar(
   pagos: readonly PagoDraft[],
