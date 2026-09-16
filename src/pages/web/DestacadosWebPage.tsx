@@ -119,10 +119,15 @@ export function DestacadosWebPage() {
                       <tr key={promo.id} className={promo.isFeatured ? "bg-primary/5" : ""}>
                         <td className="px-4 py-3">
                           <span className="font-medium text-ink">{promo.name}</span>
-                          {promo.services.length > 0 && (
+                          {(promo.destinos?.length ?? 0) > 0 && (
                             <span className="ml-2 text-xs text-ink-soft">
-                              {promo.services.length} servicio
-                              {promo.services.length !== 1 ? "s" : ""}
+                              {promo.destinos.length} cosa{promo.destinos.length !== 1 ? "s" : ""} en
+                              oferta
+                            </span>
+                          )}
+                          {!promo.isVisibleWeb && (
+                            <span className="ml-2 text-xs text-amber-700">
+                              Sin publicar — destacarla no hace nada
                             </span>
                           )}
                         </td>

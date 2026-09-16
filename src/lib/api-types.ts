@@ -93,17 +93,6 @@ export type CategoryNode = {
   children: CategoryNode[];
 };
 
-export type Promotion = {
-  id: string;
-  name: string | null;
-  description: string | null;
-  promotionType: string | null;
-  validFrom: string | null;
-  validUntil: string | null;
-  isFeatured: boolean | null;
-  services: { id: string; name: string | null; unitPriceList: number | null }[];
-};
-
 // Acuerdo vigente proveedora↔servicio (service_provider_service)
 export type ServiceAgreement = {
   serviceProviderId: string;
