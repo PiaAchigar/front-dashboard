@@ -112,14 +112,20 @@ export type ServiceAgreement = {
   rate: number | null;
 };
 
-// ── Promos en Administración (CRUD con líneas servicio/proveedora/pago + snapshot) ──
-export type PromoLineAdmin = {
+// ── Promos en Administración (CRUD con destinos y pagos) ──
+export type PromoDestinoAdmin = {
+  filaId: string;
+  tipo: "servicio" | "combo" | "depilacion";
   id: string;
-  serviceId: string | null;
+  nombre: string | null;
+};
+
+export type PromoPagoAdmin = {
+  id: string;
+  serviceId: string;
   serviceName: string | null;
-  serviceProviderId: string | null;
+  serviceProviderId: string;
   serviceProviderName: string | null;
-  servicePrice: number | null;
   providerPayment: number | null;
 };
 
@@ -130,15 +136,31 @@ export type PromotionAdmin = {
   promotionType: string | null; // 'percentage' | 'fixed_amount'
   discountPercentage: number | null;
   discountAmount: number | null;
-  servicesSubtotal: number | null;
-  finalAmount: number | null;
   validFrom: string | null;
   validUntil: string | null;
   status: string | null; // active | inactive
   isFeatured: boolean | null;
+  isVisibleWeb: boolean | null;
   usageLimit: number | null;
   notes: string | null;
-  lines: PromoLineAdmin[];
+  destinos: PromoDestinoAdmin[];
+  pagos: PromoPagoAdmin[];
+};
+
+export type PromotionInput = {
+  name: string;
+  description?: string | null;
+  promotionType?: string | null; // 'percentage' | 'fixed_amount'
+  discountPercentage?: number | null;
+  discountAmount?: number | null;
+  validFrom?: string | null;
+  validUntil?: string | null;
+  isFeatured?: boolean | null;
+  isVisibleWeb?: boolean;
+  usageLimit?: number | null;
+  notes?: string | null;
+  destinos: PromoDestinoAdmin[];
+  pagos: PromoPagoAdmin[];
 };
 
 export type ComboLineAdmin = {
