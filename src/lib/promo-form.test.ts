@@ -4,6 +4,7 @@ import {
   pagosParaEnviar,
   pagosVigentes,
   serviciosADesglosar,
+  type Desglose,
   type DestinoDraft,
   type ServicioADesglosar,
 } from "./promo-form";
@@ -12,6 +13,8 @@ const combo = (id: string, nombre: string, servicios: [string, string][]) =>
   ({
     id,
     name: nombre,
+    kind: "combo",
+    packOfComboId: null,
     lines: servicios.map(([sid, sname]) => ({
       id: `l-${sid}`,
       serviceId: sid,
@@ -22,6 +25,17 @@ const combo = (id: string, nombre: string, servicios: [string, string][]) =>
     })),
   }) as never;
 
+/** Un pack que REPITE un combo: no tiene renglones propios, sus servicios
+ *  salen del combo original. Es la forma más común de pack. */
+const packDeCombo = (id: string, nombre: string, comboId: string) =>
+  ({ id, name: nombre, kind: "pack", packOfComboId: comboId, lines: [] }) as never;
+
+/** Un pack armado con sus propios servicios: mira sus renglones, como un combo. */
+const packSuelto = (id: string, nombre: string, servicios: [string, string][]) => {
+  const c = combo(id, nombre, servicios) as unknown as Record<string, unknown>;
+  return { ...c, kind: "pack", packOfComboId: null } as never;
+};
+
 const COMBOS = [
   combo("c1", "Combo Facial", [["s1", "Limpieza"], ["s2", "Baby Botox"]]),
   combo("c2", "Combo Express", [["s2", "Baby Botox"]]),
@@ -30,14 +44,14 @@ const COMBOS = [
 describe("serviciosADesglosar", () => {
   it("un combo en oferta abre sus servicios para cargarles el pago", () => {
     const r = serviciosADesglosar([{ tipo: "combo", id: "c1" }], COMBOS);
-    expect(r.map((x) => x.serviceId)).toEqual(["s1", "s2"]);
-    expect(r[0]!.deCombo).toBe("Combo Facial");
+    expect(r.servicios.map((x) => x.serviceId)).toEqual(["s1", "s2"]);
+    expect(r.servicios[0]!.deCombo).toBe("Combo Facial");
   });
 
   it("un servicio suelto en oferta también lleva su fila de pago", () => {
     const r = serviciosADesglosar([{ tipo: "servicio", id: "s9" }], COMBOS);
-    expect(r).toHaveLength(1);
-    expect(r[0]).toMatchObject({ serviceId: "s9", deCombo: null });
+    expect(r.servicios).toHaveLength(1);
+    expect(r.servicios[0]).toMatchObject({ serviceId: "s9", deCombo: null });
   });
 
   it("un servicio que está en dos combos aparece UNA sola vez", () => {
@@ -46,16 +60,63 @@ describe("serviciosADesglosar", () => {
       [{ tipo: "combo", id: "c1" }, { tipo: "combo", id: "c2" }],
       COMBOS,
     );
-    expect(r.filter((x) => x.serviceId === "s2")).toHaveLength(1);
+    expect(r.servicios.filter((x) => x.serviceId === "s2")).toHaveLength(1);
   });
 
-  it("depilación no desglosa servicios", () => {
-    // Un combo de depilación son zonas, no servicios con proveedora propia.
-    expect(serviciosADesglosar([{ tipo: "depilacion", id: "d1" }], COMBOS)).toEqual([]);
+  it("depilación no desglosa servicios, y eso NO es un destino sin resolver", () => {
+    // Un combo de depilación son zonas, no servicios con proveedora propia:
+    // no hay desglose posible. No es ignorancia de la pantalla, así que no
+    // puede frenar la poda de los pagos huérfanos.
+    const r = serviciosADesglosar([{ tipo: "depilacion", id: "d1" }], COMBOS);
+    expect(r.servicios).toEqual([]);
+    expect(r.sinResolver).toEqual([]);
   });
 
-  it("un combo que ya no existe no rompe la pantalla", () => {
-    expect(serviciosADesglosar([{ tipo: "combo", id: "fantasma" }], COMBOS)).toEqual([]);
+  it("un combo que no vino en la lista no rompe la pantalla, pero se anota", () => {
+    const r = serviciosADesglosar([{ tipo: "combo", id: "fantasma" }], COMBOS);
+    expect(r.servicios).toEqual([]);
+    expect(r.sinResolver).toEqual([{ tipo: "combo", id: "fantasma" }]);
+  });
+
+  it("un pack que repite un combo abre los servicios del combo original", () => {
+    // Un pack con packOfComboId no tiene renglones propios: mirar pack.lines
+    // devolvía vacío y la pantalla decía "Elegí algo en oferta" con un pack ya
+    // elegido. Es la forma más común de pack.
+    const lista = [...COMBOS, packDeCombo("p1", "Pack Facial x4", "c1")];
+    const r = serviciosADesglosar([{ tipo: "combo", id: "p1" }], lista);
+    expect(r.servicios.map((x) => x.serviceId)).toEqual(["s1", "s2"]);
+    expect(r.sinResolver).toEqual([]);
+  });
+
+  it("el pago dice de qué PACK sale, no del combo que el pack repite", () => {
+    // Es el nombre que Laura tildó arriba: el otro la obliga a deducir.
+    const lista = [...COMBOS, packDeCombo("p1", "Pack Facial x4", "c1")];
+    const r = serviciosADesglosar([{ tipo: "combo", id: "p1" }], lista);
+    expect(r.servicios[0]!.deCombo).toBe("Pack Facial x4");
+  });
+
+  it("un pack armado con servicios propios sigue mirando sus renglones", () => {
+    const lista = [...COMBOS, packSuelto("p2", "Pack Suelto", [["s7", "Masaje"]])];
+    const r = serviciosADesglosar([{ tipo: "combo", id: "p2" }], lista);
+    expect(r.servicios.map((x) => x.serviceId)).toEqual(["s7"]);
+  });
+
+  it("un pack cuyo combo original no vino en la lista queda sin resolver", () => {
+    const r = serviciosADesglosar(
+      [{ tipo: "combo", id: "p1" }],
+      [packDeCombo("p1", "Pack Facial x4", "archivado")],
+    );
+    expect(r.servicios).toEqual([]);
+    expect(r.sinResolver).toEqual([{ tipo: "combo", id: "p1" }]);
+  });
+
+  it("el mismo servicio por dos caminos (el combo y su pack) sale una vez", () => {
+    const lista = [...COMBOS, packDeCombo("p1", "Pack Facial x4", "c1")];
+    const r = serviciosADesglosar(
+      [{ tipo: "combo", id: "c1" }, { tipo: "combo", id: "p1" }],
+      lista,
+    );
+    expect(r.servicios.map((x) => x.serviceId)).toEqual(["s1", "s2"]);
   });
 });
 
@@ -79,10 +140,11 @@ describe("pagosParaEnviar", () => {
 });
 
 describe("pagosVigentes", () => {
-  const desglose: ServicioADesglosar[] = [
+  const servicios: ServicioADesglosar[] = [
     { serviceId: "s1", serviceName: "Limpieza", deCombo: "Combo Facial" },
     { serviceId: "s2", serviceName: "Baby Botox", deCombo: "Combo Facial" },
   ];
+  const desglose: Desglose = { servicios, sinResolver: [] };
 
   it("un pago cuyo servicio sigue en oferta se conserva", () => {
     const pagos = [{ serviceId: "s1", serviceProviderId: "p1", providerPayment: "5000" }];
@@ -104,7 +166,27 @@ describe("pagosVigentes", () => {
 
   it("nada en oferta poda todos los pagos", () => {
     const pagos = [{ serviceId: "s1", serviceProviderId: "p1", providerPayment: "5000" }];
-    expect(pagosVigentes(pagos, [])).toEqual([]);
+    expect(pagosVigentes(pagos, { servicios: [], sinResolver: [] })).toEqual([]);
+  });
+
+  it("con un destino sin resolver no se poda NADA", () => {
+    // El combo destino se archivó y no vino en la lista: sus servicios no
+    // están en el desglose, pero no son huérfanos — la pantalla no sabe nada
+    // de ellos. Podarlos haría que corregir una coma en la descripción
+    // guardara la promo sin esos pagos, y la plata de las proveedoras
+    // cambiara en silencio.
+    const pagos = [
+      { serviceId: "s1", serviceProviderId: "p1", providerPayment: "5000" },
+      { serviceId: "s9", serviceProviderId: "p9", providerPayment: "1000" },
+    ];
+    const conHueco: Desglose = { servicios, sinResolver: [{ tipo: "combo", id: "archivado" }] };
+    expect(pagosVigentes(pagos, conHueco)).toEqual(pagos);
+  });
+
+  it("sin destinos sin resolver la poda sigue funcionando", () => {
+    // El caso que pagosVigentes existe para cubrir no se pierde por la guarda.
+    const pagos = [{ serviceId: "s9", serviceProviderId: "p9", providerPayment: "1000" }];
+    expect(pagosVigentes(pagos, desglose)).toEqual([]);
   });
 });
 

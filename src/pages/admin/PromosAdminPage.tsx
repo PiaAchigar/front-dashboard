@@ -250,6 +250,10 @@ export function PromosAdminPage() {
     () => serviciosADesglosar(form.destinos, [...combos, ...packs]),
     [form.destinos, combos, packs],
   );
+  // Depilación no desglosa: son zonas, no servicios con proveedora. Sin
+  // decirlo, Laura tilda un combo de depilación y espera filas que no van a
+  // aparecer nunca.
+  const hayDepilacion = form.destinos.some((d) => d.tipo === "depilacion");
 
   const columns: Column<PromotionAdmin>[] = [
     {
@@ -388,9 +392,6 @@ export function PromosAdminPage() {
       // Se poda contra el desglose vigente antes de mandar: un pago cargado
       // para un servicio que Laura después destildó de la oferta no viaja
       // solo porque quedó en el estado del formulario (ver pagosVigentes).
-      // Se poda contra el desglose vigente antes de mandar: un pago cargado
-      // para un servicio que Laura después destildó de la oferta no viaja
-      // solo porque quedó en el estado del formulario (ver pagosVigentes).
       pagos: pagosParaEnviar(pagosVigentes(form.pagos, desglose)),
     };
   }
@@ -498,7 +499,7 @@ export function PromosAdminPage() {
         <div className="flex gap-3">
           <Field
             label="Tipo de descuento"
-            help="Porcentaje aplica un % sobre el subtotal de los servicios. Monto fijo resta un valor en pesos. El total se congela al guardar."
+            help="Porcentaje baja un % del precio; monto fijo resta un valor en pesos. El descuento se aplica al vender, sobre lo que la clienta se lleve: la promo no tiene un total propio."
           >
             <Select
               value={form.promotionType}
@@ -619,13 +620,29 @@ export function PromosAdminPage() {
           <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
             Pagos acordados con las proveedoras
           </p>
-          {desglose.length === 0 ? (
+          {hayDepilacion && (
+            <p className="text-xs text-ink-soft">
+              Los combos de depilación no abren servicios acá: son zonas, no servicios con
+              proveedora. Se pagan por el acuerdo de depilación de siempre.
+            </p>
+          )}
+          {desglose.sinResolver.length > 0 && (
+            // No se puede desglosar lo que la pantalla no tiene, y tampoco se
+            // pueden tirar sus pagos: se avisa y se dejan intactos.
+            <p className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
+              {desglose.sinResolver.length} cosa(s) en oferta no se pudieron abrir (se archivaron o
+              se borraron). Sus pagos acordados se conservan tal como estaban.
+            </p>
+          )}
+          {desglose.servicios.length === 0 ? (
             <p className="text-sm text-ink-soft">
-              Elegí algo en oferta y acá van a aparecer sus servicios.
+              {hayDepilacion
+                ? "No hay servicios para cargarles un pago: elegí un servicio, un combo o un pack."
+                : "Elegí algo en oferta y acá van a aparecer sus servicios."}
             </p>
           ) : (
             <ul className="space-y-2">
-              {desglose.map((s) => (
+              {desglose.servicios.map((s) => (
                 <FilaDePago
                   key={s.serviceId}
                   servicio={s}

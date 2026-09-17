@@ -24,6 +24,39 @@ export type ServicioADesglosar = {
 };
 
 /**
+ * Lo que se pudo abrir de la oferta, y lo que no.
+ *
+ * `sinResolver` existe porque no es lo mismo "este combo no aporta servicios"
+ * que "no sé nada de este combo". La segunda es ignorancia de la pantalla —el
+ * combo se archivó y no vino en la lista, o la lista todavía está cargando— y
+ * `pagosVigentes` no puede podar un pago por ignorancia.
+ */
+export type Desglose = {
+  servicios: ServicioADesglosar[];
+  /** Destinos que la pantalla no pudo abrir: el combo no vino en la lista. */
+  sinResolver: DestinoDraft[];
+};
+
+/**
+ * De qué combo salen los servicios de un destino.
+ *
+ * Un **pack que repite un combo** no tiene renglones propios: sus servicios
+ * viven en el combo original. Mirar `pack.lines` devuelve vacío, que es
+ * exactamente lo que hacía que un pack en oferta mostrara "Elegí algo en
+ * oferta" con algo ya elegido. Misma regla que el backend
+ * (`comboDelQueSalenLosServicios`), y como allá: `packOfComboId` sólo
+ * significa algo en un pack, un combo común con la columna sucia se sigue
+ * mirando a sí mismo.
+ */
+function comboDelQueSalenLosServicios(
+  combo: ComboAdmin,
+  porId: Map<string, ComboAdmin>,
+): ComboAdmin | undefined {
+  if (combo.kind === "pack" && combo.packOfComboId) return porId.get(combo.packOfComboId);
+  return combo;
+}
+
+/**
  * Los servicios que necesitan una fila de pago, a partir de lo que está en
  * oferta.
  *
@@ -33,30 +66,45 @@ export type ServicioADesglosar = {
 export function serviciosADesglosar(
   destinos: readonly DestinoDraft[],
   combos: readonly ComboAdmin[],
-): ServicioADesglosar[] {
+): Desglose {
   const porId = new Map(combos.map((c) => [c.id, c]));
   const vistos = new Map<string, ServicioADesglosar>();
+  const sinResolver: DestinoDraft[] = [];
 
   for (const d of destinos) {
     if (d.tipo === "servicio") {
       if (!vistos.has(d.id)) vistos.set(d.id, { serviceId: d.id, serviceName: null, deCombo: null });
       continue;
     }
-    // Un combo de depilación son zonas, no servicios con proveedora propia.
+    // Un combo de depilación son zonas, no servicios con proveedora propia:
+    // no hay desglose posible y eso NO es ignorancia, así que no va a
+    // `sinResolver`. La pantalla lo dice en una línea.
     if (d.tipo === "depilacion") continue;
 
     const combo = porId.get(d.id);
-    if (!combo) continue; // el combo se archivó: no se rompe la pantalla
-    for (const l of combo.lines) {
+    if (!combo) {
+      sinResolver.push(d);
+      continue;
+    }
+    const origen = comboDelQueSalenLosServicios(combo, porId);
+    if (!origen) {
+      // Un pack cuyo combo original no vino en la lista: los servicios
+      // existen, esta pantalla no los ve.
+      sinResolver.push(d);
+      continue;
+    }
+    for (const l of origen.lines) {
       if (!l.serviceId || vistos.has(l.serviceId)) continue;
       vistos.set(l.serviceId, {
         serviceId: l.serviceId,
         serviceName: l.serviceName,
+        // El nombre que Laura tildó, no el del combo que el pack repite: es
+        // el que ella está mirando en la lista de arriba.
         deCombo: combo.name,
       });
     }
   }
-  return [...vistos.values()];
+  return { servicios: [...vistos.values()], sinResolver };
 }
 
 /**
@@ -73,11 +121,16 @@ export function serviciosADesglosar(
  * formulario: si Laura destilda por error y vuelve a tildar en la misma
  * edición, recupera lo que ya había cargado en vez de perderlo.
  */
-export function pagosVigentes(
-  pagos: readonly PagoDraft[],
-  desglose: readonly ServicioADesglosar[],
-): PagoDraft[] {
-  const ids = new Set(desglose.map((s) => s.serviceId));
+export function pagosVigentes(pagos: readonly PagoDraft[], desglose: Desglose): PagoDraft[] {
+  // Con un destino sin resolver no se poda NADA. La poda sólo es legítima
+  // cuando la pantalla conoce toda la oferta: si un combo destino se archivó
+  // después de armar la promo, sus servicios desaparecen del desglose y esta
+  // función los leería como huérfanos — corregir una coma en la descripción
+  // guardaría la promo sin esos pagos, y la plata de las proveedoras
+  // cambiaría en silencio. Un pago de más se ve y se borra; uno que se perdió
+  // solo, no.
+  if (desglose.sinResolver.length > 0) return [...pagos];
+  const ids = new Set(desglose.servicios.map((s) => s.serviceId));
   return pagos.filter((p) => ids.has(p.serviceId));
 }
 

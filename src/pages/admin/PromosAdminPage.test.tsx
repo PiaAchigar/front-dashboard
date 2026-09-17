@@ -20,6 +20,7 @@ vi.mock("../../auth/AuthContext", () => ({
 const BABY_BOTOX = "33333333-3333-3333-3333-333333333333";
 const SIN_PROVEEDORA = "44444444-4444-4444-4444-444444444444";
 const COMBO_FACIAL = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+const PACK_FACIAL = "pppppppp-cccc-cccc-cccc-cccccccccccc";
 
 // El servicio del combo (Baby Botox) no aparece en /services: sólo se conoce
 // por la línea del combo, que es justo lo que la pantalla tiene que usar.
@@ -67,6 +68,19 @@ const COMBO = {
   ],
 };
 
+// Un pack que REPITE el Combo Facial: `lines` vacío, sus servicios salen del
+// combo original. Es la forma más común de pack, y la que el formulario no
+// sabía abrir.
+const PACK = {
+  ...COMBO,
+  id: PACK_FACIAL,
+  name: "Pack Facial x4",
+  kind: "pack" as const,
+  packOfComboId: COMBO_FACIAL,
+  packSessions: 4,
+  lines: [],
+};
+
 type Opciones = { enviados?: Record<string, unknown>[] };
 
 function makeFetchMock(op: Opciones = {}) {
@@ -80,12 +94,15 @@ function makeFetchMock(op: Opciones = {}) {
       return { ok: true, json: async () => [] };
     }
     if (u.includes("/api/agenda/combos/admin")) {
-      if (u.includes("kind=pack")) return { ok: true, json: async () => [] };
+      if (u.includes("kind=pack")) return { ok: true, json: async () => [PACK] };
       if (u.includes("kind=combo")) return { ok: true, json: async () => [COMBO] };
       return { ok: true, json: async () => [] };
     }
     if (u.includes("/api/agenda/depilacion/combos")) {
-      return { ok: true, json: async () => [] };
+      return {
+        ok: true,
+        json: async () => [{ id: "dddddddd-1111-1111-1111-111111111111", name: "Piernas completas" }],
+      };
     }
     if (u.includes("/api/agenda/providers?serviceId=")) {
       // Único servicio SIN proveedora: el resto (p. ej. Baby Botox) sí tiene.
@@ -139,6 +156,27 @@ describe("PromosAdminPage — qué está en oferta", () => {
     await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
     await userEvent.click(await screen.findByLabelText(/combo facial/i));
     expect(await screen.findByText(/baby botox/i)).toBeInTheDocument();
+  });
+
+  it("un pack que repite un combo abre los servicios del combo original", async () => {
+    // Un pack con packOfComboId no tiene renglones propios. Antes el
+    // formulario miraba `pack.lines`, no encontraba nada, y mostraba "Elegí
+    // algo en oferta y acá van a aparecer sus servicios" con el pack ya
+    // tildado — sin forma de cargarle un pago acordado.
+    render(<PromosAdminPage />, { wrapper });
+    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
+    await userEvent.click(await screen.findByLabelText(/pack facial x4/i));
+    expect(await screen.findByText(/baby botox/i)).toBeInTheDocument();
+    expect(screen.getByText(/de Pack Facial x4/i)).toBeInTheDocument();
+  });
+
+  it("un combo de depilación dice por qué no abre servicios", async () => {
+    // Son zonas, no servicios con proveedora: no hay desglose posible. Sin
+    // decirlo, Laura tilda el combo y espera filas que no van a aparecer.
+    render(<PromosAdminPage />, { wrapper });
+    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
+    await userEvent.click(await screen.findByLabelText(/piernas completas/i));
+    expect(await screen.findByText(/no abren servicios acá/i)).toBeInTheDocument();
   });
 
   it("avisa cuando un servicio en oferta no tiene proveedora", async () => {
