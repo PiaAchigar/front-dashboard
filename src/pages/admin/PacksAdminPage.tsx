@@ -14,6 +14,7 @@ import {
   useArchiveCombo,
   useChequeoDeDuplicados,
   useCombosAdmin,
+  useComboDeleteImpact,
   useCreateCombo,
   useDeleteCombo,
   useRestoreCombo,
@@ -251,6 +252,7 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
   const archive = useArchiveCombo();
   const restore = useRestoreCombo();
   const hardDelete = useDeleteCombo();
+  const deleteImpact = useComboDeleteImpact();
   const chequearDuplicados = useChequeoDeDuplicados();
 
   const rows = useMemo(() => {
@@ -463,7 +465,11 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
             onError: (e: Error) => toast.error(e.message),
           })
         }
-        onHardDeletePreview={async () => ({ blocked: false, cascade: {} })}
+        // El borrado limpia `promotion_target`, así que la base ya no lo frena:
+        // la confirmación es lo único que queda para avisar que este pack
+        // estaba en oferta en N promos. Si era el único destino de una, la
+        // promo queda viva pero sin aplicar a nada.
+        onHardDeletePreview={(p) => deleteImpact.mutateAsync(p.id)}
         onHardDelete={(p) =>
           hardDelete.mutate(p.id, {
             onSuccess: () => toast.success("Pack eliminado definitivamente"),

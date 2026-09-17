@@ -239,8 +239,10 @@ export function ResourceManager<T>({
       // `promotions`, los pagos acordados que lo nombran.
       promoTargets: "promoción(es) que lo tienen en oferta",
       zonas: "zona(s)",
+      servicios: "servicio(s) que lo componen",
       ventasDesenganchadas: "venta(s) que quedan sin la promo (conservan su nombre)",
-      pagosAcordados: "pago(s) acordado(s) con proveedoras — esos turnos pasan a cobrarse por el acuerdo general",
+      pagosAcordados: "pago(s) acordado(s) con proveedoras",
+      turnosAfectados: "turno(s) sin completar que pasan a cobrarse por el acuerdo general",
     };
     const parts = Object.entries(cascade)
       .filter(([, count]) => count > 0)

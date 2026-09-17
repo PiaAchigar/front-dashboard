@@ -82,6 +82,8 @@ const COMBO_GUARDADO = {
 type Opciones = {
   combos?: unknown[];
   duplicados?: { id: string; name: string }[];
+  /** Lo que devuelve GET /combos/admin/:id/delete-impact. */
+  impacto?: { blocked: boolean; blockReason?: string; cascade: Record<string, number> };
   /** Se llena con los cuerpos de cada POST, para poder mirar qué se mandó. */
   enviados?: Record<string, unknown>[];
 };
@@ -91,6 +93,16 @@ function makeFetchMock(op: Opciones = {}) {
     const u = String(url);
     if (u.includes("/api/agenda/categories") && u.includes("kind=area")) {
       return { ok: true, json: async () => AREAS };
+    }
+    // Antes que el catch-all de /combos/admin: si no, el preview de borrado
+    // recibiría la LISTA de combos y la confirmación diría "No se pudo
+    // verificar" sin que ningún test se entere.
+    if (u.includes("/delete-impact")) {
+      return {
+        ok: true,
+        json: async () =>
+          op.impacto ?? { blocked: false, cascade: { servicios: 2, promoTargets: 0 } },
+      };
     }
     if (u.includes("/api/agenda/combos/admin/duplicados")) {
       op.enviados?.push(JSON.parse(String(init?.body ?? "{}")));
@@ -395,5 +407,47 @@ describe("CombosAdminPage — la composición no se edita (§4.2)", () => {
     );
     expect(deServicio.length).toBeGreaterThan(0);
     for (const sel of deServicio) expect(sel).toBeDisabled();
+  });
+});
+
+describe("CombosAdminPage — el borrado definitivo", () => {
+  it("avisa cuántas promos tienen el combo en oferta", async () => {
+    // Desde que el borrado limpia `promotion_target` la base ya no lo frena:
+    // si el cartel no lo dice, Laura borra el combo y la promo pierde ese
+    // destino en silencio. Si era el único, la promo queda viva pero inerte.
+    vi.stubGlobal(
+      "fetch",
+      makeFetchMock({
+        combos: [COMBO_GUARDADO],
+        impacto: { blocked: false, cascade: { servicios: 2, promoTargets: 3 } },
+      }),
+    );
+    const user = userEvent.setup();
+    render(<CombosAdminPage />, { wrapper });
+
+    await user.click((await screen.findAllByTitle("Eliminar definitivamente"))[0]!);
+    expect(await screen.findByText(/3 promoción\(es\) que lo tienen en oferta/i)).toBeInTheDocument();
+  });
+
+  it("si está bloqueado muestra el motivo y no ofrece eliminar", async () => {
+    // Mismo motivo que devuelve el DELETE: el preview y el borrado no pueden
+    // decir cosas distintas.
+    vi.stubGlobal(
+      "fetch",
+      makeFetchMock({
+        combos: [COMBO_GUARDADO],
+        impacto: {
+          blocked: true,
+          blockReason: "No se puede borrar: hay 1 compra de este combo. Archivalo en vez de borrarlo.",
+          cascade: {},
+        },
+      }),
+    );
+    const user = userEvent.setup();
+    render(<CombosAdminPage />, { wrapper });
+
+    await user.click((await screen.findAllByTitle("Eliminar definitivamente"))[0]!);
+    expect(await screen.findByText(/hay 1 compra de este combo/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Eliminar$/ })).not.toBeInTheDocument();
   });
 });

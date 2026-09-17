@@ -87,13 +87,28 @@ const PACK = {
   lines: [],
 };
 
-type Opciones = { packs?: unknown[]; enviados?: Record<string, unknown>[] };
+type Opciones = {
+  packs?: unknown[];
+  enviados?: Record<string, unknown>[];
+  /** Lo que devuelve GET /combos/admin/:id/delete-impact. */
+  impacto?: { blocked: boolean; blockReason?: string; cascade: Record<string, number> };
+};
 
 function makeFetchMock(op: Opciones = {}) {
   return vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     const u = String(url);
     if (u.includes("/api/agenda/categories") && u.includes("kind=area")) {
       return { ok: true, json: async () => AREAS };
+    }
+    // Antes que el catch-all de /combos/admin: si no, el preview de borrado
+    // recibiría la LISTA de packs y la confirmación diría "No se pudo
+    // verificar" sin que ningún test se entere.
+    if (u.includes("/delete-impact")) {
+      return {
+        ok: true,
+        json: async () =>
+          op.impacto ?? { blocked: false, cascade: { servicios: 0, promoTargets: 0 } },
+      };
     }
     if (u.includes("/api/agenda/combos/admin/tarifarios")) {
       if (init?.method === "PUT") {
@@ -258,5 +273,25 @@ describe("PacksAdminPage — armar un pack", () => {
     expect(within(dialog).getByLabelText(/cuántas veces/i)).toBeDisabled();
     // El descuento sí se edita: es lo único que cambia sin volverlo otro pack.
     expect(within(dialog).getByLabelText(/% propio/i)).not.toBeDisabled();
+  });
+});
+
+describe("PacksAdminPage — el borrado definitivo", () => {
+  it("avisa cuántas promos tienen el pack en oferta", async () => {
+    // Un pack de catálogo ES una fila de `combos`, así que el borrado le
+    // limpia `promotion_target` igual que a un combo — y sin este aviso la
+    // promo pierde su destino en silencio.
+    vi.stubGlobal(
+      "fetch",
+      makeFetchMock({
+        packs: [PACK],
+        impacto: { blocked: false, cascade: { servicios: 0, promoTargets: 2 } },
+      }),
+    );
+    const user = userEvent.setup();
+    render(<PacksAdminPage area="Estética" />, { wrapper });
+
+    await user.click((await screen.findAllByTitle("Eliminar definitivamente"))[0]!);
+    expect(await screen.findByText(/2 promoción\(es\) que lo tienen en oferta/i)).toBeInTheDocument();
   });
 });

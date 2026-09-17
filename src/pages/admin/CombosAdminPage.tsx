@@ -13,6 +13,7 @@ import {
   useArchiveCombo,
   useChequeoDeDuplicados,
   useCombosAdmin,
+  useComboDeleteImpact,
   useCreateCombo,
   useDeleteCombo,
   useRestoreCombo,
@@ -242,6 +243,7 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
   const archive = useArchiveCombo();
   const restore = useRestoreCombo();
   const hardDelete = useDeleteCombo();
+  const deleteImpact = useComboDeleteImpact();
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -500,7 +502,11 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
             onError: (e: Error) => toast.error(e.message),
           })
         }
-        onHardDeletePreview={async () => ({ blocked: false, cascade: {} })}
+        // El borrado limpia `promotion_target`, así que la base ya no lo frena:
+        // la confirmación es lo único que queda para avisar que este combo
+        // estaba en oferta en N promos. Si era el único destino de una, la
+        // promo queda viva pero sin aplicar a nada.
+        onHardDeletePreview={(c) => deleteImpact.mutateAsync(c.id)}
         onHardDelete={(c) =>
           hardDelete.mutate(c.id, {
             onSuccess: () => toast.success("Combo eliminado definitivamente"),

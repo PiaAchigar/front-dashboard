@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
+import type { DeleteImpact } from "../components/ResourceManager";
 import { apiFetch } from "../lib/api-client";
 import type { ComboAdmin, TarifarioDeArea } from "../lib/api-types";
 
@@ -177,6 +178,22 @@ export function useRestoreCombo() {
     mutationFn: (id: string) =>
       apiFetch(`/api/agenda/combos/admin/${id}/restore`, token, { method: "POST" }),
     onSuccess: invalidate,
+  });
+}
+
+/**
+ * Qué se lleva puesto borrar un combo o un pack. On-demand, justo antes de la
+ * confirmación — igual que Servicios, Zonas y Promos.
+ *
+ * Lo pide la misma pantalla para las dos solapas: un pack de catálogo ES una
+ * fila de `combos`, así que el endpoint es el mismo.
+ */
+export function useComboDeleteImpact() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<DeleteImpact>(`/api/agenda/combos/admin/${id}/delete-impact`, token),
   });
 }
 
