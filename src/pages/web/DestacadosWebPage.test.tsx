@@ -58,6 +58,25 @@ const PROMOS_ADMIN = [
     destinos: undefined,
     pagos: [],
   },
+  // Vencida hace años. El endpoint de admin la devuelve (el ABM necesita
+  // poder editarla); esta pantalla no tiene que ofrecerla para destacar.
+  {
+    id: "33333333-3333-3333-3333-333333333333",
+    name: "Promo vencida",
+    description: null,
+    promotionType: "percentage",
+    discountPercentage: 10,
+    discountAmount: null,
+    validFrom: "2020-01-01",
+    validUntil: "2020-03-12",
+    status: "active",
+    isFeatured: false,
+    isVisibleWeb: true,
+    usageLimit: null,
+    notes: null,
+    destinos: [],
+    pagos: [],
+  },
 ];
 
 function makeFetchMock() {
@@ -106,6 +125,15 @@ describe("DestacadosWebPage — promos", () => {
   it("dice cuántas cosas tiene en oferta cada promo", async () => {
     render(<DestacadosWebPage />, { wrapper });
     expect(await screen.findByText(/2 cosas en oferta/i)).toBeInTheDocument();
+  });
+
+  it("no ofrece para destacar una promo vencida", async () => {
+    // Al pasar del endpoint público al de admin se perdió el filtro de
+    // vigencia: "Promo del Mes" listaba promos vencidas —"hasta 12 de marzo"—
+    // con su toggle listo para tildar algo que no va a aparecer en la home.
+    render(<DestacadosWebPage />, { wrapper });
+    await screen.findByText(/promo sin publicar/i);
+    expect(screen.queryByText(/promo vencida/i)).not.toBeInTheDocument();
   });
 
   it("no rompe si una promo viene sin destinos", async () => {

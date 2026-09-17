@@ -101,7 +101,9 @@ export function DestacadosWebPage() {
           {loadingPromos ? (
             <Loading />
           ) : promos.length === 0 ? (
-            <p className="text-sm text-ink-soft">No hay promociones activas.</p>
+            <p className="text-sm text-ink-soft">
+              No hay promociones vigentes hoy. Las vencidas se editan en Administración → Promos.
+            </p>
           ) : (
             <div className="overflow-hidden rounded-xl border border-surface-high">
               <table className="w-full text-sm">
