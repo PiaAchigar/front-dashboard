@@ -15,6 +15,7 @@ import {
   useCreatePromotion,
   useDeletePromotion,
   usePromotionsAdmin,
+  usePromotionDeleteImpact,
   useRestorePromotion,
   useUpdatePromotionAdmin,
   type PromotionInput,
@@ -237,6 +238,7 @@ export function PromosAdminPage() {
   const archive = useArchivePromotion();
   const restore = useRestorePromotion();
   const hardDelete = useDeletePromotion();
+  const deleteImpact = usePromotionDeleteImpact();
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -463,7 +465,12 @@ export function PromosAdminPage() {
             onError: (e: Error) => toast.error(e.message),
           })
         }
-        onHardDeletePreview={async () => ({ blocked: false, cascade: {} })}
+        // Borrar una promo ya no lo frena la base (la 1.53.0 puso la FK de las
+        // ventas en ON DELETE SET NULL), así que la confirmación es lo único
+        // que queda entre Laura y dos consecuencias silenciosas: las ventas
+        // que quedan sin promo y los pagos acordados que se borran — con
+        // ellos se va el monto negociado de todo turno todavía sin completar.
+        onHardDeletePreview={(p) => deleteImpact.mutateAsync(p.id)}
         onHardDelete={(p) =>
           hardDelete.mutate(p.id, {
             onSuccess: () => toast.success("Promo eliminada definitivamente"),

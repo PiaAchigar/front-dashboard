@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
+import type { DeleteImpact } from "../components/ResourceManager";
 import { apiFetch } from "../lib/api-client";
 import type { PromotionAdmin, PromotionInput } from "../lib/api-types";
 
@@ -86,5 +87,22 @@ export function useDeletePromotion() {
     mutationFn: (id: string) =>
       apiFetch(`/api/agenda/promotions/admin/${id}/delete`, token, { method: "DELETE" }),
     onSuccess: invalidate,
+  });
+}
+
+/**
+ * Qué se lleva puesto borrar una promo. No es una query cacheada: se llama
+ * on-demand justo antes de la confirmación, igual que Servicios y Zonas.
+ *
+ * Nunca bloquea —las ventas conservan su `promotion_name`—, pero tiene que
+ * decir las dos cosas que cambian en silencio: las ventas que quedan sin promo
+ * y los pagos acordados que se borran.
+ */
+export function usePromotionDeleteImpact() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<DeleteImpact>(`/api/agenda/promotions/admin/${id}/delete-impact`, token),
   });
 }

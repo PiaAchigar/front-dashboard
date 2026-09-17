@@ -235,6 +235,12 @@ export function ResourceManager<T>({
       exceptions: "excepción(es) de disponibilidad",
       mpAccounts: "cuenta(s) de MercadoPago",
       serviceLinks: "servicio(s) que la tienen asignada",
+      // Promos (1.53.0). `promoTargets` es "está en oferta en N promos";
+      // `promotions`, los pagos acordados que lo nombran.
+      promoTargets: "promoción(es) que lo tienen en oferta",
+      zonas: "zona(s)",
+      ventasDesenganchadas: "venta(s) que quedan sin la promo (conservan su nombre)",
+      pagosAcordados: "pago(s) acordado(s) con proveedoras — esos turnos pasan a cobrarse por el acuerdo general",
     };
     const parts = Object.entries(cascade)
       .filter(([, count]) => count > 0)
