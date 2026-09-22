@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { ToastProvider } from "../../components/ui/Toast";
 import { PromosAdminPage } from "./PromosAdminPage";
+import type { PromotionAdmin } from "../../lib/api-types";
 
 vi.mock("../../auth/AuthContext", () => ({
   useAuth: () => ({
@@ -81,7 +82,54 @@ const PACK = {
   lines: [],
 };
 
-type Opciones = { enviados?: Record<string, unknown>[] };
+type Opciones = { enviados?: Record<string, unknown>[]; promos?: PromotionAdmin[] };
+
+// Promo de PAQUETE ya guardada, para probar que editarla relee bien el
+// precio y las cantidades. La cantidad es 3 (no 1) a propósito: con 1 el
+// test pasaría igual aunque `openEdit` pisara todo con `cantidad: 1`.
+const PROMO_PAQUETE: PromotionAdmin = {
+  id: "promo-paquete-1",
+  name: "Promo Paquete Novia",
+  description: null,
+  promotionType: "paquete",
+  discountPercentage: null,
+  discountAmount: null,
+  precioDelPaquete: 250000,
+  validFrom: null,
+  validUntil: null,
+  status: "active",
+  isFeatured: false,
+  isVisibleWeb: false,
+  usageLimit: null,
+  notes: null,
+  destinos: [
+    { filaId: "f1", tipo: "servicio", id: SIN_PROVEEDORA, nombre: "Servicio sin proveedora", cantidad: 3 },
+  ],
+  pagos: [],
+};
+
+// Promo de DESCUENTO ya guardada, para probar que editarla no muestra los
+// campos que sólo tienen sentido en un paquete.
+const PROMO_DESCUENTO: PromotionAdmin = {
+  id: "promo-descuento-1",
+  name: "Promo Descuento Verano",
+  description: null,
+  promotionType: "percentage",
+  discountPercentage: 20,
+  discountAmount: null,
+  precioDelPaquete: null,
+  validFrom: null,
+  validUntil: null,
+  status: "active",
+  isFeatured: false,
+  isVisibleWeb: false,
+  usageLimit: null,
+  notes: null,
+  destinos: [
+    { filaId: "f2", tipo: "servicio", id: SIN_PROVEEDORA, nombre: "Servicio sin proveedora", cantidad: 1 },
+  ],
+  pagos: [],
+};
 
 function makeFetchMock(op: Opciones = {}) {
   return vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
@@ -91,7 +139,7 @@ function makeFetchMock(op: Opciones = {}) {
         op.enviados?.push(JSON.parse(String(init?.body ?? "{}")));
         return { ok: true, json: async () => ({}) };
       }
-      return { ok: true, json: async () => [] };
+      return { ok: true, json: async () => op.promos ?? [] };
     }
     if (u.includes("/api/agenda/combos/admin")) {
       if (u.includes("kind=pack")) return { ok: true, json: async () => [PACK] };
@@ -275,5 +323,36 @@ describe("PromosAdminPage — el tipo de promo cambia lo que dice la pantalla", 
     await userEvent.selectOptions(screen.getByLabelText(/tipo de descuento/i), "paquete");
     await userEvent.click(await screen.findByLabelText(/servicio sin proveedora/i));
     expect(await screen.findByLabelText(/cantidad/i)).toBeInTheDocument();
+  });
+});
+
+describe("PromosAdminPage — editar una promo existente", () => {
+  // Cubre exactamente lo que openEdit relee: nada lo protegía hasta ahora
+  // (la usuaria reportó hace poco que el modal de editar no le abría).
+  it("editar una promo de PAQUETE relee el precio y la cantidad de cada cosa", async () => {
+    vi.stubGlobal("fetch", makeFetchMock({ promos: [PROMO_PAQUETE] }));
+    render(<PromosAdminPage />, { wrapper });
+
+    await userEvent.click(await screen.findByRole("button", { name: /editar/i }));
+
+    const precio = await screen.findByLabelText(/precio del paquete/i);
+    expect(precio).toHaveValue("250000");
+
+    // La cantidad sembrada es 3, no 1: si openEdit pisara todo con
+    // `cantidad: 1` este chequeo lo detecta, uno con 1 no lo detectaría.
+    const cantidad = await screen.findByLabelText(/cantidad/i);
+    expect(cantidad).toHaveValue(3);
+  });
+
+  it("editar una promo de DESCUENTO no muestra precio de paquete ni cantidad", async () => {
+    vi.stubGlobal("fetch", makeFetchMock({ promos: [PROMO_DESCUENTO] }));
+    render(<PromosAdminPage />, { wrapper });
+
+    await userEvent.click(await screen.findByRole("button", { name: /editar/i }));
+
+    expect(await screen.findByLabelText(/tipo de descuento/i)).toHaveValue("percentage");
+    expect(await screen.findByLabelText(/^porcentaje$/i)).toHaveValue("20");
+    expect(screen.queryByLabelText(/precio del paquete/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/cantidad/i)).not.toBeInTheDocument();
   });
 });

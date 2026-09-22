@@ -457,7 +457,6 @@ export function PromosAdminPage() {
       isFeatured: form.isFeatured,
       isVisibleWeb: form.isVisibleWeb,
       promotionType: form.promotionType,
-      discountValue: form.discountValue,
       precioDelPaquete: form.precioDelPaquete,
     });
     if (errores.length > 0) {

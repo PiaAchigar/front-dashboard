@@ -197,7 +197,6 @@ describe("erroresDelFormulario", () => {
     isFeatured: false,
     isVisibleWeb: false,
     promotionType: "",
-    discountValue: "",
     precioDelPaquete: "",
   };
 
@@ -235,14 +234,13 @@ const FORM_VACIO = {
   isFeatured: false,
   isVisibleWeb: false,
   promotionType: "",
-  discountValue: "",
   precioDelPaquete: "",
 };
 
 describe("erroresDelFormulario — el paquete", () => {
   it("un paquete sin precio no se guarda", () => {
     const errores = erroresDelFormulario({
-      ...FORM_VACIO, name: "Promo Novia", promotionType: "paquete", discountValue: "",
+      ...FORM_VACIO, name: "Promo Novia", promotionType: "paquete",
       destinos: [{ tipo: "servicio", id: "s1", cantidad: 1 }],
     });
     expect(errores.join(" ")).toMatch(/precio/i);
@@ -266,7 +264,7 @@ describe("erroresDelFormulario — el paquete", () => {
 
   it("una promo de DESCUENTO no pide precio de paquete", () => {
     const errores = erroresDelFormulario({
-      ...FORM_VACIO, name: "Promo", promotionType: "percentage", discountValue: "20",
+      ...FORM_VACIO, name: "Promo", promotionType: "percentage",
       destinos: [{ tipo: "servicio", id: "s1", cantidad: 1 }],
     });
     expect(errores.join(" ")).not.toMatch(/precio del paquete/i);

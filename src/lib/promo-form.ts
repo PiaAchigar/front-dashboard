@@ -169,7 +169,6 @@ export function erroresDelFormulario(form: {
   isFeatured: boolean;
   isVisibleWeb: boolean;
   promotionType: string;
-  discountValue: string;
   precioDelPaquete: string;
 }): string[] {
   const errores: string[] = [];
