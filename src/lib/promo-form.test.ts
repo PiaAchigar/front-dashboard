@@ -191,7 +191,15 @@ describe("pagosVigentes", () => {
 });
 
 describe("erroresDelFormulario", () => {
-  const base = { name: "Promo", destinos: [{ tipo: "combo", id: "c1" }] as DestinoDraft[], isFeatured: false, isVisibleWeb: false };
+  const base = {
+    name: "Promo",
+    destinos: [{ tipo: "combo", id: "c1" }] as DestinoDraft[],
+    isFeatured: false,
+    isVisibleWeb: false,
+    promotionType: "",
+    discountValue: "",
+    precioDelPaquete: "",
+  };
 
   it("una promo completa no tiene errores", () => {
     expect(erroresDelFormulario(base)).toEqual([]);
@@ -218,5 +226,49 @@ describe("erroresDelFormulario", () => {
 
   it("destacada con mostrar en la web está bien", () => {
     expect(erroresDelFormulario({ ...base, isFeatured: true, isVisibleWeb: true })).toEqual([]);
+  });
+});
+
+const FORM_VACIO = {
+  name: "",
+  destinos: [] as DestinoDraft[],
+  isFeatured: false,
+  isVisibleWeb: false,
+  promotionType: "",
+  discountValue: "",
+  precioDelPaquete: "",
+};
+
+describe("erroresDelFormulario — el paquete", () => {
+  it("un paquete sin precio no se guarda", () => {
+    const errores = erroresDelFormulario({
+      ...FORM_VACIO, name: "Promo Novia", promotionType: "paquete", discountValue: "",
+      destinos: [{ tipo: "servicio", id: "s1", cantidad: 1 }],
+    });
+    expect(errores.join(" ")).toMatch(/precio/i);
+  });
+
+  it("un paquete con precio y con cosas adentro se guarda", () => {
+    const errores = erroresDelFormulario({
+      ...FORM_VACIO, name: "Promo Novia", promotionType: "paquete", precioDelPaquete: "250000",
+      destinos: [{ tipo: "servicio", id: "s1", cantidad: 1 }],
+    });
+    expect(errores).toEqual([]);
+  });
+
+  it("un paquete vacío no se guarda", () => {
+    const errores = erroresDelFormulario({
+      ...FORM_VACIO, name: "Promo Novia", promotionType: "paquete", precioDelPaquete: "250000",
+      destinos: [],
+    });
+    expect(errores.join(" ")).toMatch(/al menos/i);
+  });
+
+  it("una promo de DESCUENTO no pide precio de paquete", () => {
+    const errores = erroresDelFormulario({
+      ...FORM_VACIO, name: "Promo", promotionType: "percentage", discountValue: "20",
+      destinos: [{ tipo: "servicio", id: "s1", cantidad: 1 }],
+    });
+    expect(errores.join(" ")).not.toMatch(/precio del paquete/i);
   });
 });

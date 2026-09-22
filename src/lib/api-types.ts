@@ -108,6 +108,9 @@ export type PromoDestinoAdmin = {
   tipo: "servicio" | "combo" | "depilacion";
   id: string;
   nombre: string | null;
+  /** Cuántas unidades de esto se lleva la clienta. Sólo importa cuando la
+   *  promo es un paquete: en una de descuento la API la fuerza a 1. */
+  cantidad: number;
 };
 
 /** Lo que devuelve el backend al leer una promo */
@@ -124,9 +127,11 @@ export type PromotionAdmin = {
   id: string;
   name: string | null;
   description: string | null;
-  promotionType: string | null; // 'percentage' | 'fixed_amount'
+  promotionType: string | null; // 'percentage' | 'fixed_amount' | 'paquete'
   discountPercentage: number | null;
   discountAmount: number | null;
+  /** Precio cerrado del paquete: sólo tiene sentido cuando promotionType es 'paquete'. */
+  precioDelPaquete: number | null;
   validFrom: string | null;
   validUntil: string | null;
   status: string | null; // active | inactive
@@ -142,6 +147,10 @@ export type PromotionAdmin = {
 export type PromoDestinoInput = {
   tipo: "servicio" | "combo" | "depilacion";
   id: string;
+  /** En un paquete, cuántas unidades se lleva. En una de descuento la API la
+   *  fuerza a 1 igual, así que no hace falta mandarla (y no molesta si se
+   *  manda). */
+  cantidad?: number;
 };
 
 /** Lo que el cliente envía al backend (acuerdo de pago con proveedora) */
@@ -154,9 +163,10 @@ export type PromoPagoInput = {
 export type PromotionInput = {
   name: string;
   description?: string | null;
-  promotionType?: string | null; // 'percentage' | 'fixed_amount'
+  promotionType?: string | null; // 'percentage' | 'fixed_amount' | 'paquete'
   discountPercentage?: number | null;
   discountAmount?: number | null;
+  precioDelPaquete: number | null;
   validFrom?: string | null;
   validUntil?: string | null;
   isFeatured?: boolean | null;

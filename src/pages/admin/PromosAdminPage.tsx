@@ -38,8 +38,10 @@ const money = (n: number | null | undefined) =>
 type Form = {
   name: string;
   description: string;
-  promotionType: "" | "percentage" | "fixed_amount";
+  promotionType: "" | "percentage" | "fixed_amount" | "paquete";
   discountValue: string;
+  /** Precio cerrado del paquete. Sólo se usa (y se manda) cuando promotionType es "paquete". */
+  precioDelPaquete: string;
   validFrom: string;
   validUntil: string;
   isFeatured: boolean;
@@ -55,6 +57,7 @@ const EMPTY: Form = {
   description: "",
   promotionType: "",
   discountValue: "",
+  precioDelPaquete: "",
   validFrom: "",
   validUntil: "",
   isFeatured: false,
@@ -81,12 +84,19 @@ function BloqueDeOferta({
   opciones,
   destinos,
   onToggle,
+  esPaquete,
+  onCantidadChange,
 }: {
   titulo: string;
   tipo: TipoDeDestino;
   opciones: OpcionDeOferta[];
   destinos: DestinoDraft[];
   onToggle: (d: DestinoDraft) => void;
+  /** En un paquete, cada cosa tildada lleva su cantidad al lado: la clienta
+   *  se lleva todo, y "todo" puede incluir más de una unidad de algo. En una
+   *  promo de descuento no significa nada, así que no se muestra. */
+  esPaquete: boolean;
+  onCantidadChange: (d: DestinoDraft, cantidad: number) => void;
 }) {
   return (
     <div>
@@ -97,18 +107,30 @@ function BloqueDeOferta({
         <ul className="mt-1 space-y-1">
           {opciones.map((o) => {
             const t = o.tipo ?? tipo;
-            const checked = destinos.some((d) => d.tipo === t && d.id === o.id);
+            const destino = destinos.find((d) => d.tipo === t && d.id === o.id);
+            const checked = destino != null;
             return (
-              <li key={`${t}-${o.id}`}>
+              <li key={`${t}-${o.id}`} className="flex items-center gap-2">
                 <label className="flex items-center gap-2 text-sm text-ink">
                   <input
                     type="checkbox"
                     checked={checked}
-                    onChange={() => onToggle({ tipo: t, id: o.id })}
+                    onChange={() => onToggle({ tipo: t, id: o.id, cantidad: 1 })}
                     className="h-4 w-4 accent-[var(--color-primary)]"
                   />
                   {o.nombre}
                 </label>
+                {esPaquete && destino && (
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    aria-label="Cantidad"
+                    value={destino.cantidad ?? 1}
+                    onChange={(e) => onCantidadChange(destino, Number(e.target.value) || 1)}
+                    className="w-16 rounded-lg border border-surface-highest px-2 py-1 text-sm"
+                  />
+                )}
               </li>
             );
           })}
@@ -276,6 +298,14 @@ export function PromosAdminPage() {
             : "—",
     },
     {
+      key: "precio",
+      header: "Precio",
+      width: 120,
+      // Sólo un paquete tiene precio propio: una de descuento no tiene un
+      // total, se aplica sobre lo que la clienta se lleve.
+      render: (p) => (p.promotionType === "paquete" ? money(p.precioDelPaquete) : "—"),
+    },
+    {
       key: "oferta",
       header: "En oferta",
       width: 100,
@@ -335,13 +365,14 @@ export function PromosAdminPage() {
           : p.promotionType === "fixed_amount"
             ? String(p.discountAmount ?? "")
             : "",
+      precioDelPaquete: p.precioDelPaquete != null ? String(p.precioDelPaquete) : "",
       validFrom: p.validFrom ?? "",
       validUntil: p.validUntil ?? "",
       isFeatured: p.isFeatured ?? false,
       isVisibleWeb: p.isVisibleWeb ?? false,
       usageLimit: p.usageLimit != null ? String(p.usageLimit) : "",
       notes: p.notes ?? "",
-      destinos: p.destinos.map((d) => ({ tipo: d.tipo, id: d.id })),
+      destinos: p.destinos.map((d) => ({ tipo: d.tipo, id: d.id, cantidad: d.cantidad ?? 1 })),
       pagos: p.pagos.map((pg) => ({
         serviceId: pg.serviceId,
         serviceProviderId: pg.serviceProviderId,
@@ -364,6 +395,15 @@ export function PromosAdminPage() {
     });
   }
 
+  /** Sólo se usa en un paquete: cambia cuántas unidades de un destino ya
+   *  tildado se lleva la clienta. */
+  function actualizarCantidad(d: DestinoDraft, cantidad: number) {
+    setForm((f) => ({
+      ...f,
+      destinos: f.destinos.map((x) => (x.tipo === d.tipo && x.id === d.id ? { ...x, cantidad } : x)),
+    }));
+  }
+
   function actualizarPago(nuevo: PagoDraft) {
     setForm((f) => {
       const existe = f.pagos.some((p) => p.serviceId === nuevo.serviceId);
@@ -384,13 +424,21 @@ export function PromosAdminPage() {
       promotionType: form.promotionType || null,
       discountPercentage: form.promotionType === "percentage" ? value : null,
       discountAmount: form.promotionType === "fixed_amount" ? value : null,
+      precioDelPaquete: form.promotionType === "paquete" ? Number(form.precioDelPaquete) : null,
       validFrom: form.validFrom || null,
       validUntil: form.validUntil || null,
       isFeatured: form.isFeatured,
       isVisibleWeb: form.isVisibleWeb,
       usageLimit: form.usageLimit.trim() === "" ? null : Number(form.usageLimit),
       notes: form.notes.trim() || null,
-      destinos: form.destinos,
+      // La cantidad sólo dice algo en un paquete (cuántas unidades se lleva
+      // la clienta); en una promo de descuento no se manda, aunque a la API
+      // no le molestaría — evita ensuciar el payload de algo sin sentido.
+      destinos: form.destinos.map((d) => ({
+        tipo: d.tipo,
+        id: d.id,
+        ...(form.promotionType === "paquete" ? { cantidad: d.cantidad ?? 1 } : {}),
+      })),
       // Se poda contra el desglose vigente antes de mandar: un pago cargado
       // para un servicio que Laura después destildó de la oferta no viaja
       // solo porque quedó en el estado del formulario (ver pagosVigentes).
@@ -408,6 +456,9 @@ export function PromosAdminPage() {
       destinos: form.destinos,
       isFeatured: form.isFeatured,
       isVisibleWeb: form.isVisibleWeb,
+      promotionType: form.promotionType,
+      discountValue: form.discountValue,
+      precioDelPaquete: form.precioDelPaquete,
     });
     if (errores.length > 0) {
       setFormError(errores.join(" "));
@@ -517,17 +568,29 @@ export function PromosAdminPage() {
               <option value="">Sin descuento</option>
               <option value="percentage">Porcentaje (%)</option>
               <option value="fixed_amount">Monto fijo ($)</option>
+              <option value="paquete">Paquete (precio fijo por todo)</option>
             </Select>
           </Field>
-          <Field label={form.promotionType === "percentage" ? "Porcentaje" : "Monto"}>
-            <TextInput
-              inputMode="numeric"
-              value={form.discountValue}
-              disabled={form.promotionType === ""}
-              onChange={(e) => setForm({ ...form, discountValue: e.target.value })}
-              placeholder={form.promotionType === "percentage" ? "20" : "5000"}
-            />
-          </Field>
+          {form.promotionType === "paquete" ? (
+            <Field label="Precio del paquete *">
+              <TextInput
+                inputMode="numeric"
+                value={form.precioDelPaquete}
+                onChange={(e) => setForm({ ...form, precioDelPaquete: e.target.value })}
+                placeholder="250000"
+              />
+            </Field>
+          ) : (
+            <Field label={form.promotionType === "percentage" ? "Porcentaje" : "Monto"}>
+              <TextInput
+                inputMode="numeric"
+                value={form.discountValue}
+                disabled={form.promotionType === ""}
+                onChange={(e) => setForm({ ...form, discountValue: e.target.value })}
+                placeholder={form.promotionType === "percentage" ? "20" : "5000"}
+              />
+            </Field>
+          )}
         </div>
 
         <div className="flex gap-3">
@@ -589,9 +652,13 @@ export function PromosAdminPage() {
             piensa en servicios, combos y packs como cosas distintas, y
             mezclarlos en un desplegable único la obliga a buscar a ciegas. */}
         <div className="space-y-4 rounded-xl border border-surface-high p-3">
+          {/* La MISMA tabla (promotion_target) significa dos cosas distintas según el
+              tipo. Si la pantalla no lo dice, Laura tilda tres cosas creyendo que arma
+              un paquete y arma un descuento que se aplica a cualquiera de las tres. */}
           <p className="text-xs text-ink-soft">
-            Elegí uno o varios de cada bloque. Podés mezclar libremente: un servicio suelto, dos
-            combos y un pack pueden estar en la misma promo.
+            {form.promotionType === "paquete"
+              ? "Qué lleva el paquete — la clienta se lleva todo, junto, al precio de arriba."
+              : "Elegí uno o varios de cada bloque: la clienta elige uno de la lista y se lo lleva más barato."}
           </p>
           <BloqueDeOferta
             titulo="Servicios en oferta"
@@ -599,6 +666,8 @@ export function PromosAdminPage() {
             opciones={services.map((s) => ({ id: s.id, nombre: s.name ?? "—" }))}
             destinos={form.destinos}
             onToggle={alternarDestino}
+            esPaquete={form.promotionType === "paquete"}
+            onCantidadChange={actualizarCantidad}
           />
           <BloqueDeOferta
             titulo="Combos en oferta"
@@ -609,6 +678,8 @@ export function PromosAdminPage() {
             ]}
             destinos={form.destinos}
             onToggle={alternarDestino}
+            esPaquete={form.promotionType === "paquete"}
+            onCantidadChange={actualizarCantidad}
           />
           <BloqueDeOferta
             titulo="Packs en oferta"
@@ -616,6 +687,8 @@ export function PromosAdminPage() {
             opciones={packs.map((c) => ({ id: c.id, nombre: c.name ?? "—" }))}
             destinos={form.destinos}
             onToggle={alternarDestino}
+            esPaquete={form.promotionType === "paquete"}
+            onCantidadChange={actualizarCantidad}
           />
         </div>
 

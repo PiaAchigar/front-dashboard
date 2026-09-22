@@ -9,7 +9,13 @@
 import type { ComboAdmin } from "./api-types";
 
 export type TipoDeDestino = "servicio" | "combo" | "depilacion";
-export type DestinoDraft = { tipo: TipoDeDestino; id: string };
+export type DestinoDraft = {
+  tipo: TipoDeDestino;
+  id: string;
+  /** Cuántas unidades se lleva la clienta. Sólo se usa (y se muestra) cuando
+   *  la promo es un paquete; en una de descuento no significa nada. */
+  cantidad?: number;
+};
 export type PagoDraft = {
   serviceId: string;
   serviceProviderId: string;
@@ -157,19 +163,31 @@ export function pagosParaEnviar(
 }
 
 /** Todo lo que impide guardar, junto. De a uno obliga a adivinar qué falta. */
-export function erroresDelFormulario(f: {
+export function erroresDelFormulario(form: {
   name: string;
   destinos: readonly DestinoDraft[];
   isFeatured: boolean;
   isVisibleWeb: boolean;
+  promotionType: string;
+  discountValue: string;
+  precioDelPaquete: string;
 }): string[] {
   const errores: string[] = [];
-  if (!f.name.trim()) errores.push("Ponele un nombre a la promo");
-  if (f.destinos.length === 0) {
+  if (!form.name.trim()) errores.push("Ponele un nombre a la promo");
+  if (form.destinos.length === 0) {
     errores.push("Elegí al menos un servicio, combo o pack para poner en oferta");
   }
-  if (f.isFeatured && !f.isVisibleWeb) {
+  if (form.isFeatured && !form.isVisibleWeb) {
     errores.push('Para destacarla en la home, tildá también "Mostrar en la web"');
+  }
+  if (form.promotionType === "paquete") {
+    const precio = Number(form.precioDelPaquete);
+    if (!form.precioDelPaquete.trim() || !Number.isFinite(precio) || precio <= 0) {
+      errores.push("una promo que se vende como paquete necesita un precio");
+    }
+    if (form.destinos.length === 0) {
+      errores.push("un paquete tiene que llevar al menos una cosa adentro");
+    }
   }
   return errores;
 }

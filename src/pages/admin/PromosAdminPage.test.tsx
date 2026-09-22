@@ -243,3 +243,37 @@ describe("PromosAdminPage — qué está en oferta", () => {
     expect(cuerpo.pagos).toEqual([]);
   });
 });
+
+describe("PromosAdminPage — el tipo de promo cambia lo que dice la pantalla", () => {
+  it("con tipo Paquete el encabezado dice que la clienta se lleva TODO", async () => {
+    // Es la misma tabla leída de dos maneras (spec §3): tildar tres cosas
+    // significa algo distinto en cada tipo, y la pantalla tiene que decirlo o
+    // Laura arma la promo equivocada.
+    render(<PromosAdminPage />, { wrapper });
+    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
+    await userEvent.selectOptions(screen.getByLabelText(/tipo de descuento/i), "paquete");
+    expect(await screen.findByText(/se lleva todo/i)).toBeInTheDocument();
+  });
+
+  it("con tipo Porcentaje el encabezado dice que la clienta elige UNO", async () => {
+    render(<PromosAdminPage />, { wrapper });
+    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
+    await userEvent.selectOptions(screen.getByLabelText(/tipo de descuento/i), "percentage");
+    expect(await screen.findByText(/elige uno/i)).toBeInTheDocument();
+  });
+
+  it("con tipo Paquete aparece el campo de precio del paquete", async () => {
+    render(<PromosAdminPage />, { wrapper });
+    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
+    await userEvent.selectOptions(screen.getByLabelText(/tipo de descuento/i), "paquete");
+    expect(await screen.findByLabelText(/precio del paquete/i)).toBeInTheDocument();
+  });
+
+  it("con tipo Paquete cada cosa tildada pide una cantidad", async () => {
+    render(<PromosAdminPage />, { wrapper });
+    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
+    await userEvent.selectOptions(screen.getByLabelText(/tipo de descuento/i), "paquete");
+    await userEvent.click(await screen.findByLabelText(/servicio sin proveedora/i));
+    expect(await screen.findByLabelText(/cantidad/i)).toBeInTheDocument();
+  });
+});
