@@ -162,15 +162,91 @@ export function pagosParaEnviar(
   });
 }
 
+/**
+ * Lo que la pantalla ya tiene cargado, reducido a lo que hace falta para saber
+ * si una cosa tiene precio.
+ *
+ * Se tipa por estructura y no con `Service` / `ComboAdmin` / `ComboDepilacion`
+ * para que esto se pueda testear con objetos de tres campos en vez de armar un
+ * catálogo entero.
+ */
+export type CatalogoDePromo = {
+  servicios: readonly { id: string; name: string | null; unitPriceList: number | null; unitPriceCash: number | null }[];
+  /** Combos y packs juntos: en `promotion_target` los dos son `combo_id`. */
+  combos: readonly { id: string; name: string | null; finalAmount: number }[];
+  depilacion: readonly { id: string; name: string; fixedPrice: number | null }[];
+};
+
+/**
+ * Las cosas en oferta cuyo precio NO se puede resolver, por nombre.
+ *
+ * Mismas reglas que `preciosDeListaDe` del backend, que es quien después
+ * cotiza — si no coincidieran, la pantalla dejaría pasar algo que la venta
+ * rechaza, o al revés:
+ *
+ *   servicio     `unit_price_list`, y si no hay, `unit_price_cash`
+ *   combo/pack   `finalAmount` (en un pack ya viene × sesiones)
+ *   depilación   `fixed_price` Y NADA MÁS — un pack `guardado` (zonas a
+ *                elección) nunca lo tiene, y la fórmula sobre zonas es un
+ *                precio que la venta del paquete no usa nunca
+ *
+ * **Lo que la pantalla no conoce no se marca.** Un destino que no está en
+ * ninguna de las tres listas puede ser un combo archivado (las listas piden
+ * sólo los activos) o las listas todavía cargando. Marcarlo bloquearía editar
+ * una promo vieja por una descripción. Mismo criterio que `pagosVigentes`: no
+ * se decide nada por ignorancia. El backend lo vuelve a chequear al cotizar, y
+ * también nombrándolo.
+ */
+export function destinosSinPrecio(
+  destinos: readonly DestinoDraft[],
+  catalogo: CatalogoDePromo,
+): string[] {
+  const servicios = new Map(catalogo.servicios.map((s) => [s.id, s]));
+  const combos = new Map(catalogo.combos.map((c) => [c.id, c]));
+  const depilacion = new Map(catalogo.depilacion.map((d) => [d.id, d]));
+
+  const sinPrecio: string[] = [];
+  const nombrar = (nombre: string | null, id: string) => nombre?.trim() || `(sin nombre, ${id})`;
+
+  for (const d of destinos) {
+    if (d.tipo === "servicio") {
+      const s = servicios.get(d.id);
+      if (!s) continue;
+      // `??` y no `||`: replica `precioDeServicio` del backend.
+      const precio = s.unitPriceList ?? s.unitPriceCash;
+      if (precio == null || precio <= 0) sinPrecio.push(nombrar(s.name, d.id));
+      continue;
+    }
+    if (d.tipo === "combo") {
+      const c = combos.get(d.id);
+      if (!c) continue;
+      if (!(c.finalAmount > 0)) sinPrecio.push(nombrar(c.name, d.id));
+      continue;
+    }
+    const p = depilacion.get(d.id);
+    if (!p) continue;
+    if (p.fixedPrice == null || p.fixedPrice <= 0) sinPrecio.push(nombrar(p.name, d.id));
+  }
+  return sinPrecio;
+}
+
 /** Todo lo que impide guardar, junto. De a uno obliga a adivinar qué falta. */
-export function erroresDelFormulario(form: {
-  name: string;
-  destinos: readonly DestinoDraft[];
-  isFeatured: boolean;
-  isVisibleWeb: boolean;
-  promotionType: string;
-  precioDelPaquete: string;
-}): string[] {
+export function erroresDelFormulario(
+  form: {
+    name: string;
+    destinos: readonly DestinoDraft[];
+    isFeatured: boolean;
+    isVisibleWeb: boolean;
+    promotionType: string;
+    precioDelPaquete: string;
+  },
+  /**
+   * El catálogo cargado, para chequear que toda parte del paquete tenga
+   * precio. Opcional sólo para no obligar a los tests de las otras reglas a
+   * armarlo: la pantalla siempre lo pasa.
+   */
+  catalogo?: CatalogoDePromo,
+): string[] {
   const errores: string[] = [];
   if (!form.name.trim()) errores.push("Ponele un nombre a la promo");
   if (form.destinos.length === 0) {
@@ -186,6 +262,24 @@ export function erroresDelFormulario(form: {
     }
     if (form.destinos.length === 0) {
       errores.push("un paquete tiene que llevar al menos una cosa adentro");
+    }
+    // Toda parte del paquete tiene que tener precio: es lo que se reparte
+    // entre las líneas de la compra. Sin esto Laura tildaba un pack de
+    // depilación `guardado` (que nunca tiene `fixed_price`) o un servicio sin
+    // precio, guardaba sin resistencia, la promo aparecía en la solapa Promos
+    // del CRM, y recién ahí explotaba — con la clienta delante.
+    //
+    // Sólo en el paquete: en una promo de DESCUENTO los destinos dicen sobre
+    // qué aplica el %, no qué lleva adentro, y el precio sale de lo que se
+    // esté vendiendo en ese momento.
+    if (catalogo) {
+      const sinPrecio = destinosSinPrecio(form.destinos, catalogo);
+      if (sinPrecio.length > 0) {
+        errores.push(
+          `sin precio cargado: ${sinPrecio.join(", ")}. Un paquete reparte su precio entre ` +
+            "las cosas que lleva, así que todas tienen que tener el suyo — cargáselo o sacalas de la oferta.",
+        );
+      }
     }
   }
   return errores;

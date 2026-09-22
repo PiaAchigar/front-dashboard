@@ -270,3 +270,117 @@ describe("erroresDelFormulario — el paquete", () => {
     expect(errores.join(" ")).not.toMatch(/precio del paquete/i);
   });
 });
+
+describe("erroresDelFormulario — toda parte del paquete tiene que tener precio", () => {
+  // ── IMPORTANTE 5 (revisión final de la 1.55.0) ─────────────────────────
+  // El spec lo dice textual: «Si Laura tilda algo cuyo precio no se puede
+  // resolver, el formulario no la deja guardar y le dice cuál». Antes sólo se
+  // validaba el precio del PAQUETE: Laura tildaba un pack de depilación
+  // `guardado` (que nunca tiene `fixed_price`), guardaba sin resistencia, la
+  // promo aparecía en la solapa Promos del CRM, y recién ahí explotaba.
+  const catalogo = {
+    servicios: [
+      { id: "s1", name: "Limpieza de cutis", unitPriceList: 85000, unitPriceCash: null },
+      { id: "s-cash", name: "Masaje", unitPriceList: null, unitPriceCash: 45000 },
+      { id: "s-mudo", name: "Consulta", unitPriceList: null, unitPriceCash: null },
+    ],
+    combos: [
+      { id: "c1", name: "Combo Facial", finalAmount: 80000 },
+      { id: "c-cero", name: "Combo sin precio", finalAmount: 0 },
+    ],
+    depilacion: [
+      { id: "d-fijo", name: "Piernas full", fixedPrice: 65000 },
+      { id: "d-guardado", name: "Depilación a elección", fixedPrice: null },
+    ],
+  };
+  const paquete = {
+    ...FORM_VACIO,
+    name: "Promo Novia",
+    promotionType: "paquete",
+    precioDelPaquete: "250000",
+  };
+
+  it("un paquete con todo bien cargado se guarda", () => {
+    const errores = erroresDelFormulario(
+      { ...paquete, destinos: [{ tipo: "servicio", id: "s1", cantidad: 1 }, { tipo: "combo", id: "c1", cantidad: 1 }] },
+      catalogo,
+    );
+    expect(errores).toEqual([]);
+  });
+
+  it("un pack de depilación GUARDADO (sin fixed_price) no deja guardar, y lo NOMBRA", () => {
+    // El caso textual del hallazgo: la fórmula sobre zonas le da un precio,
+    // pero es un precio que la venta del paquete no usa nunca.
+    const errores = erroresDelFormulario(
+      { ...paquete, destinos: [{ tipo: "depilacion", id: "d-guardado", cantidad: 1 }] },
+      catalogo,
+    );
+    expect(errores.join(" ")).toContain("Depilación a elección");
+  });
+
+  it("un servicio sin ningún precio cargado no deja guardar, y lo NOMBRA", () => {
+    const errores = erroresDelFormulario(
+      { ...paquete, destinos: [{ tipo: "servicio", id: "s-mudo", cantidad: 1 }] },
+      catalogo,
+    );
+    expect(errores.join(" ")).toContain("Consulta");
+  });
+
+  it("un combo que no resuelve precio no deja guardar, y lo NOMBRA", () => {
+    const errores = erroresDelFormulario(
+      { ...paquete, destinos: [{ tipo: "combo", id: "c-cero", cantidad: 1 }] },
+      catalogo,
+    );
+    expect(errores.join(" ")).toContain("Combo sin precio");
+  });
+
+  it("los nombra a TODOS, no al primero: de a uno obliga a adivinar qué falta", () => {
+    const errores = erroresDelFormulario(
+      {
+        ...paquete,
+        destinos: [
+          { tipo: "servicio", id: "s-mudo", cantidad: 1 },
+          { tipo: "depilacion", id: "d-guardado", cantidad: 1 },
+        ],
+      },
+      catalogo,
+    );
+    expect(errores.join(" ")).toContain("Consulta");
+    expect(errores.join(" ")).toContain("Depilación a elección");
+  });
+
+  it("un servicio con precio de EFECTIVO nada más sí tiene precio", () => {
+    // Mismo criterio que `precioDeServicio` del backend: 79 de 213 servicios
+    // de producción están así.
+    const errores = erroresDelFormulario(
+      { ...paquete, destinos: [{ tipo: "servicio", id: "s-cash", cantidad: 1 }] },
+      catalogo,
+    );
+    expect(errores).toEqual([]);
+  });
+
+  it("un destino que la pantalla no conoce NO se marca: no se decide por ignorancia", () => {
+    // Puede ser un combo archivado (las listas piden sólo los activos) o las
+    // listas todavía cargando. Marcarlo bloquearía editar una promo vieja por
+    // corregir una coma en la descripción. El backend lo chequea igual al
+    // cotizar, y también nombrándolo.
+    const errores = erroresDelFormulario(
+      { ...paquete, destinos: [{ tipo: "combo", id: "c-archivado", cantidad: 1 }] },
+      catalogo,
+    );
+    expect(errores).toEqual([]);
+  });
+
+  it("una promo de DESCUENTO no exige precio en sus destinos", () => {
+    // Ahí los destinos dicen SOBRE QUÉ aplica el %, no qué lleva adentro: el
+    // precio sale de lo que se esté vendiendo en ese momento.
+    const errores = erroresDelFormulario(
+      {
+        ...FORM_VACIO, name: "15%", promotionType: "percentage",
+        destinos: [{ tipo: "servicio", id: "s-mudo", cantidad: 1 }],
+      },
+      catalogo,
+    );
+    expect(errores).toEqual([]);
+  });
+});

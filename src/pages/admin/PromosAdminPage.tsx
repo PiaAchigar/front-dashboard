@@ -451,14 +451,20 @@ export function PromosAdminPage() {
     // Se valida acá, antes de tocar la API: un guardado a medias (por ejemplo
     // sin nada en oferta) no es un estado que el backend deba rechazar, es
     // uno que la pantalla tiene que impedir de entrada.
-    const errores = erroresDelFormulario({
-      name: form.name,
-      destinos: form.destinos,
-      isFeatured: form.isFeatured,
-      isVisibleWeb: form.isVisibleWeb,
-      promotionType: form.promotionType,
-      precioDelPaquete: form.precioDelPaquete,
-    });
+    const errores = erroresDelFormulario(
+      {
+        name: form.name,
+        destinos: form.destinos,
+        isFeatured: form.isFeatured,
+        isVisibleWeb: form.isVisibleWeb,
+        promotionType: form.promotionType,
+        precioDelPaquete: form.precioDelPaquete,
+      },
+      // El catálogo ya está cargado en la pantalla: con él se chequea que toda
+      // parte de un paquete tenga precio, acá y no cuando Laura vaya a vender.
+      // Combos y packs van juntos: en `promotion_target` los dos son `combo_id`.
+      { servicios: services, combos: [...combos, ...packs], depilacion: combosDepilacion },
+    );
     if (errores.length > 0) {
       setFormError(errores.join(" "));
       return;
