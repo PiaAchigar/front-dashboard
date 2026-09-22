@@ -243,6 +243,10 @@ export function ResourceManager<T>({
       ventasDesenganchadas: "venta(s) que quedan sin la promo (conservan su nombre)",
       pagosAcordados: "pago(s) acordado(s) con proveedoras",
       turnosAfectados: "turno(s) sin completar que pasan a cobrarse por el acuerdo general",
+      // Paquetes de promo (1.55.0). Sin esta etiqueta el cartel caía al
+      // `labels[key] ?? key` y Laura leía "se van a desvincular: 3
+      // paquetesVendidos".
+      paquetesVendidos: "paquete(s) ya vendido(s) a clientas",
     };
     const parts = Object.entries(cascade)
       .filter(([, count]) => count > 0)
