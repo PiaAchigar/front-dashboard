@@ -500,15 +500,13 @@ export function CombosDepilacionPage() {
                 que regalan tiempo que la agenda no reservó: la zona de
                 regalo se presupuesta como chica y, si en el mostrador
                 eligen una grande, el turno queda corto en silencio. */}
-            {/* Sin <strong> a propósito: RTL arma el texto accesible de un
-                nodo solo con sus hijos de texto DIRECTOS (`getNodeText`), así
-                que envolver "zona chica" en una etiqueta aparte cortaría la
-                frase en dos nodos y ningún `getByText` con un regex que cruce
-                el corte la encontraría — se comprobó en la corrida real. */}
-            <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-              La zona de regalo se cuenta como zona chica: suma 3 minutos de turno a una mujer
-              y 5 a un hombre, y no suma precio. Si en el mostrador le dejan elegir una zona
-              grande, el turno queda corto.
+            <p
+              data-testid="aviso-zona-regalo"
+              className="mt-1 text-xs leading-relaxed text-ink-soft"
+            >
+              La zona de regalo se cuenta como <strong>zona chica</strong>: suma 3 minutos
+              de turno a una mujer y 5 a un hombre, y no suma precio. Si en el mostrador
+              le dejan elegir una zona grande, el turno queda corto.
             </p>
           </div>
         )}

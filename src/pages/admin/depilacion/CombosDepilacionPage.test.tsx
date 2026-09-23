@@ -240,10 +240,14 @@ describe("CombosDepilacionPage", () => {
     const fila = (await screen.findByText("Pack con precio alto")).closest("tr");
     await user.click(within(fila as HTMLElement).getByTitle("Editar"));
 
-    expect(await screen.findByText(/se cuenta como.*zona chica/i)).toBeInTheDocument();
-    // El texto siempre visible, no un tooltip: sin hover ni foco, ya está en
-    // el documento (no hace falta que `findByText` reintente por un `role="tooltip"`).
-    expect(screen.getByText(/3 minutos.*de turno a una mujer y 5 a un hombre/i)).toBeInTheDocument();
+    // `toHaveTextContent` compara contra el texto del contenedor entero, sin
+    // importar los límites de elementos adentro — a diferencia del matcher
+    // por defecto de `getByText` (que solo junta los nodos de texto DIRECTOS
+    // de cada elemento), esto sí encuentra la frase aunque "zona chica" esté
+    // en un <strong> propio.
+    const aviso = await screen.findByTestId("aviso-zona-regalo");
+    expect(aviso).toHaveTextContent(/se cuenta como.*zona chica/i);
+    expect(aviso).toHaveTextContent(/3 minutos.*de turno a una mujer y 5 a un hombre/i);
   });
 
   it("no avisa de la zona de regalo al editar un combo guardado: no tiene esa semántica", async () => {
@@ -254,7 +258,7 @@ describe("CombosDepilacionPage", () => {
     await user.click(within(fila as HTMLElement).getByTitle("Editar"));
 
     await screen.findByLabelText("Nombre *");
-    expect(screen.queryByText(/se cuenta como.*zona chica/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("aviso-zona-regalo")).not.toBeInTheDocument();
   });
 
   it("un precio de pack que no es un número se corta antes de tocar la red", async () => {
