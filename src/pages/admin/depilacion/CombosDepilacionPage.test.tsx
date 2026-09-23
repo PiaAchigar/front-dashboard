@@ -19,9 +19,17 @@ vi.mock("../../../auth/AuthContext", () => ({
   }),
 }));
 
+// Mujer y hombre iguales acá a propósito: esta pantalla no prueba la
+// bifurcación por sexo del precio (eso lo prueba depilation-pricing.test.ts).
 const CONFIG: DepilationConfig = {
-  precioLista: { grande: 19000, mediana: 17000, chica: 12000 },
-  minutosPrecio: { grande: 10, mediana: 7, chica: 5 },
+  precioLista: {
+    mujer: { grande: 19000, mediana: 17000, chica: 12000 },
+    hombre: { grande: 19000, mediana: 17000, chica: 12000 },
+  },
+  minutosPrecio: {
+    mujer: { grande: 10, mediana: 7, chica: 5 },
+    hombre: { grande: 10, mediana: 7, chica: 5 },
+  },
   tarifaEscalon1: 1200,
   tarifaEscalon2: 1000,
   minutosTurno: {
@@ -218,6 +226,35 @@ describe("CombosDepilacionPage", () => {
     // Sigue siendo pack_fijo: el backend rechaza el cambio de tipo, y mandar
     // "guardado" acá le borraría el precio a un pack sembrado.
     expect(patchCalls[0]!.body).toMatchObject({ kind: "pack_fijo", fixedPrice: 10000 });
+  });
+
+  // task-7: el aviso de la zona de regalo. Va junto al precio del pack fijo
+  // (el único lugar de esta pantalla con semántica de "zonas a elección"),
+  // así que se prueba abriendo la edición de un pack fijo real —no hay forma
+  // de crear uno nuevo desde acá, un combo nuevo siempre nace "guardado" (ver
+  // el test de arriba, "crear un combo nuevo no ofrece precio propio").
+  it("avisa que la zona de regalo se cuenta como chica, al editar un pack fijo", async () => {
+    const user = userEvent.setup();
+    render(<CombosDepilacionPage />, { wrapper });
+
+    const fila = (await screen.findByText("Pack con precio alto")).closest("tr");
+    await user.click(within(fila as HTMLElement).getByTitle("Editar"));
+
+    expect(await screen.findByText(/se cuenta como.*zona chica/i)).toBeInTheDocument();
+    // El texto siempre visible, no un tooltip: sin hover ni foco, ya está en
+    // el documento (no hace falta que `findByText` reintente por un `role="tooltip"`).
+    expect(screen.getByText(/3 minutos.*de turno a una mujer y 5 a un hombre/i)).toBeInTheDocument();
+  });
+
+  it("no avisa de la zona de regalo al editar un combo guardado: no tiene esa semántica", async () => {
+    const user = userEvent.setup();
+    render(<CombosDepilacionPage />, { wrapper });
+
+    const fila = (await screen.findByText("Combo con zona archivada")).closest("tr");
+    await user.click(within(fila as HTMLElement).getByTitle("Editar"));
+
+    await screen.findByLabelText("Nombre *");
+    expect(screen.queryByText(/se cuenta como.*zona chica/i)).not.toBeInTheDocument();
   });
 
   it("un precio de pack que no es un número se corta antes de tocar la red", async () => {

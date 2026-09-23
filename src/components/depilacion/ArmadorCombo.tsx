@@ -114,8 +114,8 @@ export function ArmadorCombo({
   );
 
   const cotizacion = useMemo(
-    () => calcularPrecioCombo(seleccionadas, config),
-    [seleccionadas, config],
+    () => calcularPrecioCombo(seleccionadas, sexo, config),
+    [seleccionadas, sexo, config],
   );
 
   const packFijo = useMemo(() => buscarPackFijo(zonaIds, packs), [zonaIds, packs]);

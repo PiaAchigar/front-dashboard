@@ -4,8 +4,13 @@ export type Sexo = "mujer" | "hombre";
 export type ZonaParaCotizar = { id: string; nombre: string; categoria: Categoria };
 
 export type DepilationConfig = {
-  precioLista: Record<Categoria, number>;
-  minutosPrecio: Record<Categoria, number>;
+  /**
+   * Precio de lista de la PRIMERA zona, por sexo (task-7, espejo de la 1.56.0
+   * del backend). Antes era uno solo para los dos sexos.
+   */
+  precioLista: Record<Sexo, Record<Categoria, number>>;
+  /** Base del escalonado (2ª zona en adelante), por sexo. */
+  minutosPrecio: Record<Sexo, Record<Categoria, number>>;
   tarifaEscalon1: number;
   tarifaEscalon2: number;
   minutosTurno: Record<Sexo, Record<Categoria, number>>;
@@ -60,16 +65,22 @@ export type Exclusion = { zonaId: string; excluyeA: string };
 const RANGO: Record<Categoria, number> = { grande: 3, mediana: 2, chica: 1 };
 
 /**
- * Precio de un combo de zonas (PDF §4).
+ * Precio de un combo de zonas (PDF §4), por sexo (task-7).
  *
- * OJO — usa `minutosPrecio`, que es unisex (10/7/5). Los minutos que van a la
- * agenda son OTROS y dependen del sexo; están en `calcularDuracionTurno`. El
- * PDF los separa a propósito y confundirlos es un error de plata.
+ * Las DOS familias de minutos siguen separadas y siguen siendo cosas
+ * distintas: `minutosPrecio` es cuántos minutos "vale" una zona a efectos de
+ * tarifa, y `minutosTurno` es cuánto tiempo de agenda ocupa. Desde este
+ * cambio las dos se bifurcan por sexo (espejo del backend, `depilation-pricing.ts`),
+ * pero confundirlas sigue siendo un error de plata.
  */
 export function calcularPrecioCombo(
   zonas: ZonaParaCotizar[],
+  sexo: Sexo,
   config: DepilationConfig,
 ): Cotizacion {
+  const lista = config.precioLista[sexo];
+  const minutosDe = config.minutosPrecio[sexo];
+
   // Orden estable: a igual categoría se respeta el orden de entrada, así el
   // desglose que ve la clienta es siempre el mismo para la misma selección.
   const ordenadas = zonas
@@ -80,9 +91,9 @@ export function calcularPrecioCombo(
     .map((x) => x.zona);
 
   const lineas = ordenadas.map((zona, i): LineaCotizacion => {
-    const minutos = config.minutosPrecio[zona.categoria];
+    const minutos = minutosDe[zona.categoria];
     const [importe, motivo]: [number, MotivoPrecio] =
-      i === 0 ? [config.precioLista[zona.categoria], "lista"]
+      i === 0 ? [lista[zona.categoria], "lista"]
       : i === 1 ? [minutos * config.tarifaEscalon1, "escalon_1"]
       : [minutos * config.tarifaEscalon2, "escalon_2"];
     return {
@@ -168,6 +179,16 @@ export type ViolacionNoInversion = {
  *
  * Devuelve la primera violación que encuentra (para el mensaje de error) o
  * `null` si la config es segura.
+ *
+ * Corre solo contra la curva de MUJER (task-7, mismo trade-off que el backend
+ * — ver `configBody` en `api-sistema-central/src/routes/agenda/depilacion.ts`):
+ * es una propiedad matemática que se verifica sobre TODO el espacio de
+ * selecciones para una config candidata, no sobre una cotización real.
+ * Correrla también por hombre es un cambio de firma de esta función pura con
+ * su propio test dedicado, fuera del alcance de task-7. Hueco real, no
+ * cosmético: hoy se puede guardar una config con `priceMaleChica` mayor que
+ * `priceMaleGrande` sin que esto la rechace (la Capa 1 de `parseForm`, en
+ * `PreciosPage.tsx`, sí valida el orden simple de las dos curvas).
  */
 export function primeraViolacionNoInversion(
   config: DepilationConfig,
@@ -188,10 +209,10 @@ export function primeraViolacionNoInversion(
     for (let nM = 0; nM <= maxPorCategoria; nM++) {
       for (let nC = 0; nC <= maxPorCategoria; nC++) {
         const antes: Record<Categoria, number> = { grande: nG, mediana: nM, chica: nC };
-        const totalAntes = calcularPrecioCombo(armar(antes), config).total;
+        const totalAntes = calcularPrecioCombo(armar(antes), "mujer", config).total;
         for (const categoriaAgregada of ["grande", "mediana", "chica"] as const) {
           const despues = { ...antes, [categoriaAgregada]: antes[categoriaAgregada] + 1 };
-          const totalDespues = calcularPrecioCombo(armar(despues), config).total;
+          const totalDespues = calcularPrecioCombo(armar(despues), "mujer", config).total;
           if (totalDespues <= totalAntes) {
             return { categoriaAgregada, antes, totalAntes, totalDespues };
           }

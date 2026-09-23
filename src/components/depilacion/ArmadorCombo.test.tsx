@@ -11,9 +11,18 @@ import type {
 
 /** Los valores sembrados del PDF (mismos que depilation-pricing.test.ts), así
  *  los números concretos del brief (task-8) dan exacto. */
+// Mujer y hombre iguales acá a propósito: este archivo no prueba la
+// bifurcación por sexo del precio (eso lo prueba depilation-pricing.test.ts),
+// solo necesita que los números coincidan con los ya probados ahí.
 const CONFIG: DepilationConfig = {
-  precioLista: { grande: 19000, mediana: 17000, chica: 12000 },
-  minutosPrecio: { grande: 10, mediana: 7, chica: 5 },
+  precioLista: {
+    mujer: { grande: 19000, mediana: 17000, chica: 12000 },
+    hombre: { grande: 19000, mediana: 17000, chica: 12000 },
+  },
+  minutosPrecio: {
+    mujer: { grande: 10, mediana: 7, chica: 5 },
+    hombre: { grande: 10, mediana: 7, chica: 5 },
+  },
   tarifaEscalon1: 1200,
   tarifaEscalon2: 1000,
   minutosTurno: {

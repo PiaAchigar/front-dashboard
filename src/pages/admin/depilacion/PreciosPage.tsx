@@ -12,6 +12,7 @@ import {
   type Categoria,
   type DepilationConfig,
   type LineaCotizacion,
+  type Sexo,
   type ZonaParaCotizar,
 } from "../../../lib/depilation-pricing";
 import {
@@ -22,17 +23,27 @@ import {
 } from "../../../hooks/useDepilacion";
 import type { ComboDepilacion } from "../../../lib/api-types";
 
-/** Los 19 campos del formulario, todos como texto para permitir borrar el
+/** Los 25 campos del formulario, todos como texto para permitir borrar el
  *  campo mientras se escribe. La validación al guardar (más abajo, `parseForm`)
  *  sí sigue el criterio de `parseDisplayOrder` en ZonasPage: bloquea y muestra
- *  un mensaje propio en vez de mandarle basura al backend. */
+ *  un mensaje propio en vez de mandarle basura al backend.
+ *
+ *  task-7: "Precio de lista" y "Minutos de precio" se abren por sexo (6
+ *  campos cada uno, en vez de 3 unisex), igual que "Minutos de turno" ya lo
+ *  estaba. */
 type Form = {
-  priceGrande: string;
-  priceMediana: string;
-  priceChica: string;
-  pricingMinutesGrande: string;
-  pricingMinutesMediana: string;
-  pricingMinutesChica: string;
+  priceFemaleGrande: string;
+  priceFemaleMediana: string;
+  priceFemaleChica: string;
+  priceMaleGrande: string;
+  priceMaleMediana: string;
+  priceMaleChica: string;
+  pricingMinutesFemaleGrande: string;
+  pricingMinutesFemaleMediana: string;
+  pricingMinutesFemaleChica: string;
+  pricingMinutesMaleGrande: string;
+  pricingMinutesMaleMediana: string;
+  pricingMinutesMaleChica: string;
   tier1RatePerMinute: string;
   tier2RatePerMinute: string;
   slotMinutesFemaleGrande: string;
@@ -50,12 +61,18 @@ type Form = {
 
 function configToForm(c: DepilationConfig): Form {
   return {
-    priceGrande: String(c.precioLista.grande),
-    priceMediana: String(c.precioLista.mediana),
-    priceChica: String(c.precioLista.chica),
-    pricingMinutesGrande: String(c.minutosPrecio.grande),
-    pricingMinutesMediana: String(c.minutosPrecio.mediana),
-    pricingMinutesChica: String(c.minutosPrecio.chica),
+    priceFemaleGrande: String(c.precioLista.mujer.grande),
+    priceFemaleMediana: String(c.precioLista.mujer.mediana),
+    priceFemaleChica: String(c.precioLista.mujer.chica),
+    priceMaleGrande: String(c.precioLista.hombre.grande),
+    priceMaleMediana: String(c.precioLista.hombre.mediana),
+    priceMaleChica: String(c.precioLista.hombre.chica),
+    pricingMinutesFemaleGrande: String(c.minutosPrecio.mujer.grande),
+    pricingMinutesFemaleMediana: String(c.minutosPrecio.mujer.mediana),
+    pricingMinutesFemaleChica: String(c.minutosPrecio.mujer.chica),
+    pricingMinutesMaleGrande: String(c.minutosPrecio.hombre.grande),
+    pricingMinutesMaleMediana: String(c.minutosPrecio.hombre.mediana),
+    pricingMinutesMaleChica: String(c.minutosPrecio.hombre.chica),
     tier1RatePerMinute: String(c.tarifaEscalon1),
     tier2RatePerMinute: String(c.tarifaEscalon2),
     slotMinutesFemaleGrande: String(c.minutosTurno.mujer.grande),
@@ -86,14 +103,28 @@ function toNumber(raw: string): number {
 function formToPreviewConfig(f: Form): DepilationConfig {
   return {
     precioLista: {
-      grande: toNumber(f.priceGrande),
-      mediana: toNumber(f.priceMediana),
-      chica: toNumber(f.priceChica),
+      mujer: {
+        grande: toNumber(f.priceFemaleGrande),
+        mediana: toNumber(f.priceFemaleMediana),
+        chica: toNumber(f.priceFemaleChica),
+      },
+      hombre: {
+        grande: toNumber(f.priceMaleGrande),
+        mediana: toNumber(f.priceMaleMediana),
+        chica: toNumber(f.priceMaleChica),
+      },
     },
     minutosPrecio: {
-      grande: toNumber(f.pricingMinutesGrande),
-      mediana: toNumber(f.pricingMinutesMediana),
-      chica: toNumber(f.pricingMinutesChica),
+      mujer: {
+        grande: toNumber(f.pricingMinutesFemaleGrande),
+        mediana: toNumber(f.pricingMinutesFemaleMediana),
+        chica: toNumber(f.pricingMinutesFemaleChica),
+      },
+      hombre: {
+        grande: toNumber(f.pricingMinutesMaleGrande),
+        mediana: toNumber(f.pricingMinutesMaleMediana),
+        chica: toNumber(f.pricingMinutesMaleChica),
+      },
     },
     tarifaEscalon1: toNumber(f.tier1RatePerMinute),
     tarifaEscalon2: toNumber(f.tier2RatePerMinute),
@@ -139,16 +170,22 @@ function parsePorcentaje(raw: string): number | null {
   return n >= 0 && n <= 100 ? n : null;
 }
 
-/** Un campo por cada uno de los 19 de `Form` (mismos nombres que
+/** Un campo por cada uno de los 25 de `Form` (mismos nombres que
  *  `DepilacionConfigInput`, así el resultado de validar ya tiene la forma que
  *  pide el PUT). El mensaje es el que ve la clienta si el campo no pasa. */
 const CAMPOS: { key: keyof Form; validar: (raw: string) => number | null; mensaje: string }[] = [
-  { key: "priceGrande", validar: parseEnteroPositivo, mensaje: "El precio de zona grande tiene que ser un número entero mayor a cero." },
-  { key: "priceMediana", validar: parseEnteroPositivo, mensaje: "El precio de zona mediana tiene que ser un número entero mayor a cero." },
-  { key: "priceChica", validar: parseEnteroPositivo, mensaje: "El precio de zona chica tiene que ser un número entero mayor a cero." },
-  { key: "pricingMinutesGrande", validar: parseEnteroPositivo, mensaje: "Los minutos de precio de zona grande tienen que ser un número entero mayor a cero." },
-  { key: "pricingMinutesMediana", validar: parseEnteroPositivo, mensaje: "Los minutos de precio de zona mediana tienen que ser un número entero mayor a cero." },
-  { key: "pricingMinutesChica", validar: parseEnteroPositivo, mensaje: "Los minutos de precio de zona chica tienen que ser un número entero mayor a cero." },
+  { key: "priceFemaleGrande", validar: parseEnteroPositivo, mensaje: "El precio de zona grande (mujer) tiene que ser un número entero mayor a cero." },
+  { key: "priceFemaleMediana", validar: parseEnteroPositivo, mensaje: "El precio de zona mediana (mujer) tiene que ser un número entero mayor a cero." },
+  { key: "priceFemaleChica", validar: parseEnteroPositivo, mensaje: "El precio de zona chica (mujer) tiene que ser un número entero mayor a cero." },
+  { key: "priceMaleGrande", validar: parseEnteroPositivo, mensaje: "El precio de zona grande (hombre) tiene que ser un número entero mayor a cero." },
+  { key: "priceMaleMediana", validar: parseEnteroPositivo, mensaje: "El precio de zona mediana (hombre) tiene que ser un número entero mayor a cero." },
+  { key: "priceMaleChica", validar: parseEnteroPositivo, mensaje: "El precio de zona chica (hombre) tiene que ser un número entero mayor a cero." },
+  { key: "pricingMinutesFemaleGrande", validar: parseEnteroPositivo, mensaje: "Los minutos de precio de zona grande (mujer) tienen que ser un número entero mayor a cero." },
+  { key: "pricingMinutesFemaleMediana", validar: parseEnteroPositivo, mensaje: "Los minutos de precio de zona mediana (mujer) tienen que ser un número entero mayor a cero." },
+  { key: "pricingMinutesFemaleChica", validar: parseEnteroPositivo, mensaje: "Los minutos de precio de zona chica (mujer) tienen que ser un número entero mayor a cero." },
+  { key: "pricingMinutesMaleGrande", validar: parseEnteroPositivo, mensaje: "Los minutos de precio de zona grande (hombre) tienen que ser un número entero mayor a cero." },
+  { key: "pricingMinutesMaleMediana", validar: parseEnteroPositivo, mensaje: "Los minutos de precio de zona mediana (hombre) tienen que ser un número entero mayor a cero." },
+  { key: "pricingMinutesMaleChica", validar: parseEnteroPositivo, mensaje: "Los minutos de precio de zona chica (hombre) tienen que ser un número entero mayor a cero." },
   { key: "tier1RatePerMinute", validar: parseEnteroPositivo, mensaje: "La tarifa del primer escalón tiene que ser un número entero mayor a cero." },
   { key: "tier2RatePerMinute", validar: parseEnteroPositivo, mensaje: "La tarifa del segundo escalón tiene que ser un número entero mayor a cero." },
   { key: "slotMinutesFemaleGrande", validar: parseEnteroPositivo, mensaje: "Los minutos de turno (mujer, grande) tienen que ser un número entero mayor a cero." },
@@ -165,7 +202,7 @@ const CAMPOS: { key: keyof Form; validar: (raw: string) => number | null; mensaj
 ];
 
 /** Mismo mapeo que `aConfigAnidada` en el backend (`depilacion.repo.ts`):
- *  las 19 columnas planas de `DepilacionConfigInput` al `DepilationConfig`
+ *  las 25 columnas planas de `DepilacionConfigInput` al `DepilationConfig`
  *  anidado que pide el motor. Duplicado a propósito (no importado desde el
  *  backend, que es otro repo/deploy): es la mitad "cliente" del espejo de la
  *  ronda de fixes 1, punto 1 — separado de `formToPreviewConfig` porque ese
@@ -173,11 +210,21 @@ const CAMPOS: { key: keyof Form; validar: (raw: string) => number | null; mensaj
  *  vivo) y este toma valores YA validados como enteros. */
 function configInputToNested(v: DepilacionConfigInput): DepilationConfig {
   return {
-    precioLista: { grande: v.priceGrande, mediana: v.priceMediana, chica: v.priceChica },
+    precioLista: {
+      mujer: { grande: v.priceFemaleGrande, mediana: v.priceFemaleMediana, chica: v.priceFemaleChica },
+      hombre: { grande: v.priceMaleGrande, mediana: v.priceMaleMediana, chica: v.priceMaleChica },
+    },
     minutosPrecio: {
-      grande: v.pricingMinutesGrande,
-      mediana: v.pricingMinutesMediana,
-      chica: v.pricingMinutesChica,
+      mujer: {
+        grande: v.pricingMinutesFemaleGrande,
+        mediana: v.pricingMinutesFemaleMediana,
+        chica: v.pricingMinutesFemaleChica,
+      },
+      hombre: {
+        grande: v.pricingMinutesMaleGrande,
+        mediana: v.pricingMinutesMaleMediana,
+        chica: v.pricingMinutesMaleChica,
+      },
     },
     tarifaEscalon1: v.tier1RatePerMinute,
     tarifaEscalon2: v.tier2RatePerMinute,
@@ -213,7 +260,14 @@ function configInputToNested(v: DepilacionConfigInput): DepilationConfig {
  *  — mismas dos capas, mismo motor (`primeraViolacionNoInversion`) — para que
  *  el aviso de "esto rompe la no-inversión" llegue ANTES de mandar el PUT, no
  *  solo después. El backend sigue siendo la garantía real (esto es UX, no
- *  reemplaza esa validación); si algún día se desalinean, el backend manda. */
+ *  reemplaza esa validación); si algún día se desalinean, el backend manda.
+ *
+ *  task-7: la Capa 1 (orden grande ≥ mediana ≥ chica) corre por separado para
+ *  cada curva (mujer y hombre), cada una contra sí misma. La Capa 2
+ *  (`primeraViolacionNoInversion`) sigue corriendo solo contra mujer — mismo
+ *  hueco documentado del lado del backend (Task 4 de la SDD): validar también
+ *  la curva de hombre es un cambio de firma de esa función pura, fuera del
+ *  alcance de esta tarea. */
 function parseForm(f: Form): { ok: true; values: DepilacionConfigInput } | { ok: false; error: string } {
   const values = {} as DepilacionConfigInput;
   for (const campo of CAMPOS) {
@@ -222,14 +276,25 @@ function parseForm(f: Form): { ok: true; values: DepilacionConfigInput } | { ok:
     (values as Record<string, number>)[campo.key] = parsed;
   }
 
-  if (values.priceGrande < values.priceMediana || values.priceMediana < values.priceChica) {
+  if (values.priceFemaleGrande < values.priceFemaleMediana || values.priceFemaleMediana < values.priceFemaleChica) {
     return {
       ok: false,
       error:
-        "El precio de zona grande tiene que ser mayor o igual al de zona mediana, y el de zona " +
-        "mediana mayor o igual al de zona chica. Si no, agregar una zona más grande a una " +
-        "selección puede terminar costando MENOS que las zonas más chicas que ya estaban — y eso " +
-        "nunca puede pasar.",
+        "El precio de zona grande (mujer) tiene que ser mayor o igual al de zona mediana (mujer), " +
+        "y el de zona mediana (mujer) mayor o igual al de zona chica (mujer). Si no, agregar una " +
+        "zona más grande a una selección puede terminar costando MENOS que las zonas más chicas " +
+        "que ya estaban — y eso nunca puede pasar.",
+    };
+  }
+
+  if (values.priceMaleGrande < values.priceMaleMediana || values.priceMaleMediana < values.priceMaleChica) {
+    return {
+      ok: false,
+      error:
+        "El precio de zona grande (hombre) tiene que ser mayor o igual al de zona mediana (hombre), " +
+        "y el de zona mediana (hombre) mayor o igual al de zona chica (hombre). Si no, agregar una " +
+        "zona más grande a una selección puede terminar costando MENOS que las zonas más chicas " +
+        "que ya estaban — y eso nunca puede pasar.",
     };
   }
 
@@ -280,12 +345,21 @@ const PASOS = [
   },
 ];
 
+/** task-7: `precioLista`/`minutosPrecio` se bifurcaron por sexo, pero esta
+ *  pantalla no tiene (ni pide) un selector de sexo para la vista previa — es
+ *  un ejemplo ilustrativo, no una cotización real. Se fija en "mujer" para
+ *  los tres ejemplos de la fórmula y para "Cuerpo Full por fórmula": mismo
+ *  criterio que el resto del código (backend Task 2 de la SDD) usa como
+ *  default de transición. El armador de Combos (`ArmadorCombo.tsx`), que sí
+ *  cotiza de verdad, tiene su propio selector de sexo. */
+const SEXO_PREVIEW: Sexo = "mujer";
+
 /** Traduce el `motivo` que devuelve el motor a la cuenta concreta que se hizo,
  *  con los números que están en el formulario en este momento. "escalon_1" no
  *  le dice nada a nadie; "5 min × $1.200" es la cuenta. */
 function explicarLinea(linea: LineaCotizacion, config: DepilationConfig): string {
   if (linea.motivo === "lista") return "precio de lista";
-  const minutos = config.minutosPrecio[linea.categoria];
+  const minutos = config.minutosPrecio[SEXO_PREVIEW][linea.categoria];
   const tarifa = linea.motivo === "escalon_1" ? config.tarifaEscalon1 : config.tarifaEscalon2;
   const escalon = linea.motivo === "escalon_1" ? "escalón 1" : "escalón 2";
   return `${minutos} min × ${money(tarifa)} (${escalon})`;
@@ -400,7 +474,7 @@ function PreciosForm({
   const ejemplos = useMemo(
     () =>
       EJEMPLOS.map((e) => {
-        const cotizacion = calcularPrecioCombo(e.zonas, previewConfig);
+        const cotizacion = calcularPrecioCombo(e.zonas, SEXO_PREVIEW, previewConfig);
         return { ...e, total: cotizacion.total, lineas: cotizacion.lineas };
       }),
     [previewConfig],
@@ -429,7 +503,7 @@ function PreciosForm({
   // diferencia de `cuerpoFullPrecio` (que es el precio propio, ajeno a la
   // fórmula).
   const cuerpoFullFormula = useMemo(
-    () => calcularPrecioCombo(cuerpoFullZonas, previewConfig).total,
+    () => calcularPrecioCombo(cuerpoFullZonas, SEXO_PREVIEW, previewConfig).total,
     [cuerpoFullZonas, previewConfig],
   );
   // `null` mientras no se sabe el precio real todavía (combos cargando o el
@@ -475,33 +549,68 @@ function PreciosForm({
         <section className="space-y-4">
           <h2 className="font-display text-lg text-ink">Precios de lista</h2>
           <p className="text-xs text-ink-soft">
-            Precio de la primera zona del combo (la más cara), según su categoría.
+            Precio de la primera zona del combo (la más cara), según su categoría y el sexo de
+            la clienta.
           </p>
-          <div className="flex flex-wrap gap-3">
-            <Field label="Grande">
-              <TextInput
-                inputMode="numeric"
-                disabled={!canManage}
-                value={form.priceGrande}
-                onChange={(e) => set("priceGrande", e.target.value)}
-              />
-            </Field>
-            <Field label="Mediana">
-              <TextInput
-                inputMode="numeric"
-                disabled={!canManage}
-                value={form.priceMediana}
-                onChange={(e) => set("priceMediana", e.target.value)}
-              />
-            </Field>
-            <Field label="Chica">
-              <TextInput
-                inputMode="numeric"
-                disabled={!canManage}
-                value={form.priceChica}
-                onChange={(e) => set("priceChica", e.target.value)}
-              />
-            </Field>
+          <div className="space-y-3">
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-ink-soft">Mujer</p>
+              <div className="flex flex-wrap gap-3">
+                <Field label="Precio grande (mujer)">
+                  <TextInput
+                    inputMode="numeric"
+                    disabled={!canManage}
+                    value={form.priceFemaleGrande}
+                    onChange={(e) => set("priceFemaleGrande", e.target.value)}
+                  />
+                </Field>
+                <Field label="Precio mediana (mujer)">
+                  <TextInput
+                    inputMode="numeric"
+                    disabled={!canManage}
+                    value={form.priceFemaleMediana}
+                    onChange={(e) => set("priceFemaleMediana", e.target.value)}
+                  />
+                </Field>
+                <Field label="Precio chica (mujer)">
+                  <TextInput
+                    inputMode="numeric"
+                    disabled={!canManage}
+                    value={form.priceFemaleChica}
+                    onChange={(e) => set("priceFemaleChica", e.target.value)}
+                  />
+                </Field>
+              </div>
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-ink-soft">Hombre</p>
+              <div className="flex flex-wrap gap-3">
+                <Field label="Precio grande (hombre)">
+                  <TextInput
+                    inputMode="numeric"
+                    disabled={!canManage}
+                    value={form.priceMaleGrande}
+                    onChange={(e) => set("priceMaleGrande", e.target.value)}
+                  />
+                </Field>
+                <Field label="Precio mediana (hombre)">
+                  <TextInput
+                    inputMode="numeric"
+                    disabled={!canManage}
+                    value={form.priceMaleMediana}
+                    onChange={(e) => set("priceMaleMediana", e.target.value)}
+                  />
+                </Field>
+                <Field label="Precio chica (hombre)">
+                  <TextInput
+                    inputMode="numeric"
+                    disabled={!canManage}
+                    value={form.priceMaleChica}
+                    onChange={(e) => set("priceMaleChica", e.target.value)}
+                  />
+                </Field>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -540,42 +649,86 @@ function PreciosForm({
         <section className="space-y-4">
           <h2 className="font-display text-lg text-ink">Minutos de precio</h2>
           <p className="text-xs text-ink-soft">
-            Minutos por zona que multiplican la tarifa de cada escalón (unisex).
+            Minutos por zona que multiplican la tarifa de cada escalón, según el sexo de la
+            clienta.
           </p>
-          <div className="flex flex-wrap gap-3">
-            <Field
-              label="Grande"
-              help="Minutos que se le asignan a una zona GRANDE para calcular su precio cuando cae en un escalón. OJO: no es la duración del turno, es un multiplicador de la tarifa por minuto. La duración real se configura abajo, en Minutos de turno."
-            >
-              <TextInput
-                inputMode="numeric"
-                disabled={!canManage}
-                value={form.pricingMinutesGrande}
-                onChange={(e) => set("pricingMinutesGrande", e.target.value)}
-              />
-            </Field>
-            <Field
-              label="Mediana"
-              help="Minutos que se le asignan a una zona MEDIANA para calcular su precio cuando cae en un escalón. No es la duración del turno: eso se configura abajo, en Minutos de turno."
-            >
-              <TextInput
-                inputMode="numeric"
-                disabled={!canManage}
-                value={form.pricingMinutesMediana}
-                onChange={(e) => set("pricingMinutesMediana", e.target.value)}
-              />
-            </Field>
-            <Field
-              label="Chica"
-              help="Minutos que se le asignan a una zona CHICA para calcular su precio cuando cae en un escalón. No es la duración del turno: eso se configura abajo, en Minutos de turno."
-            >
-              <TextInput
-                inputMode="numeric"
-                disabled={!canManage}
-                value={form.pricingMinutesChica}
-                onChange={(e) => set("pricingMinutesChica", e.target.value)}
-              />
-            </Field>
+          <div className="space-y-3">
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-ink-soft">Mujer</p>
+              <div className="flex flex-wrap gap-3">
+                <Field
+                  label="Minutos por zona grande (mujer)"
+                  help="Minutos que se le asignan a una zona GRANDE de una mujer para calcular su precio cuando cae en un escalón. OJO: no es la duración del turno, es un multiplicador de la tarifa por minuto. La duración real se configura abajo, en Minutos de turno."
+                >
+                  <TextInput
+                    inputMode="numeric"
+                    disabled={!canManage}
+                    value={form.pricingMinutesFemaleGrande}
+                    onChange={(e) => set("pricingMinutesFemaleGrande", e.target.value)}
+                  />
+                </Field>
+                <Field
+                  label="Minutos por zona mediana (mujer)"
+                  help="Minutos que se le asignan a una zona MEDIANA de una mujer para calcular su precio cuando cae en un escalón. No es la duración del turno: eso se configura abajo, en Minutos de turno."
+                >
+                  <TextInput
+                    inputMode="numeric"
+                    disabled={!canManage}
+                    value={form.pricingMinutesFemaleMediana}
+                    onChange={(e) => set("pricingMinutesFemaleMediana", e.target.value)}
+                  />
+                </Field>
+                <Field
+                  label="Minutos por zona chica (mujer)"
+                  help="Minutos que se le asignan a una zona CHICA de una mujer para calcular su precio cuando cae en un escalón. No es la duración del turno: eso se configura abajo, en Minutos de turno."
+                >
+                  <TextInput
+                    inputMode="numeric"
+                    disabled={!canManage}
+                    value={form.pricingMinutesFemaleChica}
+                    onChange={(e) => set("pricingMinutesFemaleChica", e.target.value)}
+                  />
+                </Field>
+              </div>
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-ink-soft">Hombre</p>
+              <div className="flex flex-wrap gap-3">
+                <Field
+                  label="Minutos por zona grande (hombre)"
+                  help="Minutos que se le asignan a una zona GRANDE de un hombre para calcular su precio cuando cae en un escalón. OJO: no es la duración del turno, es un multiplicador de la tarifa por minuto. La duración real se configura abajo, en Minutos de turno."
+                >
+                  <TextInput
+                    inputMode="numeric"
+                    disabled={!canManage}
+                    value={form.pricingMinutesMaleGrande}
+                    onChange={(e) => set("pricingMinutesMaleGrande", e.target.value)}
+                  />
+                </Field>
+                <Field
+                  label="Minutos por zona mediana (hombre)"
+                  help="Minutos que se le asignan a una zona MEDIANA de un hombre para calcular su precio cuando cae en un escalón. No es la duración del turno: eso se configura abajo, en Minutos de turno."
+                >
+                  <TextInput
+                    inputMode="numeric"
+                    disabled={!canManage}
+                    value={form.pricingMinutesMaleMediana}
+                    onChange={(e) => set("pricingMinutesMaleMediana", e.target.value)}
+                  />
+                </Field>
+                <Field
+                  label="Minutos por zona chica (hombre)"
+                  help="Minutos que se le asignan a una zona CHICA de un hombre para calcular su precio cuando cae en un escalón. No es la duración del turno: eso se configura abajo, en Minutos de turno."
+                >
+                  <TextInput
+                    inputMode="numeric"
+                    disabled={!canManage}
+                    value={form.pricingMinutesMaleChica}
+                    onChange={(e) => set("pricingMinutesMaleChica", e.target.value)}
+                  />
+                </Field>
+              </div>
+            </div>
           </div>
         </section>
 

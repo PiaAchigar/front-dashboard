@@ -87,6 +87,13 @@ export function CombosDepilacionPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ComboDepilacion | null>(null);
   const [form, setForm] = useState<Form>(EMPTY);
+
+  // Un pack fijo sembrado se puede editar, pero sigue siendo pack fijo: el
+  // backend rechaza cambiarle el kind o dejarlo sin precio. Crear, en cambio,
+  // siempre crea un guardado (`editing` es null), así que este flag es falso
+  // mientras se arma un combo nuevo. Es donde vive también la única semántica
+  // de "zonas a elección" (`choiceZoneCount`) que hoy conoce esta pantalla.
+  const esPackFijo = editing?.kind === "pack_fijo";
   const [formError, setFormError] = useState<string | null>(null);
   const [armadorState, setArmadorState] = useState<ArmadorComboState | null>(null);
 
@@ -212,10 +219,9 @@ export function CombosDepilacionPage() {
       setFormError("El combo tiene que incluir al menos una zona.");
       return;
     }
-    // Un pack fijo sembrado se puede editar, pero sigue siendo pack fijo: el
-    // backend rechaza cambiarle el kind o dejarlo sin precio. Crear, en
-    // cambio, siempre crea un guardado.
-    const esPackFijo = editing?.kind === "pack_fijo";
+    // `esPackFijo` sale del scope del componente (arriba): mismo flag que
+    // gatea el aviso de la zona de regalo, para que los dos nunca se
+    // desalineen.
     let fixedPrice: number | null = null;
     if (esPackFijo) {
       const parsed = parsePrecio(form.fixedPrice);
@@ -471,7 +477,7 @@ export function CombosDepilacionPage() {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
         </Field>
-        {editing?.kind === "pack_fijo" && (
+        {esPackFijo && (
           // El texto de ayuda va FUERA del Field: `Field` envuelve a sus
           // hijos en un <label>, así que todo lo que entre ahí se pega al
           // nombre accesible del campo.
@@ -487,6 +493,22 @@ export function CombosDepilacionPage() {
             <p className="mt-1 text-xs text-ink-soft">
               Este pack se cobra a este precio, no al que da la fórmula. Tiene que quedar por
               debajo de la fórmula para seguir siendo un descuento.
+            </p>
+            {/* task-7: siempre visible (no un tooltip) — junto a "zonas a
+                elección" (`choiceZoneCount`), la única semántica propia de un
+                pack fijo en esta pantalla. Si Laura no ve esto, arma packs
+                que regalan tiempo que la agenda no reservó: la zona de
+                regalo se presupuesta como chica y, si en el mostrador
+                eligen una grande, el turno queda corto en silencio. */}
+            {/* Sin <strong> a propósito: RTL arma el texto accesible de un
+                nodo solo con sus hijos de texto DIRECTOS (`getNodeText`), así
+                que envolver "zona chica" en una etiqueta aparte cortaría la
+                frase en dos nodos y ningún `getByText` con un regex que cruce
+                el corte la encontraría — se comprobó en la corrida real. */}
+            <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+              La zona de regalo se cuenta como zona chica: suma 3 minutos de turno a una mujer
+              y 5 a un hombre, y no suma precio. Si en el mostrador le dejan elegir una zona
+              grande, el turno queda corto.
             </p>
           </div>
         )}

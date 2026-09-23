@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,11 +21,22 @@ vi.mock("../../../auth/AuthContext", () => ({
   }),
 }));
 
-// Mismos valores que src/lib/depilation-pricing.test.ts, así los totales
-// esperados de los combos de ejemplo son los que ya están probados ahí.
+// precioLista/minutosPrecio de mujer: mismos valores que
+// src/lib/depilation-pricing.test.ts, así los totales esperados de los
+// combos de ejemplo son los que ya están probados ahí — la vista previa de
+// esta pantalla se calcula en "mujer" (`SEXO_PREVIEW` en PreciosPage.tsx).
+// Los de hombre son DISTINTOS a propósito (mismo criterio que el backend,
+// Task 2 de la SDD): si el mapeo de ida y vuelta cruzara mujer/hombre, un
+// fixture con los dos iguales no lo detectaría.
 const CONFIG: DepilationConfig = {
-  precioLista: { grande: 19000, mediana: 17000, chica: 12000 },
-  minutosPrecio: { grande: 10, mediana: 7, chica: 5 },
+  precioLista: {
+    mujer: { grande: 19000, mediana: 17000, chica: 12000 },
+    hombre: { grande: 23000, mediana: 21000, chica: 16000 },
+  },
+  minutosPrecio: {
+    mujer: { grande: 10, mediana: 7, chica: 5 },
+    hombre: { grande: 11, mediana: 9, chica: 6 },
+  },
   tarifaEscalon1: 1200,
   tarifaEscalon2: 1000,
   minutosTurno: {
@@ -89,18 +100,28 @@ const CUERPO_FULL: ComboDepilacion = {
 };
 const COMBOS: ComboDepilacion[] = [CUERPO_FULL];
 
-/** Enruta por URL: `/config` devuelve `CONFIG`, `/combos` devuelve `combos`
- *  (por defecto `COMBOS`, con "Cuerpo Full" adentro) — las dos queries de
- *  `PreciosPage` (`useDepilacionConfig` + `useCombosDepilacion`) salen en
- *  paralelo, así que el mock tiene que poder responder a las dos. */
+// El body del último PUT /config, capturado por el mock de abajo — así los
+// tests de guardado pueden verificar lo que se mandó sin repetir el hallazgo
+// de la llamada adentro de cada `it`.
+let guardado: Record<string, unknown> | null = null;
+
+/** Enruta por URL: `/config` devuelve `CONFIG` (o captura el PUT en
+ *  `guardado`), `/combos` devuelve `combos` (por defecto `COMBOS`, con
+ *  "Cuerpo Full" adentro) — las dos queries de `PreciosPage`
+ *  (`useDepilacionConfig` + `useCombosDepilacion`) salen en paralelo, así que
+ *  el mock tiene que poder responder a las dos. */
 function mockFetchOk(combos: ComboDepilacion[] = COMBOS) {
-  return vi.fn(async (url: string) => {
+  return vi.fn(async (url: string, options?: RequestInit) => {
     if (url.includes("/combos")) return { ok: true, json: async () => combos };
+    if ((options?.method ?? "GET").toUpperCase() === "PUT") {
+      guardado = JSON.parse(String(options?.body));
+    }
     return { ok: true, json: async () => CONFIG };
   });
 }
 
 beforeEach(() => {
+  guardado = null;
   vi.stubGlobal("fetch", mockFetchOk());
 });
 
@@ -185,7 +206,7 @@ describe("PreciosPage", () => {
     expect(fetchMock.mock.calls.length).toBe(callsAntes);
   });
 
-  it("Guardar manda los 19 campos en forma plana al PUT /config", async () => {
+  it("Guardar manda las 25 columnas (12 por sexo) en forma plana al PUT /config", async () => {
     const user = userEvent.setup();
     render(<PreciosPage />, { wrapper });
     await screen.findByTestId("preview-cavado-axila");
@@ -194,17 +215,20 @@ describe("PreciosPage", () => {
     await user.type(screen.getByLabelText(/escalón 1/i), "1300");
     await user.click(screen.getByRole("button", { name: /guardar/i }));
 
-    const fetchMock = vi.mocked(fetch);
-    const putCall = fetchMock.mock.calls.find(([, opts]) => (opts as RequestInit)?.method === "PUT");
-    expect(putCall).toBeDefined();
-    const body = JSON.parse((putCall![1] as RequestInit).body as string);
-    expect(body).toMatchObject({
-      priceGrande: 19000,
-      priceMediana: 17000,
-      priceChica: 12000,
-      pricingMinutesGrande: 10,
-      pricingMinutesMediana: 7,
-      pricingMinutesChica: 5,
+    await waitFor(() => expect(guardado).not.toBeNull());
+    expect(guardado).toMatchObject({
+      priceFemaleGrande: 19000,
+      priceFemaleMediana: 17000,
+      priceFemaleChica: 12000,
+      priceMaleGrande: 23000,
+      priceMaleMediana: 21000,
+      priceMaleChica: 16000,
+      pricingMinutesFemaleGrande: 10,
+      pricingMinutesFemaleMediana: 7,
+      pricingMinutesFemaleChica: 5,
+      pricingMinutesMaleGrande: 11,
+      pricingMinutesMaleMediana: 9,
+      pricingMinutesMaleChica: 6,
       tier1RatePerMinute: 1300,
       tier2RatePerMinute: 1000,
       slotMinutesFemaleGrande: 9,
@@ -219,6 +243,21 @@ describe("PreciosPage", () => {
       packDiscountPercentage: 15,
       packRoundingBase: 1000,
     });
+  });
+
+  it("pide el precio de lista para mujer y para hombre", async () => {
+    render(<PreciosPage />, { wrapper });
+    expect(await screen.findByLabelText(/precio.*grande.*mujer/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/precio.*grande.*hombre/i)).toBeInTheDocument();
+  });
+
+  it("guarda las doce columnas por sexo", async () => {
+    const user = userEvent.setup();
+    render(<PreciosPage />, { wrapper });
+    await user.clear(await screen.findByLabelText(/precio.*grande.*hombre/i));
+    await user.type(screen.getByLabelText(/precio.*grande.*hombre/i), "23000");
+    await user.click(screen.getByRole("button", { name: /guardar/i }));
+    await waitFor(() => expect(guardado).toMatchObject({ priceMaleGrande: 23000 }));
   });
 
   it("muestra el mensaje de error del backend tal cual, sin reemplazarlo", async () => {
@@ -296,18 +335,22 @@ describe("PreciosPage", () => {
   });
 
   // Ronda de fixes 2, punto 1 (Important): espejo de la validación de
-  // no-inversión del backend. El caso concreto del revisor — priceGrande:
+  // no-inversión del backend. El caso concreto del revisor — priceFemaleGrande:
   // 1000 pasa "entero y positivo" pero hace que agregar una zona grande a 2
   // chicas baje el precio de $18.000 a $12.000 — tiene que quedar bloqueado
   // ACÁ, antes de que el formulario le mande nada al backend.
+  //
+  // task-7: la Capa 1 (orden grande ≥ mediana ≥ chica) se aplica por sexo,
+  // cada curva contra sí misma — de ahí los dos últimos tests, que prueban
+  // que tocar SOLO la curva de hombre bloquea sin tocar la de mujer, y
+  // viceversa.
   describe("no-inversión", () => {
-    // El label "Grande" se repite en varias secciones (Precios de lista,
-    // Minutos de precio, Minutos de turno mujer/hombre); el primero en el DOM
-    // es el de "Precios de lista", que es `priceGrande`.
-    const campoPriceGrande = () => screen.getAllByLabelText(/^grande$/i)[0]!;
-    const campoPriceMediana = () => screen.getAllByLabelText(/^mediana$/i)[0]!;
+    const campoPriceGrandeMujer = () => screen.getByLabelText(/precio.*grande.*mujer/i);
+    const campoPriceMedianaMujer = () => screen.getByLabelText(/precio.*mediana.*mujer/i);
+    const campoPriceGrandeHombre = () => screen.getByLabelText(/precio.*grande.*hombre/i);
+    const campoPriceMedianaHombre = () => screen.getByLabelText(/precio.*mediana.*hombre/i);
 
-    it("bloquea el guardado con priceGrande: 1000 — el caso concreto del revisor", async () => {
+    it("bloquea el guardado con priceFemaleGrande: 1000 — el caso concreto del revisor", async () => {
       const user = userEvent.setup();
       render(<PreciosPage />, { wrapper });
       await screen.findByTestId("preview-cavado-axila");
@@ -315,8 +358,8 @@ describe("PreciosPage", () => {
       const fetchMock = vi.mocked(fetch);
       const callsAntes = fetchMock.mock.calls.length;
 
-      await user.clear(campoPriceGrande());
-      await user.type(campoPriceGrande(), "1000");
+      await user.clear(campoPriceGrandeMujer());
+      await user.type(campoPriceGrandeMujer(), "1000");
       await user.click(screen.getByRole("button", { name: /guardar/i }));
 
       expect(
@@ -327,18 +370,33 @@ describe("PreciosPage", () => {
       expect(fetchMock.mock.calls.length).toBe(callsAntes);
     });
 
-    it("bloquea el guardado si priceGrande queda por debajo de priceMediana", async () => {
+    it("bloquea el guardado si priceFemaleGrande queda por debajo de priceFemaleMediana", async () => {
       const user = userEvent.setup();
       render(<PreciosPage />, { wrapper });
       await screen.findByTestId("preview-cavado-axila");
 
-      await user.clear(campoPriceGrande());
-      await user.type(campoPriceGrande(), "15000"); // < priceMediana (17000)
+      await user.clear(campoPriceGrandeMujer());
+      await user.type(campoPriceGrandeMujer(), "15000"); // < priceFemaleMediana (17000)
       await user.click(screen.getByRole("button", { name: /guardar/i }));
 
       expect(
-        await screen.findByText(/zona grande.*mayor o igual.*zona mediana/i),
+        await screen.findByText(/zona grande \(mujer\).*mayor o igual.*zona mediana \(mujer\)/i),
       ).toBeInTheDocument();
+    });
+
+    it("bloquea el guardado si priceMaleGrande queda por debajo de priceMaleMediana, sin tocar mujer", async () => {
+      const user = userEvent.setup();
+      render(<PreciosPage />, { wrapper });
+      await screen.findByTestId("preview-cavado-axila");
+
+      await user.clear(campoPriceGrandeHombre());
+      await user.type(campoPriceGrandeHombre(), "18000"); // < priceMaleMediana (21000)
+      await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+      expect(
+        await screen.findByText(/zona grande \(hombre\).*mayor o igual.*zona mediana \(hombre\)/i),
+      ).toBeInTheDocument();
+      expect(guardado).toBeNull();
     });
 
     it("no bloquea un cambio de precios que respeta el orden y la no-inversión", async () => {
@@ -346,16 +404,26 @@ describe("PreciosPage", () => {
       render(<PreciosPage />, { wrapper });
       await screen.findByTestId("preview-cavado-axila");
 
-      // Subir mediana sin pasar a grande (17000 -> 18000, sigue <= 19000).
-      await user.clear(campoPriceMediana());
-      await user.type(campoPriceMediana(), "18000");
+      // Subir mediana (mujer) sin pasar a grande (17000 -> 18000, sigue <= 19000).
+      await user.clear(campoPriceMedianaMujer());
+      await user.type(campoPriceMedianaMujer(), "18000");
       await user.click(screen.getByRole("button", { name: /guardar/i }));
 
-      const fetchMock = vi.mocked(fetch);
-      const putCall = fetchMock.mock.calls.find(
-        ([, opts]) => (opts as RequestInit)?.method === "PUT",
-      );
-      expect(putCall).toBeDefined();
+      await waitFor(() => expect(guardado).not.toBeNull());
+      expect(screen.queryByText(/puede terminar costando MENOS/i)).not.toBeInTheDocument();
+    });
+
+    it("no bloquea un cambio de precios de hombre que respeta el orden", async () => {
+      const user = userEvent.setup();
+      render(<PreciosPage />, { wrapper });
+      await screen.findByTestId("preview-cavado-axila");
+
+      // Subir mediana (hombre) sin pasar a grande (21000 -> 22000, sigue <= 23000).
+      await user.clear(campoPriceMedianaHombre());
+      await user.type(campoPriceMedianaHombre(), "22000");
+      await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+      await waitFor(() => expect(guardado).toMatchObject({ priceMaleMediana: 22000 }));
       expect(screen.queryByText(/puede terminar costando MENOS/i)).not.toBeInTheDocument();
     });
   });

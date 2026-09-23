@@ -5,10 +5,18 @@ import {
   type DepilationConfig, type ZonaParaCotizar,
 } from "./depilation-pricing";
 
-/** Los valores del PDF (secciones 2, 3, 4, 7 y 8). */
+/** Los valores del PDF (secciones 2, 3, 4, 7 y 8), mujer y hombre iguales acá
+ *  a propósito: estos tests prueban la fórmula en sí (PDF), no la bifurcación
+ *  por sexo — esa la prueba `calcularPrecioCombo — por sexo`, más abajo. */
 const CONFIG: DepilationConfig = {
-  precioLista:   { grande: 19000, mediana: 17000, chica: 12000 },
-  minutosPrecio: { grande: 10,    mediana: 7,     chica: 5 },
+  precioLista: {
+    mujer:  { grande: 19000, mediana: 17000, chica: 12000 },
+    hombre: { grande: 19000, mediana: 17000, chica: 12000 },
+  },
+  minutosPrecio: {
+    mujer:  { grande: 10, mediana: 7, chica: 5 },
+    hombre: { grande: 10, mediana: 7, chica: 5 },
+  },
   tarifaEscalon1: 1200,
   tarifaEscalon2: 1000,
   minutosTurno: {
@@ -32,19 +40,19 @@ const C = () => z("chica");
 
 describe("calcularPrecioCombo — los 5 ejemplos del PDF §5", () => {
   it("Cavado + Axila (2 chicas) = $18.000", () => {
-    expect(calcularPrecioCombo([C(), C()], CONFIG).total).toBe(18000);
+    expect(calcularPrecioCombo([C(), C()], "mujer", CONFIG).total).toBe(18000);
   });
   it("4 chicas = $28.000", () => {
-    expect(calcularPrecioCombo([C(), C(), C(), C()], CONFIG).total).toBe(28000);
+    expect(calcularPrecioCombo([C(), C(), C(), C()], "mujer", CONFIG).total).toBe(28000);
   });
   it("1 grande + 4 chicas = $40.000", () => {
-    expect(calcularPrecioCombo([G(), C(), C(), C(), C()], CONFIG).total).toBe(40000);
+    expect(calcularPrecioCombo([G(), C(), C(), C(), C()], "mujer", CONFIG).total).toBe(40000);
   });
   it("2 grandes + 3 chicas = $46.000", () => {
-    expect(calcularPrecioCombo([G(), G(), C(), C(), C()], CONFIG).total).toBe(46000);
+    expect(calcularPrecioCombo([G(), G(), C(), C(), C()], "mujer", CONFIG).total).toBe(46000);
   });
   it("2 grandes + 1 chica = $36.000", () => {
-    expect(calcularPrecioCombo([G(), G(), C()], CONFIG).total).toBe(36000);
+    expect(calcularPrecioCombo([G(), G(), C()], "mujer", CONFIG).total).toBe(36000);
   });
 });
 
@@ -57,7 +65,7 @@ describe("calcularPrecioCombo — los 5 ejemplos del PDF §5", () => {
 
 describe("calcularPrecioCombo — orden y desglose", () => {
   it("ordena grande antes que chica sin importar cómo entren", () => {
-    const r = calcularPrecioCombo([C(), G()], CONFIG);
+    const r = calcularPrecioCombo([C(), G()], "mujer", CONFIG);
     expect(r.lineas.map((l) => l.categoria)).toEqual(["grande", "chica"]);
     expect(r.lineas[0].motivo).toBe("lista");
     expect(r.lineas[1].motivo).toBe("escalon_1");
@@ -66,20 +74,20 @@ describe("calcularPrecioCombo — orden y desglose", () => {
     const a = z("chica", "a");
     const b = z("chica", "b");
     const c = z("chica", "c");
-    const r = calcularPrecioCombo([a, b, c], CONFIG);
+    const r = calcularPrecioCombo([a, b, c], "mujer", CONFIG);
     expect(r.lineas.map((l) => l.zonaId)).toEqual([a.id, b.id, c.id]);
   });
   it("la tabla ya resuelta del PDF §4", () => {
     // pos 1 / pos 2 / pos 3+ para cada categoría
-    expect(calcularPrecioCombo([G(), G(), G()], CONFIG).lineas.map((l) => l.importe))
+    expect(calcularPrecioCombo([G(), G(), G()], "mujer", CONFIG).lineas.map((l) => l.importe))
       .toEqual([19000, 12000, 10000]);
-    expect(calcularPrecioCombo([M(), M(), M()], CONFIG).lineas.map((l) => l.importe))
+    expect(calcularPrecioCombo([M(), M(), M()], "mujer", CONFIG).lineas.map((l) => l.importe))
       .toEqual([17000, 8400, 7000]);
-    expect(calcularPrecioCombo([C(), C(), C()], CONFIG).lineas.map((l) => l.importe))
+    expect(calcularPrecioCombo([C(), C(), C()], "mujer", CONFIG).lineas.map((l) => l.importe))
       .toEqual([12000, 6000, 5000]);
   });
   it("selección vacía da 0 y sin líneas", () => {
-    expect(calcularPrecioCombo([], CONFIG)).toEqual({ total: 0, lineas: [] });
+    expect(calcularPrecioCombo([], "mujer", CONFIG)).toEqual({ total: 0, lineas: [] });
   });
 });
 
@@ -90,10 +98,40 @@ describe("calcularPrecioCombo — no-inversión (propiedad del PDF §1)", () => 
       const largo = 1 + Math.floor(Math.random() * 8);
       const base = Array.from({ length: largo }, () => z(cats[Math.floor(Math.random() * 3)]));
       const extra = z(cats[Math.floor(Math.random() * 3)]);
-      const antes = calcularPrecioCombo(base, CONFIG).total;
-      const despues = calcularPrecioCombo([...base, extra], CONFIG).total;
+      const antes = calcularPrecioCombo(base, "mujer", CONFIG).total;
+      const despues = calcularPrecioCombo([...base, extra], "mujer", CONFIG).total;
       expect(despues).toBeGreaterThan(antes);
     }
+  });
+});
+
+// task-7: `precioLista`/`minutosPrecio` se bifurcaron por sexo (antes eran
+// unisex). Los números de hombre son DISTINTOS a propósito de los de mujer
+// (mismo criterio que el backend, Task 2 de la SDD): con los dos iguales,
+// pasarle el sexo equivocado a `calcularPrecioCombo` daría el mismo resultado
+// y este test no probaría nada.
+const CONFIG_POR_SEXO: DepilationConfig = {
+  ...CONFIG,
+  precioLista: {
+    mujer:  { grande: 19000, mediana: 17000, chica: 12000 },
+    hombre: { grande: 23000, mediana: 21000, chica: 16000 },
+  },
+  minutosPrecio: {
+    mujer:  { grande: 10, mediana: 7, chica: 5 },
+    hombre: { grande: 12, mediana: 9, chica: 6 },
+  },
+};
+
+describe("calcularPrecioCombo — por sexo", () => {
+  it("cotiza distinto para mujer y hombre con la misma selección", () => {
+    const zonas = [G(), C()];
+    const mujer = calcularPrecioCombo(zonas, "mujer", CONFIG_POR_SEXO).total;
+    const hombre = calcularPrecioCombo(zonas, "hombre", CONFIG_POR_SEXO).total;
+    // Mujer: 19.000 (lista) + 5×1.200 (escalón 1) = 25.000
+    expect(mujer).toBe(25000);
+    // Hombre: 23.000 (lista) + 6×1.200 (escalón 1) = 30.200
+    expect(hombre).toBe(30200);
+    expect(hombre).toBeGreaterThan(mujer);
   });
 });
 

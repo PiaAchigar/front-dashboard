@@ -89,15 +89,26 @@ export function useGuardarExclusiones() {
   });
 }
 
-/** Los 19 campos que espera el `PUT /config` del backend — forma PLANA, a
- *  diferencia del `DepilationConfig` anidado que devuelve el `GET`. */
+/** Los 25 campos que espera el `PUT /config` del backend — forma PLANA, a
+ *  diferencia del `DepilationConfig` anidado que devuelve el `GET`.
+ *
+ *  task-7: `priceGrande`/`priceMediana`/`priceChica` y `pricingMinutesGrande`/
+ *  `pricingMinutesMediana`/`pricingMinutesChica` (6 claves, unisex) se
+ *  reemplazan por las 12 de abajo, por sexo — el backend (Task 4 de la SDD)
+ *  ya no acepta las viejas. */
 export type DepilacionConfigInput = {
-  priceGrande: number;
-  priceMediana: number;
-  priceChica: number;
-  pricingMinutesGrande: number;
-  pricingMinutesMediana: number;
-  pricingMinutesChica: number;
+  priceFemaleGrande: number;
+  priceFemaleMediana: number;
+  priceFemaleChica: number;
+  priceMaleGrande: number;
+  priceMaleMediana: number;
+  priceMaleChica: number;
+  pricingMinutesFemaleGrande: number;
+  pricingMinutesFemaleMediana: number;
+  pricingMinutesFemaleChica: number;
+  pricingMinutesMaleGrande: number;
+  pricingMinutesMaleMediana: number;
+  pricingMinutesMaleChica: number;
   tier1RatePerMinute: number;
   tier2RatePerMinute: number;
   slotMinutesFemaleGrande: number;
