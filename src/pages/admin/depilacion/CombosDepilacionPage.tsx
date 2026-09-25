@@ -42,6 +42,8 @@ type Form = {
   packSessions: string;
   packDiscountPercentage: string;
   packRoundingBase: string;
+  /** Meses de vigencia del pack. "" = no vence (1.56.0). */
+  validityMonths: string;
 };
 
 const EMPTY: Form = {
@@ -53,6 +55,7 @@ const EMPTY: Form = {
   packSessions: "",
   packDiscountPercentage: "",
   packRoundingBase: "",
+  validityMonths: "",
 };
 
 /** "" es inválido (un pack fijo necesita precio). Acepta enteros >= 0 con
@@ -206,6 +209,7 @@ export function CombosDepilacionPage() {
       packSessions: String(c.packSessions ?? c.pack.sesiones),
       packDiscountPercentage: String(c.packDiscountPercentage ?? c.pack.descuentoPct),
       packRoundingBase: String(c.packRoundingBase ?? c.pack.redondeo),
+      validityMonths: c.validityMonths != null ? String(c.validityMonths) : "",
     });
     setFormError(null);
     setArmadorState(null);
@@ -264,6 +268,18 @@ export function CombosDepilacionPage() {
       };
     }
 
+    // Vacío = no vence (NULL). Cualquier otra cosa tiene que ser un entero
+    // mayor a cero: no tiene sentido un pack que vence en 0 o -3 meses.
+    let validityMonths: number | null = null;
+    if (form.validityMonths.trim() !== "") {
+      const parsed = parseEntero(form.validityMonths);
+      if (parsed === null || parsed < 1) {
+        setFormError("La vigencia tiene que ser un número entero mayor a cero, o vacía para que no venza.");
+        return;
+      }
+      validityMonths = parsed;
+    }
+
     try {
       await guardarCombo.mutateAsync({
         id: editing?.id,
@@ -275,6 +291,7 @@ export function CombosDepilacionPage() {
         kind: esPackFijo ? "pack_fijo" : "guardado",
         fixedPrice: esPackFijo ? fixedPrice : undefined,
         choiceZoneCount: esPackFijo ? editing.choiceZoneCount : 0,
+        validityMonths,
         ...pack,
       });
       toast.success(editing ? "Combo actualizado" : "Combo creado");
@@ -516,6 +533,20 @@ export function CombosDepilacionPage() {
           checked={form.isPublishedWeb}
           onChange={(v) => setForm({ ...form, isPublishedWeb: v })}
         />
+
+        <div>
+          <Field label="Vigencia (meses)">
+            <TextInput
+              inputMode="numeric"
+              value={form.validityMonths}
+              onChange={(e) => setForm({ ...form, validityMonths: e.target.value })}
+              placeholder="12"
+            />
+          </Field>
+          <span className="mt-0.5 block text-xs text-ink-soft">
+            Cuántos meses tiene la clienta para usar las sesiones. Vacío = no vence.
+          </span>
+        </div>
 
         {config && (
           <div className="space-y-2 rounded-xl border border-surface-high p-3">

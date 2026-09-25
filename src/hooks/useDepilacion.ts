@@ -192,6 +192,8 @@ export type ComboDepilacionInput = {
   packSessions?: number | null;
   packDiscountPercentage?: number | null;
   packRoundingBase?: number | null;
+  /** 1.56.0 — Meses de vigencia del pack. `null` = no vence. */
+  validityMonths?: number | null;
 };
 
 function useInvalidateCombos() {

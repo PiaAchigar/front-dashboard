@@ -441,6 +441,9 @@ export type ComboDepilacion = {
   packSessions: number | null;
   packDiscountPercentage: number | null;
   packRoundingBase: number | null;
+  /** 1.56.0 — Meses de vigencia del pack. NULL = no vence. Opcional para no
+   *  romper fixtures viejos que todavía no lo declaran. */
+  validityMonths?: number | null;
   isPublishedWeb: boolean;
   displayOrder: number;
   isActive: boolean;
