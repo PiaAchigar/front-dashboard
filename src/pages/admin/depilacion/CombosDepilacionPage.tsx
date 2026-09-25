@@ -511,7 +511,13 @@ export function CombosDepilacionPage() {
               Este pack se cobra a este precio, no al que da la fórmula. Tiene que quedar por
               debajo de la fórmula para seguir siendo un descuento.
             </p>
-            {/* task-7: siempre visible (no un tooltip) — junto a "zonas a
+            {/* Los minutos salen de `config` y no escritos a mano: son
+                `slot_minutes_female_chica` / `slot_minutes_male_chica`, que
+                Laura edita en la pantalla de Precios de al lado. Escritos en
+                prosa, el día que los cambiara este aviso pasaba a mentir — y
+                un aviso que miente es peor que no tenerlo.
+
+                task-7: siempre visible (no un tooltip) — junto a "zonas a
                 elección" (`choiceZoneCount`), la única semántica propia de un
                 pack fijo en esta pantalla. Si Laura no ve esto, arma packs
                 que regalan tiempo que la agenda no reservó: la zona de
@@ -521,9 +527,10 @@ export function CombosDepilacionPage() {
               data-testid="aviso-zona-regalo"
               className="mt-1 text-xs leading-relaxed text-ink-soft"
             >
-              La zona de regalo se cuenta como <strong>zona chica</strong>: suma 3 minutos
-              de turno a una mujer y 5 a un hombre, y no suma precio. Si en el mostrador
-              le dejan elegir una zona grande, el turno queda corto.
+              La zona de regalo se cuenta como <strong>zona chica</strong>: suma{" "}
+              {config?.minutosTurno.mujer.chica} minutos de turno a una mujer y{" "}
+              {config?.minutosTurno.hombre.chica} a un hombre, y no suma precio. Si en el
+              mostrador le dejan elegir una zona grande, el turno queda corto.
             </p>
           </div>
         )}
@@ -648,6 +655,10 @@ export function CombosDepilacionPage() {
           <ArmadorCombo
             zonas={zonasActivas}
             packPropio={previewPack?.propia ?? null}
+            // Las zonas a elección del pack que se está editando: no se
+            // tildan, pero ocupan agenda. Sin esto el armador decía 25 min
+            // para el mismo pack cuya fila del listado dice 30.
+            zonasAEleccion={esPackFijo ? editing?.choiceZoneCount ?? 0 : 0}
             zonasArchivadasIncluidas={zonasArchivadasDelCombo}
             exclusiones={exclusiones}
             config={config}

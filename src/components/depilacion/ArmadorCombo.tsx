@@ -6,7 +6,9 @@ import {
   calcularDuracionTurno,
   calcularPrecioCombo,
   calcularPrecioPack,
+  conZonasDeRegalo,
   politicaDePack,
+  precioDePackFijo,
   zonasBloqueadas,
   type Categoria,
   type Cotizacion,
@@ -64,6 +66,17 @@ export type ArmadorComboProps = {
    * (si no, la única forma de sacarlas es tocando la base a mano).
    */
   zonasArchivadasIncluidas?: ZonaParaCotizar[];
+  /**
+   * Las zonas "a elección" que declara el combo que se está editando
+   * (`choiceZoneCount`).
+   *
+   * No se tildan acá —son una promesa, no una selección: el campo vive en el
+   * formulario de arriba— pero OCUPAN AGENDA, así que tienen que entrar en la
+   * duración como fantasmas chicas, igual que hace el backend en
+   * `assembleDepilationCombo`. Sin esto, la fila del listado decía 30 min y
+   * el armador, para el mismo pack, 25.
+   */
+  zonasAEleccion?: number;
 };
 
 /**
@@ -80,6 +93,7 @@ export function ArmadorCombo({
   zonaIdsIniciales,
   zonasArchivadasIncluidas = [],
   packPropio = null,
+  zonasAEleccion = 0,
 }: ArmadorComboProps) {
   const [zonaIds, setZonaIds] = useState<string[]>(zonaIdsIniciales ?? []);
   const [sexo, setSexo] = useState<Sexo>("mujer");
@@ -122,10 +136,19 @@ export function ArmadorCombo({
 
   // Mismo criterio que el backend (`POST /cotizar`): la duración fija del
   // pack, si tiene una cargada, gana sobre la calculada.
-  const duracionMinutos = useMemo(
-    () => packFijo?.duracionFija ?? calcularDuracionTurno(seleccionadas, sexo, config),
-    [packFijo, seleccionadas, sexo, config],
-  );
+  //
+  // Los fantasmas de `zonasAEleccion` sólo se suman cuando la selección NO
+  // matcheó un pack fijo: si matcheó, las zonas de regalo ya están tildadas
+  // de verdad (`buscarPackFijo` exige base + a elección) y contarlas otra vez
+  // las duplicaría. Sin matcheo estamos editando un combo cuyas zonas a
+  // elección todavía son una promesa, y ahí sí hay que sumarlas.
+  const duracionMinutos = useMemo(() => {
+    if (packFijo?.duracionFija != null) return packFijo.duracionFija;
+    const paraLaAgenda = packFijo
+      ? seleccionadas
+      : conZonasDeRegalo(seleccionadas, zonasAEleccion);
+    return calcularDuracionTurno(paraLaAgenda, sexo, config);
+  }, [packFijo, seleccionadas, sexo, config, zonasAEleccion]);
 
   const bloqueadas = useMemo(
     () => zonasBloqueadas(zonaIds, exclusiones),
@@ -134,7 +157,27 @@ export function ArmadorCombo({
 
   // El total que se muestra y del que sale el pack de 3: el fijo del pack si
   // hay uno, si no la fórmula. Nunca al revés.
-  const totalMostrado = packFijo ? packFijo.precioFijo : cotizacion.total;
+  //
+  // El fijo pasa por `precioDePackFijo` y no crudo: Laura lo carga para
+  // MUJER, y el de hombre se deriva de la relación de minutos del pack. Sin
+  // esto, "Cuerpo Full" decía $65.000 acá con el selector en Hombre mientras
+  // el modal de Vender del CRM —que sí pasa por esa función— cotizaba
+  // $81.000 para el mismo hombre.
+  //
+  // Las zonas que entran a la cuenta son las BASE del pack: las de regalo se
+  // suman adentro como fantasmas chicas, igual que en el backend.
+  const totalMostrado = useMemo(() => {
+    if (!packFijo) return cotizacion.total;
+    const base = new Set(packFijo.zonasBase);
+    return precioDePackFijo(
+      packFijo.precioFijo,
+      seleccionadas.filter((z) => base.has(z.id)),
+      packFijo.zonasAEleccion,
+      packFijo.duracionFija,
+      sexo,
+      config,
+    );
+  }, [packFijo, cotizacion.total, seleccionadas, sexo, config]);
   const packPolitica = useMemo(() => politicaDePack(config, packPropio), [config, packPropio]);
   const packTotal = useMemo(
     () => calcularPrecioPack(totalMostrado, config, packPropio),
@@ -257,7 +300,10 @@ export function ArmadorCombo({
         {packFijo && (
           <p className="rounded-lg bg-primary/10 px-3 py-2 text-xs text-ink">
             Esta combinación es el pack <strong>{packFijo.nombre}</strong>:{" "}
-            {money(packFijo.precioFijo)} en vez de {money(cotizacion.total)}.
+            {/* `totalMostrado` y no `packFijo.precioFijo`: el cartel tiene que
+                decir el mismo número que el Total de abajo, que con el selector
+                en Hombre es el precio derivado. */}
+            {money(totalMostrado)} en vez de {money(cotizacion.total)}.
           </p>
         )}
 

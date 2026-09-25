@@ -139,6 +139,66 @@ export function buscarPackFijo(seleccion: string[], packs: PackFijo[]): PackFijo
   return candidatos.reduce((mejor, p) => (p.precioFijo < mejor.precioFijo ? p : mejor));
 }
 
+/** La zona "a elección" se cotiza y se agenda como una zona CHICA. Mismo
+ *  valor que `CATEGORIA_ELECCION` del backend (`depilacion.repo.ts`) y que
+ *  `CATEGORIA_DE_REGALO` de `lib/menu-de-zonas.ts`. */
+const CATEGORIA_DE_REGALO: Categoria = "chica";
+
+/** Las zonas del pack más sus zonas "a elección" como fantasmas chicas: es lo
+ *  que ocupa agenda y lo que entra en la proporción de minutos del precio de
+ *  hombre. Espejo de `conZonasDeRegalo` en el backend. */
+export function conZonasDeRegalo(
+  zonas: readonly ZonaParaCotizar[],
+  zonasAEleccion: number,
+): ZonaParaCotizar[] {
+  const fantasmas = Array.from({ length: Math.max(0, zonasAEleccion) }, (_, i) => ({
+    id: `eleccion-${i}`,
+    nombre: "Zona a elección",
+    categoria: CATEGORIA_DE_REGALO,
+  }));
+  return [...zonas, ...fantasmas];
+}
+
+/**
+ * Lo que sale un `pack_fijo` para una persona de este sexo. Espejo exacto de
+ * `lib/precio-de-pack-fijo.ts` en el backend — si los dos no dan el mismo
+ * número, el armador del dashboard y el modal de Vender del CRM cotizan
+ * distinto el mismo pack.
+ *
+ * El precio de un pack fijo lo pone Laura a mano, así que no sale de ninguna
+ * fórmula. **El de hombre se deriva de la relación de minutos de ESE pack**:
+ * Laura carga un solo número y el sistema saca los dos.
+ *
+ * Con "Cuerpo Full" ($65.000, 60 min mujer / 75 hombre): 65.000 × 75/60 =
+ * 81.250, redondeado con `packRedondeo` → $81.000.
+ *
+ * **Con `duracionFija` cargada no hay proporción de la que derivar**: el pack
+ * dura lo mismo para los dos, así que el hombre paga lo mismo que la mujer.
+ */
+export function precioDePackFijo(
+  fixedPrice: number,
+  zonas: readonly ZonaParaCotizar[],
+  zonasAEleccion: number,
+  duracionFija: number | null,
+  sexo: Sexo,
+  config: DepilationConfig,
+): number {
+  if (sexo === "mujer") return fixedPrice;
+  if (duracionFija != null) return fixedPrice;
+
+  const todas = conZonasDeRegalo(zonas, zonasAEleccion);
+  const minutosMujer = calcularDuracionTurno(todas, "mujer", config);
+  const minutosHombre = calcularDuracionTurno(todas, "hombre", config);
+
+  // Un pack sin zonas no tiene relación: devolver lo cargado es lo único
+  // honesto, y evita el 0/0.
+  if (minutosMujer <= 0 || minutosHombre <= minutosMujer) return fixedPrice;
+
+  const crudo = fixedPrice * (minutosHombre / minutosMujer);
+  const base = Math.max(1, config.packRedondeo);
+  return Math.round(crudo / base) * base;
+}
+
 /** Devuelve zonaBloqueada → zona que la bloquea (PDF §9). */
 export function zonasBloqueadas(
   seleccion: string[],

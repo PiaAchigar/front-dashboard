@@ -154,6 +154,51 @@ describe("ArmadorCombo", () => {
     expect(screen.getByText(/Ahorrás \$29\.000/)).toBeInTheDocument();
   });
 
+  /**
+   * Ronda de arreglos 3 (Minor 1). El precio de un pack fijo lo carga Laura
+   * para MUJER; el de hombre se deriva de la relación de minutos del pack
+   * (`precioDePackFijo`). El armador mostraba el fijo crudo, así que "Cuerpo
+   * Full" decía $65.000 con el selector en Hombre mientras el modal de
+   * Vender del CRM cotizaba $81.000 para el mismo hombre.
+   *
+   * 5 grandes + 5 chicas: mujer 5×9 + 5×3 = 60, hombre 5×10 + 5×5 = 75.
+   * 65.000 × 75/60 = 81.250 → redondeo de 1.000 → $81.000.
+   */
+  it("el pack fijo le cobra a un hombre el precio de hombre", async () => {
+    render(<ArmadorCombo {...props} />);
+    for (const nombre of ZONAS_CUERPO_FULL) {
+      await userEvent.click(screen.getByLabelText(nombre));
+    }
+    expect(screen.getByTestId("total")).toHaveTextContent("$65.000");
+
+    await userEvent.click(screen.getByLabelText("Hombre"));
+    expect(screen.getByTestId("total")).toHaveTextContent("$81.000");
+    // El cartel del pack dice el mismo número que el Total: dos números
+    // distintos en la misma tarjeta son peor que uno solo equivocado.
+    expect(screen.getByText(/\$81\.000 en vez de/)).toBeInTheDocument();
+    // Y el pack de 3 sale de ESE total: 81.000 × 3 × 0,85 = 206.550 → 207.000.
+    expect(screen.getByText("$207.000")).toBeInTheDocument();
+  });
+
+  /**
+   * Ronda de arreglos 3 (Minor 2). Las zonas "a elección" del pack que se
+   * está editando no se tildan acá (`choiceZoneCount` es un campo del
+   * formulario de arriba) pero ocupan agenda igual: el backend las suma como
+   * fantasmas chicas en `assembleDepilationCombo`. Sin esto, la fila del
+   * listado decía 30 min y el armador, para el mismo pack, 25.
+   */
+  it("las zonas a elección del pack suman a la duración, aunque no se tilden", async () => {
+    const { rerender } = render(<ArmadorCombo {...props} zonasAEleccion={0} />);
+    await userEvent.click(screen.getByLabelText("Pierna entera"));
+    await userEvent.click(screen.getByLabelText("Cavado"));
+    await userEvent.click(screen.getByLabelText("Axila"));
+    expect(screen.getByTestId("duracion")).toHaveTextContent("15 min"); // 9+3+3
+
+    rerender(<ArmadorCombo {...props} zonasAEleccion={2} />);
+    // +2 chicas fantasma (3 c/u) = 21 → redondeo de 5 → 20.
+    expect(screen.getByTestId("duracion")).toHaveTextContent("20 min");
+  });
+
   it("cambia la duración al cambiar el sexo", async () => {
     render(<ArmadorCombo {...props} />);
     await userEvent.click(screen.getByLabelText("Pierna entera"));

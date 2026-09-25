@@ -131,7 +131,7 @@ const COMBOS: ComboDepilacion[] = [COMBO_ARCHIVADA, PACK_EXCEDE, PACK_OK];
 
 let patchCalls: { url: string; body: Record<string, unknown> }[] = [];
 
-function makeFetchMock() {
+function makeFetchMock(config: DepilationConfig = CONFIG) {
   return vi.fn(async (url: RequestInfo | URL, options?: RequestInit) => {
     const u = String(url);
     const method = (options?.method ?? "GET").toUpperCase();
@@ -140,7 +140,7 @@ function makeFetchMock() {
       return { ok: true, json: async () => ZONAS };
     }
     if (u.includes("/depilacion/config")) {
-      return { ok: true, json: async () => CONFIG };
+      return { ok: true, json: async () => config };
     }
     if (method === "PATCH" && u.includes("/depilacion/combos/") && !u.endsWith("/estado")) {
       patchCalls.push({ url: u, body: JSON.parse(String(options?.body)) });
@@ -248,6 +248,35 @@ describe("CombosDepilacionPage", () => {
     const aviso = await screen.findByTestId("aviso-zona-regalo");
     expect(aviso).toHaveTextContent(/se cuenta como.*zona chica/i);
     expect(aviso).toHaveTextContent(/3 minutos.*de turno a una mujer y 5 a un hombre/i);
+  });
+
+  /**
+   * Ronda de arreglos 3 (Minor 6). Los minutos del aviso son
+   * `slot_minutes_female_chica` / `slot_minutes_male_chica`, que Laura edita
+   * en la pantalla de Precios de al lado. Escritos en prosa ("3 minutos a una
+   * mujer y 5 a un hombre"), el día que los cambiara el aviso pasaba a
+   * mentir — y este aviso es el que la dueña del producto pidió expresamente
+   * que existiera.
+   */
+  it("los minutos del aviso salen de la config, no de la prosa", async () => {
+    vi.stubGlobal(
+      "fetch",
+      makeFetchMock({
+        ...CONFIG,
+        minutosTurno: {
+          mujer: { ...CONFIG.minutosTurno.mujer, chica: 4 },
+          hombre: { ...CONFIG.minutosTurno.hombre, chica: 7 },
+        },
+      }),
+    );
+    const user = userEvent.setup();
+    render(<CombosDepilacionPage />, { wrapper });
+
+    const fila = (await screen.findByText("Pack con precio alto")).closest("tr");
+    await user.click(within(fila as HTMLElement).getByTitle("Editar"));
+
+    const aviso = await screen.findByTestId("aviso-zona-regalo");
+    expect(aviso).toHaveTextContent(/4 minutos.*de turno a una mujer y 7 a un hombre/i);
   });
 
   it("no avisa de la zona de regalo al editar un combo guardado: no tiene esa semántica", async () => {
