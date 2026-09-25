@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { tomarAgendarPendiente, type AgendarHandoff } from "../lib/agendar-handoff";
 
 /**
  * Embebe la app `front-agenda` (proyecto independiente) por <iframe> y le pasa
@@ -11,6 +12,11 @@ import { useAuth } from "../auth/AuthContext";
  * El host SOLO envía el token después del "ready": antes de que el iframe cargue
  * front-agenda, su `contentWindow` está en `about:blank` (origin del padre) y un
  * postMessage con targetOrigin de la agenda fallaría.
+ *
+ * Ese handshake corre de nuevo cada vez que este `<iframe>` navega —el `src`
+ * cambia sólo cuando hay un pedido de "A agendar" pendiente (ver `handoff`
+ * abajo), así que el resto del tiempo el iframe no se recarga y el handshake
+ * corre una sola vez, como siempre.
  */
 const AGENDA_URL = import.meta.env.VITE_AGENDA_URL as string | undefined;
 const READY_MSG = "piubella:agenda:ready";
@@ -31,6 +37,13 @@ export function AgendaFrame() {
   const token = session?.access_token ?? null;
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const agendaOrigin = agendaOriginOf(AGENDA_URL);
+
+  // El pedido de "A agendar" que dejó el CRM (si vinimos de ahí): se captura
+  // una sola vez al montar, igual que el handoff de cobro en `BillerFrame` —
+  // no hace falta un Context porque el CRM y la agenda nunca están montados
+  // a la vez. `tomarAgendarPendiente` ya lo borra al leerlo, así que no
+  // queda pegado si el staff vuelve a "/agenda" después.
+  const [handoff] = useState<AgendarHandoff | null>(() => tomarAgendarPendiente());
 
   // Flag de "iframe listo" — solo se escribe en el handler, nunca en render.
   const readyRef = useRef(false);
@@ -81,6 +94,17 @@ export function AgendaFrame() {
     );
   }
 
+  // Los mismos nombres que lee `prefillDesdeUrl` en `front-agenda/src/lib/
+  // embed.ts`: `customerId` + `serviceId` o `purchaseServiceId`, según la
+  // línea. Sin esto no hay handoff — no hay nada que agregarle a la URL.
+  const handoffParams = handoff
+    ? `&customerId=${encodeURIComponent(handoff.customerId)}&${
+        "purchaseServiceId" in handoff
+          ? `purchaseServiceId=${encodeURIComponent(handoff.purchaseServiceId)}`
+          : `serviceId=${encodeURIComponent(handoff.serviceId)}`
+      }`
+    : "";
+
   return (
     <iframe
       ref={iframeRef}
@@ -88,7 +112,12 @@ export function AgendaFrame() {
       // arrancar —la pantalla donde estaba antes de recargar, o la última
       // vista elegida—. Apuntando a "/dia" esa decisión no corría nunca y la
       // agenda volvía siempre al día de hoy (Pia, 2026-09-16).
-      src={`${AGENDA_URL}/?embed=1`}
+      //
+      // La EXCEPCIÓN es un handoff pendiente: ahí vamos directo a "/dia" a
+      // propósito, para no depender de esa decisión — un "A agendar" tiene
+      // que abrir el turno nuevo sí o sí, no lo que el staff estaba mirando
+      // la última vez.
+      src={handoff ? `${AGENDA_URL}/dia?embed=1${handoffParams}` : `${AGENDA_URL}/?embed=1`}
       title="Agenda"
       className="h-full w-full border-0"
     />

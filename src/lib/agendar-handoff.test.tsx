@@ -1,12 +1,17 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAgendarHandoff } from "./agendar-handoff";
+import { tomarAgendarPendiente, useAgendarHandoff } from "./agendar-handoff";
 
 const CRM_ORIGIN = "https://crm.piubella.test";
 
 beforeEach(() => vi.stubEnv("VITE_CRM_URL", `${CRM_ORIGIN}/`));
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.unstubAllEnvs();
+  // Drenarlo entre tests: es una variable de módulo, no un estado de React
+  // que testing-library resetee solo al desmontar.
+  tomarAgendarPendiente();
+});
 
 function App() {
   useAgendarHandoff();
@@ -35,6 +40,32 @@ describe("useAgendarHandoff", () => {
     mandar({ type: "piubella:crm:agendar", customerId: "c1", serviceId: "s1" });
 
     expect(await screen.findByText("pantalla agenda")).toBeInTheDocument();
+  });
+
+  it("también abre la agenda cuando el CRM pide una línea de depilación", async () => {
+    // Una línea de depilación no manda `serviceId`: manda `purchaseServiceId`,
+    // la línea de la que sale el turno.
+    render(
+      <MemoryRouter initialEntries={["/crm"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    mandar({ type: "piubella:crm:agendar", customerId: "c1", purchaseServiceId: "cps-1" });
+
+    expect(await screen.findByText("pantalla agenda")).toBeInTheDocument();
+  });
+
+  it("un mensaje sin customerId ni serviceId/purchaseServiceId no navega a ciegas", () => {
+    render(
+      <MemoryRouter initialEntries={["/crm"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    mandar({ type: "piubella:crm:agendar" });
+
+    expect(screen.getByText("pantalla CRM")).toBeInTheDocument();
   });
 
   it("ignora el mensaje que viene de otro origin", () => {
@@ -74,5 +105,27 @@ describe("useAgendarHandoff", () => {
     mandar({ type: "piubella:crm:agendar" });
 
     expect(screen.getByText("pantalla CRM")).toBeInTheDocument();
+  });
+});
+
+describe("tomarAgendarPendiente", () => {
+  it("entrega exactamente lo que mandó el CRM, y lo borra al leerlo", async () => {
+    render(
+      <MemoryRouter initialEntries={["/crm"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    mandar({ type: "piubella:crm:agendar", customerId: "c1", purchaseServiceId: "cps-1" });
+    await screen.findByText("pantalla agenda");
+
+    expect(tomarAgendarPendiente()).toEqual({ customerId: "c1", purchaseServiceId: "cps-1" });
+    // Ya se consumió: `AgendaFrame` no puede volver a abrirlo sin que el CRM
+    // lo vuelva a pedir.
+    expect(tomarAgendarPendiente()).toBeNull();
+  });
+
+  it("sin ningún pedido pendiente, null", () => {
+    expect(tomarAgendarPendiente()).toBeNull();
   });
 });
