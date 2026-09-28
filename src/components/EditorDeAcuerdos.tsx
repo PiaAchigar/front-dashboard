@@ -28,6 +28,10 @@ export function EditorDeAcuerdos({
   tiposDePago,
   pieDeFila,
   nota,
+  etiquetaTipoDePago = "Tipo de pago",
+  etiquetaTarifa,
+  deshabilitarAgregar = false,
+  motivoDeshabilitarAgregar,
 }: {
   filas: FilaDeAcuerdo[];
   onChange: (filas: FilaDeAcuerdo[]) => void;
@@ -37,6 +41,22 @@ export function EditorDeAcuerdos({
   pieDeFila?: (fila: FilaDeAcuerdo) => ReactNode;
   /** Texto fijo bajo el desplegable. Lo usa Depilación para explicar el porcentaje. */
   nota?: ReactNode;
+  /** Las etiquetas de los dos campos de plata. Por defecto las de Servicios;
+   *  Depilación las pide en el idioma de Laura ("Cómo cobra" / "Cuánto cobra"),
+   *  que es el que usa el resto de esa pantalla. */
+  etiquetaTipoDePago?: string;
+  /** Sin esto la etiqueta de la tarifa alterna entre "Tarifa (%)" y
+   *  "Tarifa ($)" según el tipo de pago elegido. Quien no ofrece porcentaje
+   *  —Depilación— no necesita esa alternancia y puede fijar el texto. */
+  etiquetaTarifa?: string;
+  /** Apaga el botón de agregar. Depilación lo usa mientras no haya ningún
+   *  equipo cargado: habilitar a alguien sin equipo no la hace aparecer con
+   *  horarios. */
+  deshabilitarAgregar?: boolean;
+  /** Qué elemento explica el `disabled` de arriba, para `aria-describedby`.
+   *  Un botón apagado sin motivo anunciado no se puede entender con lector de
+   *  pantalla. */
+  motivoDeshabilitarAgregar?: string;
 }): JSX.Element {
   const patch = (i: number, p: Partial<FilaDeAcuerdo>) =>
     onChange(filas.map((x, idx) => (idx === i ? { ...x, ...p } : x)));
@@ -70,7 +90,7 @@ export function EditorDeAcuerdos({
                     ))}
                   </Select>
                 </Field>
-                <Field label="Tipo de pago">
+                <Field label={etiquetaTipoDePago}>
                   <Select
                     value={a.paymentType}
                     onChange={(e) => patch(i, { paymentType: e.target.value })}
@@ -83,7 +103,12 @@ export function EditorDeAcuerdos({
                     ))}
                   </Select>
                 </Field>
-                <Field label={a.paymentType === "percentage" ? "Tarifa (%)" : "Tarifa ($)"}>
+                <Field
+                  label={
+                    etiquetaTarifa ??
+                    (a.paymentType === "percentage" ? "Tarifa (%)" : "Tarifa ($)")
+                  }
+                >
                   <TextInput
                     inputMode="numeric"
                     value={a.rate}
@@ -108,10 +133,12 @@ export function EditorDeAcuerdos({
       <div className="flex justify-end">
         <button
           type="button"
+          disabled={deshabilitarAgregar}
+          aria-describedby={motivoDeshabilitarAgregar}
           onClick={() =>
             onChange([...filas, { serviceProviderId: "", paymentType: "", rate: "" }])
           }
-          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-surface-highest disabled:text-ink-soft"
         >
           <Plus size={15} />
           Agregar proveedora

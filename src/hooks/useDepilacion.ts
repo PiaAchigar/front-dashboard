@@ -124,6 +124,16 @@ export type DepilacionConfigInput = {
   packRoundingBase: number;
 };
 
+/** Lo que devuelve el `GET /config`: la aritmética de precios MÁS dos datos que
+ *  no le incumben a `DepilationConfig` y que la pantalla de Configuración sí
+ *  necesita — cuál es el servicio ancla (para leer y guardar sus acuerdos) y
+ *  cuántas sesiones ya compradas están esperando turno. El backend los agrega
+ *  en la respuesta, no en el tipo del motor de precios. */
+export type DepilacionConfigResponse = DepilationConfig & {
+  anchorServiceId: string | null;
+  sesionesEsperandoTurno: number;
+};
+
 /** GET /config: la forma ANIDADA que consume directamente `calcularPrecioCombo`. */
 export function useDepilacionConfig() {
   const { session } = useAuth();
@@ -131,7 +141,7 @@ export function useDepilacionConfig() {
 
   return useQuery({
     queryKey: CONFIG_KEY,
-    queryFn: () => apiFetch<DepilationConfig>("/api/agenda/depilacion/config", token),
+    queryFn: () => apiFetch<DepilacionConfigResponse>("/api/agenda/depilacion/config", token),
     enabled: !!token,
     staleTime: 60 * 1000,
   });
@@ -149,7 +159,34 @@ export function useGuardarConfig() {
         method: "PUT",
         body: JSON.stringify(input),
       }),
-    onSuccess: (data) => qc.setQueryData(CONFIG_KEY, data),
+    // Merge y no reemplazo: la respuesta del PUT es sólo `DepilationConfig`,
+    // sin `anchorServiceId` ni `sesionesEsperandoTurno`. Pisar la entrada
+    // entera del cache con ella le dejaba la config sin el id del servicio
+    // ancla a cualquier pantalla montada (Comisión se quedaba sin poder
+    // guardar acuerdos después de que alguien guardara Precios) hasta el
+    // siguiente refetch.
+    onSuccess: (data) =>
+      qc.setQueryData<DepilacionConfigResponse>(CONFIG_KEY, (prev) =>
+        prev ? { ...prev, ...data } : undefined,
+      ),
+  });
+}
+
+/** GET /turnos-futuros: cuántos turnos de depilación sin cerrar tiene cada
+ *  proveedora. Es lo que se muestra ANTES de dejar sacar a alguien — avisa,
+ *  no bloquea. */
+export type TurnosFuturosDeProveedora = { providerId: string; turnos: number };
+
+export function useTurnosFuturosDeDepilacion() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+
+  return useQuery({
+    queryKey: ["depilacion", "turnos-futuros"],
+    queryFn: () =>
+      apiFetch<TurnosFuturosDeProveedora[]>("/api/agenda/depilacion/turnos-futuros", token),
+    enabled: !!token,
+    staleTime: 60 * 1000,
   });
 }
 
