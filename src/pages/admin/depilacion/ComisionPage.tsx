@@ -47,6 +47,26 @@ function esTipoDePago(valor: string): valor is TipoDePago {
   return valor === "fixed_per_service" || valor === "per_hour";
 }
 
+/**
+ * La tarifa escrita a la argentina, en pesos.
+ *
+ * `Number("20.000")` es **20**, no veinte mil — y esta misma pantalla le enseña
+ * a Laura la notación que rompe el campo, porque `traduccionDeTarifa` formatea
+ * "$20.000" con punto de miles. Cargar $20 creyendo que se cargaron $20.000 no
+ * es un error de tipeo recuperable: es una comisión mil veces menor que se
+ * congela en `provider_earning` al marcar la sesión como realizada.
+ *
+ * Vive acá y NO en `EditorDeAcuerdos` a propósito. En Comisión los dos tipos de
+ * pago son pesos enteros, así que un punto sólo puede ser separador de miles y
+ * se saca sin ambigüedad. En Servicios existe `percentage`, donde "12.5" es
+ * doce y medio por ciento legítimo: tocar el parseo compartido lo rompería.
+ */
+export function montoEnPesos(texto: string): number {
+  // La coma sí es decimal en es-AR, así que se conserva como punto decimal.
+  const normalizado = texto.replace(/[.\s\u00a0]/g, "").replace(",", ".");
+  return Number(normalizado);
+}
+
 export function ComisionPage() {
   const { role } = useAuth();
   const puedeEditar = can(role as Role | null, "catalogo", "manage");
@@ -346,7 +366,15 @@ function BloqueDeProveedoras({
         quitada && turnos > 0
           ? `${nombreDe(quitada.serviceProviderId)} tiene ${turnos} ${
               turnos === 1 ? "turno" : "turnos"
-            } de depilación sin completar. Si guardás así, esos turnos quedan sin proveedora y hay que reasignarlos a mano.`
+            } de depilación sin completar. Si guardás así, ${
+              turnos === 1 ? "ese turno se queda" : "esos turnos se quedan"
+            } sin acuerdo vigente: cuando ${
+              turnos === 1 ? "lo marquen" : "los marquen"
+            } como realizado${turnos === 1 ? "" : "s"}, no se le va a liquidar nada a ${nombreDe(
+              quitada.serviceProviderId,
+            )} y ${turnos === 1 ? "ni siquiera va" : "ni siquiera van"} a aparecer en la liquidación del mes. ${
+              turnos === 1 ? "Sacala recién cuando ese turno esté cerrado" : "Sacala recién cuando esos turnos estén cerrados"
+            }.`
           : null,
       );
     }
@@ -383,9 +411,30 @@ function BloqueDeProveedoras({
       if (!f.paymentType) {
         return `Falta indicar cómo cobra ${nombre}: una proveedora habilitada sin forma de cobrar factura $0.`;
       }
-      const monto = Number(f.rate);
+      // Un acuerdo viejo por porcentaje no aparece en el desplegable, así que
+      // el <select> cae en el índice 0 y muestra "—" mientras el estado sigue
+      // diciendo "percentage". Sin esta rama la fila se ve vacía, la pantalla
+      // no marca nada, y el 400 del servidor llega hablando de un porcentaje
+      // que Laura nunca eligió.
+      if (!esTipoDePago(f.paymentType)) {
+        return `El acuerdo de ${nombre} está cargado por porcentaje, y en depilación el porcentaje daría $0: lo que se vende es el pack, no el servicio. Elegile monto fijo por sesión o por hora.`;
+      }
+      const monto = montoEnPesos(f.rate);
       if (!f.rate.trim() || !Number.isFinite(monto) || monto <= 0) {
         return `Falta indicar cuánto cobra ${nombre}: con la tarifa vacía o en cero, cada sesión se le paga $0.`;
+      }
+      // Sin equipo tildado la proveedora queda habilitada y cobrando, pero la
+      // disponibilidad cruza los equipos del servicio con su certificación: la
+      // intersección da vacío y no aparece ni un turno libre. Es el modo de
+      // falla más confuso posible, porque todo parece cargado y el toast sale
+      // verde. Mientras el GET de certificaciones está en vuelo no se valida:
+      // ahí `tildadas()` devuelve [] porque todavía no sabe, no porque no haya.
+      if (
+        equipos.length > 0 &&
+        !cargandoCertificaciones &&
+        tildadas(f.serviceProviderId).length === 0
+      ) {
+        return `Falta tildar con qué equipo trabaja ${nombre}: sin certificación no hay disponibilidad, así que no va a aparecer con horarios y no se le puede agendar ni una sesión.`;
       }
     }
     return null;
@@ -404,7 +453,7 @@ function BloqueDeProveedoras({
         agreements: filas.map((f) => ({
           serviceProviderId: f.serviceProviderId,
           paymentType: f.paymentType,
-          rate: Number(f.rate),
+          rate: montoEnPesos(f.rate),
         })),
       });
 
@@ -492,13 +541,28 @@ function BloqueDeProveedoras({
         etiquetaTarifa="Cuánto cobra ($)"
         deshabilitarAgregar={sinEquipos}
         motivoDeshabilitarAgregar={sinEquipos ? MOTIVO_SIN_EQUIPOS_ID : undefined}
+        // `catalogo:view`/`edit` incluyen a `operator`, así que la recepcionista
+        // llega a esta pestaña con dos clicks. Ve el dato —sólo lectura no es lo
+        // mismo que invisible— pero sin esto podía cambiar tarifas y quitar
+        // proveedoras durante un rato largo para descubrir después que no hay
+        // botón de Guardar y que todo lo que tocó se tira.
+        soloLectura={!puedeEditar}
         nota={NOTA_PORCENTAJE}
         pieDeFila={(fila) => {
           const traduccion = esTipoDePago(fila.paymentType)
-            ? traduccionDeTarifa(fila.paymentType, Number(fila.rate))
+            ? traduccionDeTarifa(fila.paymentType, montoEnPesos(fila.rate))
             : null;
+          const porcentajeViejo = fila.paymentType !== "" && !esTipoDePago(fila.paymentType);
           return (
             <div className="space-y-1.5">
+              {/* El aviso por fila que pedía el spec §5.2: sin esto la fila se
+                  ve con "Cómo cobra" vacío y nada explica por qué. */}
+              {porcentajeViejo && (
+                <p className="rounded bg-amber-50 px-2 py-1 text-amber-900">
+                  ⚠ Este acuerdo está cargado por porcentaje, que en depilación no se puede
+                  usar. Elegile monto fijo por sesión o por hora antes de guardar.
+                </p>
+              )}
               {traduccion && <p>{traduccion}</p>}
               {fila.serviceProviderId && equipos.length > 0 && (
                 <div>
@@ -520,6 +584,13 @@ function BloqueDeProveedoras({
           );
         }}
       />
+
+      {!puedeEditar && (
+        <p className="text-xs text-ink-soft">
+          Esto es sólo lectura: las comisiones de depilación las edita quien administra el
+          catálogo.
+        </p>
+      )}
 
       {puedeEditar && (
         <div className="flex items-center justify-end gap-3">

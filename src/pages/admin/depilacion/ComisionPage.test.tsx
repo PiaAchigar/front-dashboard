@@ -356,9 +356,13 @@ describe("ComisionPage", () => {
   // desapareciera de la agenda de HIFU.
   it("al guardar no toca las máquinas que la proveedora usa en otras áreas", async () => {
     const user = userEvent.setup();
-    mockEquipos([CRYSTAL]);
+    // Dos equipos de depilación y Romina certificada en los dos: destildar la
+    // Crystal la deja con la Soprano, que es lo que hace que este test pruebe
+    // el arrastre de certificaciones y no la validación de "sin equipo no se
+    // guarda" (que tiene su propio test más abajo).
+    mockEquipos([CRYSTAL, SOPRANO]);
     mockAcuerdos([ROMINA_ACUERDO]);
-    mockMaquinasDeProveedora("p1", [CRYSTAL, HIFU]);
+    mockMaquinasDeProveedora("p1", [CRYSTAL, SOPRANO, HIFU]);
     render(<ComisionPage />, { wrapper: Wrapper });
     await screen.findByText("Romina");
 
@@ -511,5 +515,204 @@ describe("ComisionPage", () => {
     render(<ComisionPage />, { wrapper: Wrapper });
     await screen.findByText("Romina");
     expect(screen.queryByRole("button", { name: /Guardar/i })).not.toBeInTheDocument();
+  });
+
+  // ── Revisión final ────────────────────────────────────────────────────────
+
+  // F5 + F4. La acción más frecuente de esta pantalla —cambiarle la comisión a
+  // alguien— no tenía un solo test. El único que miraba el body afirmaba
+  // exactamente el fixture (`fixed_per_service` / 20000), así que una
+  // implementación que mandara una constante, o el acuerdo VIEJO ignorando lo
+  // que Laura escribió, pasaba la suite entera. El síntoma en producción sería
+  // que Laura sube una comisión, ve el toast verde, y se sigue liquidando la
+  // vieja.
+  it("guardar manda la comisión EDITADA, no la que vino del servidor", async () => {
+    const user = userEvent.setup();
+    render(<ComisionPage />, { wrapper: Wrapper });
+    await screen.findByText("Romina");
+
+    // Los dos campos cambian, y a valores que no están en ningún fixture.
+    await user.selectOptions(campoComoCobra(), "per_hour");
+    await user.clear(campoCuanto());
+    await user.type(campoCuanto(), "35000");
+    await user.click(botonGuardar());
+
+    await waitFor(() => expect(llamada(/\/agreements$/, "PUT")).toBeTruthy());
+    expect(llamada(/\/agreements$/, "PUT")!.body).toEqual({
+      agreements: [{ serviceProviderId: "p1", paymentType: "per_hour", rate: 35000 }],
+    });
+  });
+
+  it("guardar una proveedora nueva manda lo que se cargó en su fila", async () => {
+    const user = userEvent.setup();
+    mockEquipos([CRYSTAL]);
+    mockAcuerdos([]);
+    render(<ComisionPage />, { wrapper: Wrapper });
+    await screen.findByRole("button", { name: /Agregar proveedora/i });
+
+    await user.click(screen.getByRole("button", { name: /Agregar proveedora/i }));
+    await user.selectOptions(screen.getByLabelText("Proveedora"), "p2");
+    await user.selectOptions(campoComoCobra(), "fixed_per_service");
+    await user.type(campoCuanto(), "18000");
+    await user.click(await screen.findByLabelText(/Crystal/));
+    await user.click(botonGuardar());
+
+    await waitFor(() => expect(llamada(/\/agreements$/, "PUT")).toBeTruthy());
+    expect(llamada(/\/agreements$/, "PUT")!.body).toEqual({
+      agreements: [{ serviceProviderId: "p2", paymentType: "fixed_per_service", rate: 18000 }],
+    });
+  });
+
+  // G2 (spec §7, primera fila). Sin equipo tildado la proveedora queda
+  // habilitada y cobrando, pero `loadAvailabilityContext` cruza los equipos del
+  // servicio con su certificación: la intersección da vacío y no hay ni un
+  // turno libre. Laura carga a Ana, ve el toast verde, se va a agendar las
+  // sesiones ya pagas y no encuentra un solo horario, sin ningún error que lo
+  // explique.
+  it("no guarda una proveedora sin ningún equipo tildado, y lo dice con esas palabras", async () => {
+    const user = userEvent.setup();
+    mockEquipos([CRYSTAL]);
+    mockAcuerdos([]);
+    render(<ComisionPage />, { wrapper: Wrapper });
+    await screen.findByRole("button", { name: /Agregar proveedora/i });
+
+    await user.click(screen.getByRole("button", { name: /Agregar proveedora/i }));
+    await user.selectOptions(screen.getByLabelText("Proveedora"), "p2");
+    await user.selectOptions(campoComoCobra(), "fixed_per_service");
+    await user.type(campoCuanto(), "20000");
+    // Sin tildar ningún equipo.
+    await user.click(botonGuardar());
+
+    expect(await screen.findByText(/Falta tildar con qué equipo trabaja Ana/i)).toBeInTheDocument();
+    expect(screen.getByText(/no va a aparecer con horarios/i)).toBeInTheDocument();
+    // Y sobre todo: nada salió a la red. Ni el PUT de acuerdos.
+    expect(escrituras()).toHaveLength(0);
+  });
+
+  it("destildar el último equipo de una proveedora ya guardada tampoco se guarda", async () => {
+    const user = userEvent.setup();
+    mockEquipos([CRYSTAL]);
+    mockAcuerdos([ROMINA_ACUERDO]);
+    mockMaquinasDeProveedora("p1", [CRYSTAL]);
+    render(<ComisionPage />, { wrapper: Wrapper });
+    await screen.findByText("Romina");
+
+    await user.click(await screen.findByLabelText(/Crystal/));
+    await user.click(botonGuardar());
+
+    expect(
+      await screen.findByText(/Falta tildar con qué equipo trabaja Romina/i),
+    ).toBeInTheDocument();
+    expect(escrituras()).toHaveLength(0);
+  });
+
+  // G3. El aviso viejo decía que los turnos "quedan sin proveedora y hay que
+  // reasignarlos a mano". Las dos cláusulas eran falsas: `setServiceAgreements`
+  // sólo toca `service_provider_service`, los turnos conservan su
+  // `service_provider_id`. Lo que sí pasa —y el aviso callaba— es de plata:
+  // cerrado el acuerdo, `getActiveAgreement` devuelve null, `gananciaDelTurno`
+  // no calcula, `provider_earning` queda NULL congelado, y
+  // `getCommissionsReport` filtra `providerEarning != null`. El turno no se
+  // liquida en $0: desaparece de la liquidación.
+  it("el aviso de sacar una proveedora habla de la liquidación, no de reasignar turnos", async () => {
+    const user = userEvent.setup();
+    mockEquipos([CRYSTAL]);
+    mockAcuerdos([ROMINA_ACUERDO]);
+    mockTurnosFuturos([{ providerId: "p1", turnos: 4 }]);
+    render(<ComisionPage />, { wrapper: Wrapper });
+    await screen.findByText("Romina");
+
+    await user.click(screen.getByRole("button", { name: /Quitar/i }));
+
+    const aviso = await screen.findByText(/4 turnos de depilación sin completar/i);
+    expect(aviso).toHaveTextContent(/no se le va a liquidar nada a Romina/i);
+    expect(aviso).toHaveTextContent(/ni siquiera van a aparecer en la liquidación/i);
+    // Y ya no dice lo que no pasa.
+    expect(aviso).not.toHaveTextContent(/sin proveedora/i);
+    expect(aviso).not.toHaveTextContent(/reasignar/i);
+  });
+
+  // G4. `Number("20.000")` es 20. Y esta misma pantalla formatea "$20.000" con
+  // punto de miles en el pie de fila, o sea le enseña a Laura la notación que
+  // rompía el campo: cargaría $20 por sesión creyendo que cargó $20.000.
+  it("la tarifa escrita a la argentina (20.000) se guarda como veinte mil", async () => {
+    const user = userEvent.setup();
+    render(<ComisionPage />, { wrapper: Wrapper });
+    await screen.findByText("Romina");
+
+    await user.clear(campoCuanto());
+    await user.type(campoCuanto(), "20.000");
+    await user.click(botonGuardar());
+
+    await waitFor(() => expect(llamada(/\/agreements$/, "PUT")).toBeTruthy());
+    expect(llamada(/\/agreements$/, "PUT")!.body).toEqual({
+      agreements: [{ serviceProviderId: "p1", paymentType: "fixed_per_service", rate: 20000 }],
+    });
+  });
+
+  it("el pie de fila traduce 20.000 como veinte mil, no como veinte", async () => {
+    const user = userEvent.setup();
+    render(<ComisionPage />, { wrapper: Wrapper });
+    await screen.findByText("Romina");
+
+    await user.clear(campoCuanto());
+    await user.type(campoCuanto(), "20.000");
+
+    expect(
+      await screen.findByText(/Cada sesión paga \$20\.000, dure lo que dure\./),
+    ).toBeInTheDocument();
+  });
+
+  // G6. `catalogo:view`/`edit` incluyen a `operator`, así que la recepcionista
+  // llega a esta pestaña con dos clicks y el GET de acuerdos le contesta. Ver
+  // el dato está bien; lo que no puede pasar es que edite tarifas y quite
+  // proveedoras durante un rato para descubrir después que no hay Guardar.
+  it("un rol sin permiso de manage no puede editar las tarifas ni quitar proveedoras", async () => {
+    mockRole = "operator";
+    render(<ComisionPage />, { wrapper: Wrapper });
+    await screen.findByText("Romina");
+
+    expect(campoComoCobra()).toBeDisabled();
+    expect(campoCuanto()).toBeDisabled();
+    expect(screen.getByLabelText("Proveedora")).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Quitar/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Agregar proveedora/i })).toBeDisabled();
+    expect(screen.getByText(/sólo lectura/i)).toBeInTheDocument();
+  });
+
+  // G7 (spec §5.2). El <select> recibe `value="percentage"`, que no está entre
+  // sus <option>, así que el DOM cae en `selectedIndex 0` y muestra "—" mientras
+  // el estado interno sigue diciendo "percentage". Sin aviso, Laura ve un campo
+  // vacío, la pantalla no le marca nada, y al guardar le llega un 400 sobre
+  // porcentajes que ella nunca eligió.
+  it("una fila cargada por porcentaje se muestra con su aviso", async () => {
+    mockEquipos([CRYSTAL]);
+    mockAcuerdos([
+      { serviceProviderId: "p1", providerName: "Romina", paymentType: "percentage", rate: 40 },
+    ]);
+    render(<ComisionPage />, { wrapper: Wrapper });
+    await screen.findByText("Romina");
+
+    expect(
+      await screen.findByText(/está cargado por porcentaje, que en depilación no se puede usar/i),
+    ).toBeInTheDocument();
+  });
+
+  it("no deja guardar una fila cargada por porcentaje, y no manda el PUT", async () => {
+    const user = userEvent.setup();
+    mockEquipos([CRYSTAL]);
+    mockAcuerdos([
+      { serviceProviderId: "p1", providerName: "Romina", paymentType: "percentage", rate: 40 },
+    ]);
+    mockMaquinasDeProveedora("p1", [CRYSTAL]);
+    render(<ComisionPage />, { wrapper: Wrapper });
+    await screen.findByText("Romina");
+
+    await user.click(botonGuardar());
+
+    expect(
+      await screen.findByText(/El acuerdo de Romina está cargado por porcentaje/i),
+    ).toBeInTheDocument();
+    expect(escrituras()).toHaveLength(0);
   });
 });
