@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -8,6 +9,30 @@ const TIPOS_TRES = [
   { value: "percentage" as const, label: "Porcentaje (%)" },
   { value: "fixed_per_service" as const, label: "Fijo por servicio" },
 ];
+
+/** Envoltorio con estado real, para probar `patch` de punta a punta: sin esto
+ *  cada `onChange` se verifica contra la prop `filas` fija con la que se
+ *  montó el test, no contra lo que el usuario ya tipeó, y no detecta un
+ *  índice equivocado ni una propagación a medias. */
+function EditorConEstado({
+  initial,
+  proveedoras,
+  tiposDePago,
+}: {
+  initial: FilaDeAcuerdo[];
+  proveedoras: { id: string; fullName: string | null }[];
+  tiposDePago: typeof TIPOS_TRES;
+}) {
+  const [filas, setFilas] = useState(initial);
+  return (
+    <EditorDeAcuerdos
+      filas={filas}
+      onChange={setFilas}
+      proveedoras={proveedoras}
+      tiposDePago={tiposDePago}
+    />
+  );
+}
 
 describe("EditorDeAcuerdos", () => {
   it("ofrece exactamente los tipos de pago que recibe", async () => {
@@ -127,5 +152,118 @@ describe("EditorDeAcuerdos", () => {
     );
     await userEvent.click(screen.getByTitle("Quitar proveedora"));
     expect(onChange).toHaveBeenCalledWith([]);
+  });
+
+  describe("propagación de ediciones (patch)", () => {
+    const DOS_FILAS: FilaDeAcuerdo[] = [
+      { serviceProviderId: "p1", paymentType: "per_hour", rate: "100" },
+      { serviceProviderId: "p2", paymentType: "per_hour", rate: "200" },
+    ];
+    const PROVEEDORAS = [
+      { id: "p1", fullName: "Romina" },
+      { id: "p2", fullName: "Laura" },
+    ];
+
+    it("editar la tarifa de la fila 2 no toca la fila 1 (protege contra off-by-one en el índice)", async () => {
+      render(
+        <EditorConEstado
+          initial={DOS_FILAS}
+          proveedoras={PROVEEDORAS}
+          tiposDePago={TIPOS_TRES}
+        />,
+      );
+      const tarifas = screen.getAllByPlaceholderText("0");
+      expect(tarifas).toHaveLength(2);
+
+      await userEvent.clear(tarifas[1]);
+      await userEvent.type(tarifas[1], "250");
+
+      expect(tarifas[0]).toHaveValue("100");
+      expect(tarifas[1]).toHaveValue("250");
+    });
+
+    it("editar la proveedora de una fila se propaga (select)", async () => {
+      render(
+        <EditorConEstado
+          initial={[{ serviceProviderId: "", paymentType: "per_hour", rate: "100" }]}
+          proveedoras={PROVEEDORAS}
+          tiposDePago={TIPOS_TRES}
+        />,
+      );
+      await userEvent.selectOptions(screen.getByLabelText("Proveedora"), "p2");
+      expect(screen.getByLabelText("Proveedora")).toHaveValue("p2");
+    });
+
+    it("editar el tipo de pago de una fila se propaga (select) y actualiza la etiqueta de tarifa", async () => {
+      render(
+        <EditorConEstado
+          initial={[{ serviceProviderId: "p1", paymentType: "per_hour", rate: "100" }]}
+          proveedoras={PROVEEDORAS}
+          tiposDePago={TIPOS_TRES}
+        />,
+      );
+      expect(screen.getByText("Tarifa ($)")).toBeInTheDocument();
+      await userEvent.selectOptions(screen.getByLabelText("Tipo de pago"), "percentage");
+      expect(screen.getByLabelText("Tipo de pago")).toHaveValue("percentage");
+      expect(screen.getByText("Tarifa (%)")).toBeInTheDocument();
+    });
+
+    it("editar la tarifa de la única fila se propaga (input)", async () => {
+      render(
+        <EditorConEstado
+          initial={[{ serviceProviderId: "p1", paymentType: "per_hour", rate: "100" }]}
+          proveedoras={PROVEEDORAS}
+          tiposDePago={TIPOS_TRES}
+        />,
+      );
+      const tarifa = screen.getByPlaceholderText("0");
+      await userEvent.clear(tarifa);
+      await userEvent.type(tarifa, "999");
+      expect(tarifa).toHaveValue("999");
+    });
+
+    it("agregar una fila deja las existentes intactas y la nueva vacía", async () => {
+      render(
+        <EditorConEstado
+          initial={DOS_FILAS}
+          proveedoras={PROVEEDORAS}
+          tiposDePago={TIPOS_TRES}
+        />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: /agregar proveedora/i }));
+
+      const tarifas = screen.getAllByPlaceholderText("0");
+      expect(tarifas).toHaveLength(3);
+      expect(tarifas[0]).toHaveValue("100");
+      expect(tarifas[1]).toHaveValue("200");
+      expect(tarifas[2]).toHaveValue("");
+
+      const proveedoraSelects = screen.getAllByLabelText("Proveedora");
+      expect(proveedoraSelects[2]).toHaveValue("");
+    });
+
+    it("quitar la fila del medio saca sólo esa", async () => {
+      const TRES_FILAS: FilaDeAcuerdo[] = [
+        { serviceProviderId: "p1", paymentType: "per_hour", rate: "100" },
+        { serviceProviderId: "p2", paymentType: "per_hour", rate: "200" },
+        { serviceProviderId: "p1", paymentType: "fixed_per_service", rate: "300" },
+      ];
+      render(
+        <EditorConEstado
+          initial={TRES_FILAS}
+          proveedoras={PROVEEDORAS}
+          tiposDePago={TIPOS_TRES}
+        />,
+      );
+      const botonesQuitar = screen.getAllByTitle("Quitar proveedora");
+      expect(botonesQuitar).toHaveLength(3);
+
+      await userEvent.click(botonesQuitar[1]);
+
+      const tarifas = screen.getAllByPlaceholderText("0");
+      expect(tarifas).toHaveLength(2);
+      expect(tarifas[0]).toHaveValue("100");
+      expect(tarifas[1]).toHaveValue("300");
+    });
   });
 });
