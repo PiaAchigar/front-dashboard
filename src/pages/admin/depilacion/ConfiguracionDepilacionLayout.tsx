@@ -12,7 +12,7 @@ const SUBNAV = [
  * pestañas grandes — una segunda barra de navegación propia sería otro
  * componente que mantener para la misma decisión de siempre.
  */
-export function ConfiguracionLayout() {
+export function ConfiguracionDepilacionLayout() {
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 px-4 pt-3 sm:px-6">
