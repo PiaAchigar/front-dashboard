@@ -823,49 +823,9 @@ function PreciosForm({
           </div>
         </section>
 
-        <section className="space-y-4">
-          <h2 className="font-display text-lg text-ink">Pack de sesiones (por defecto)</h2>
-          <p className="text-xs text-ink-soft">
-            Descuento por pagar varias sesiones del mismo combo juntas. Es el valor que se usa
-            cuando cotizás zonas sueltas en el momento, y el que heredan los combos que no
-            definen el suyo. Un combo puede tener uno propio desde la solapa Combos.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Field
-              label="Sesiones"
-              help="Cuántas sesiones trae un pack. El precio parte de multiplicar el total del combo por este número, y recién después se aplica el descuento."
-            >
-              <TextInput
-                inputMode="numeric"
-                disabled={!canManage}
-                value={form.packSessions}
-                onChange={(e) => set("packSessions", e.target.value)}
-              />
-            </Field>
-            <Field
-              label="Descuento (%)"
-              help="Cuánto se le descuenta al pack por pagar todas las sesiones juntas. Con 15, un pack que costaría $54.000 sueltas pasa a $45.900 antes del redondeo."
-            >
-              <TextInput
-                inputMode="numeric"
-                disabled={!canManage}
-                value={form.packDiscountPercentage}
-                onChange={(e) => set("packDiscountPercentage", e.target.value)}
-              />
-            </Field>
-            <Field
-              label="Redondeo del pack ($)"
-              help="El precio del pack se redondea al múltiplo más cercano de este monto, para no cobrar cifras raras. Con 1000, $45.900 se cobra $46.000."
-            >
-              <TextInput
-                inputMode="numeric"
-                disabled={!canManage}
-                value={form.packRoundingBase}
-                onChange={(e) => set("packRoundingBase", e.target.value)}
-              />
-            </Field>
-          </div>
-        </section>
+        {/* Los packs se administran en su propia pestaña (/admin/depilacion/packs).
+            Los tres campos SIGUEN en el estado y en el PUT: este formulario manda la
+            config entera, así que sacarlos del estado los guardaría vacíos. */}
 
         {formError && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{formError}</p>
@@ -1005,8 +965,8 @@ function PreciosForm({
             Combos.
           </p>
           <p className="text-xs text-ink-soft">
-            Ahí mismo, cada combo puede además definir su propio pack de sesiones —otra cantidad
-            y otro descuento— en vez de heredar el de acá arriba.
+            Ahí mismo, cada combo puede además definir su propia cantidad de sesiones y su propio
+            descuento, en vez de heredar los valores por defecto de la pestaña Packs.
           </p>
           {cuerpoFullCargando ? (
             <p className="text-sm text-ink-soft">Cargando…</p>

@@ -245,6 +245,38 @@ describe("PreciosPage", () => {
     });
   });
 
+  // Task 8 (SDD 2026-09-28-configuracion-de-depilacion): la sección "Pack de
+  // sesiones (por defecto)" sale del render, se muda a su propia pestaña
+  // (Task 9). Este test es la mitad "se fue de la vista".
+  it("ya no muestra la sección de packs", async () => {
+    render(<PreciosPage />, { wrapper });
+    await screen.findByTestId("preview-cavado-axila");
+    expect(screen.queryByText(/Pack de sesiones/i)).not.toBeInTheDocument();
+  });
+
+  // La otra mitad, y la que importa: el PUT manda la config ENTERA, no solo
+  // los campos visibles. Si alguien saca packSessions/packDiscountPercentage/
+  // packRoundingBase del *estado* del formulario (no solo del render), este
+  // test tiene que ponerse rojo — ese sería el bug que borra en silencio los
+  // packs que la dueña ya tenía configurados. Reusa el patrón real del
+  // archivo (variable `guardado`, poblada por `mockFetchOk` en el PUT) en vez
+  // de un mock nuevo: así ejercita el guardado real del formulario, no una
+  // función auxiliar.
+  it("sigue mandando los valores de packs al guardar aunque la sección no se vea", async () => {
+    const user = userEvent.setup();
+    render(<PreciosPage />, { wrapper });
+    await screen.findByTestId("preview-cavado-axila");
+
+    await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+    await waitFor(() => expect(guardado).not.toBeNull());
+    expect(guardado).toMatchObject({
+      packSessions: expect.anything(),
+      packDiscountPercentage: expect.anything(),
+      packRoundingBase: expect.anything(),
+    });
+  });
+
   it("pide el precio de lista para mujer y para hombre", async () => {
     render(<PreciosPage />, { wrapper });
     expect(await screen.findByLabelText(/precio.*grande.*mujer/i)).toBeInTheDocument();
@@ -299,40 +331,13 @@ describe("PreciosPage", () => {
     expect(screen.getByText(/afectan a todos los combos/i)).toBeInTheDocument();
   });
 
-  // Ronda de fixes 1 (Important): `packDiscountPercentage` es el único de los
-  // 19 campos donde 0 es un valor legítimo — un campo vacío o con basura no
-  // puede colarse como `0` y borrar el descuento del pack en silencio.
-  it("bloquea el guardado si el descuento del pack queda vacío, no manda 0 en silencio", async () => {
-    const user = userEvent.setup();
-    render(<PreciosPage />, { wrapper });
-    await screen.findByTestId("preview-cavado-axila");
-
-    const fetchMock = vi.mocked(fetch);
-    const callsAntes = fetchMock.mock.calls.length;
-
-    await user.clear(screen.getByLabelText(/descuento \(%\)/i));
-    await user.click(screen.getByRole("button", { name: /guardar/i }));
-
-    expect(
-      await screen.findByText("El descuento del pack tiene que ser un número entero entre 0 y 100."),
-    ).toBeInTheDocument();
-    // Ni un PUT: el guardado se cortó antes de tocar la red.
-    expect(fetchMock.mock.calls.length).toBe(callsAntes);
-  });
-
-  it("bloquea el guardado si el descuento del pack tiene basura (no un entero 0-100)", async () => {
-    const user = userEvent.setup();
-    render(<PreciosPage />, { wrapper });
-    await screen.findByTestId("preview-cavado-axila");
-
-    await user.clear(screen.getByLabelText(/descuento \(%\)/i));
-    await user.type(screen.getByLabelText(/descuento \(%\)/i), "abc");
-    await user.click(screen.getByRole("button", { name: /guardar/i }));
-
-    expect(
-      await screen.findByText("El descuento del pack tiene que ser un número entero entre 0 y 100."),
-    ).toBeInTheDocument();
-  });
+  // Task 8: las dos pruebas de validación del descuento del pack ("queda
+  // vacío" / "tiene basura") vivían acá porque el input "Descuento (%)"
+  // estaba en esta pantalla. Task 8 saca ese input del render (sigue en el
+  // estado, ver comentario en PreciosPage.tsx) — la validación sigue
+  // existiendo en `parseForm`, pero ya no hay forma de disparar un valor
+  // vacío o con basura desde ESTA pantalla, así que las pruebas se mudan con
+  // el input a la pestaña Packs (Task 9).
 
   // Ronda de fixes 2, punto 1 (Important): espejo de la validación de
   // no-inversión del backend. El caso concreto del revisor — priceFemaleGrande:
@@ -469,21 +474,13 @@ describe("PreciosPage", () => {
     expect(screen.getByTestId("preview-cuerpo-full")).toHaveTextContent("$65.000");
   });
 
-  // Ronda de fixes 1, punto 2(b): packSessions/packDiscountPercentage/
-  // packRoundingBase no tenían NINGÚN reflejo en la vista previa.
-  it("el pack de sesiones se mueve al cambiar el descuento del pack", async () => {
-    const user = userEvent.setup();
-    render(<PreciosPage />, { wrapper });
-
-    // calcularPrecioPack(36000, 3 ses., 15%) = 36000×3×0,85 = 91.800 → redondea a 92.000
-    expect(await screen.findByTestId("preview-pack")).toHaveTextContent("$92.000");
-
-    await user.clear(screen.getByLabelText(/descuento \(%\)/i));
-    await user.type(screen.getByLabelText(/descuento \(%\)/i), "20");
-
-    // 36000×3×0,80 = 86.400 → redondea a 86.000
-    expect(screen.getByTestId("preview-pack")).toHaveTextContent("$86.000");
-  });
+  // Task 8: esta prueba (Ronda de fixes 1, punto 2(b)) editaba el descuento
+  // del pack vía el input "Descuento (%)" para confirmar que la vista previa
+  // reaccionaba. Ese input se mudó a la pestaña Packs (Task 9); acá no queda
+  // forma de tocar `form.packDiscountPercentage` desde la UI. La vista previa
+  // en sí sigue viva y sigue leyendo `form.packSessions` / `packDiscountPercentage`
+  // / `packRoundingBase` (ver "explica la cuenta del pack..." más abajo), solo
+  // que ya no es editable desde acá.
 
   describe("panel explicativo", () => {
     it("muestra los tres pasos de la fórmula y dónde se edita cada uno", async () => {
