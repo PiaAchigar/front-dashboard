@@ -66,19 +66,13 @@ describe("DepilacionLayout", () => {
     expect(container.querySelectorAll(".overflow-y-auto")).toHaveLength(1);
   });
 
-  it("conserva las tres solapas de depilación", () => {
-    montar();
-    for (const nombre of ["Zonas", "Combos"]) {
-      expect(screen.getByRole("link", { name: nombre })).toBeInTheDocument();
-    }
-  });
-
-  it("Precios aclara que ahí adentro también se arman los packs", () => {
-    montar();
-    // Depilación es la única área sin solapa Packs propia: su pack se
-    // configura dentro de Precios y sin la aclaración nadie lo encuentra.
-    expect(screen.getByRole("link", { name: /^Precios/ })).toHaveTextContent(
-      "Precios(Packs)",
+  it("muestra las cuatro pestañas en orden", () => {
+    render(
+      <MemoryRouter initialEntries={["/admin/depilacion/zonas"]}>
+        <DepilacionLayout />
+      </MemoryRouter>,
     );
+    const pestañas = screen.getAllByRole("link").map((a) => a.textContent);
+    expect(pestañas).toEqual(["Configuración", "Zonas", "Packs", "Combos"]);
   });
 });

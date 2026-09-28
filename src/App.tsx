@@ -25,8 +25,11 @@ import { AreaLayout } from "./pages/admin/AreaLayout";
 import { ActividadesAdminPage } from "./pages/admin/ActividadesAdminPage";
 import { SubscriptionsAdminPage } from "./pages/admin/SubscriptionsAdminPage";
 import { DepilacionLayout } from "./pages/admin/depilacion/DepilacionLayout";
+import { ConfiguracionLayout as ConfiguracionDepilacionLayout } from "./pages/admin/depilacion/ConfiguracionLayout";
+import { ComisionPage } from "./pages/admin/depilacion/ComisionPage";
 import { ZonasPage } from "./pages/admin/depilacion/ZonasPage";
 import { PreciosPage } from "./pages/admin/depilacion/PreciosPage";
+import { PacksPage } from "./pages/admin/depilacion/PacksPage";
 import { CombosDepilacionPage } from "./pages/admin/depilacion/CombosDepilacionPage";
 import { SitioWebLayout } from "./pages/web/SitioWebLayout";
 import { VisiblesWebPage } from "./pages/web/VisiblesWebPage";
@@ -117,9 +120,21 @@ export default function App() {
                         />
                       }
                     />
+                    <Route path="configuracion" element={<ConfiguracionDepilacionLayout />}>
+                      <Route index element={<Navigate to="comision" replace />} />
+                      <Route path="comision" element={<ComisionPage />} />
+                      <Route path="precios" element={<PreciosPage />} />
+                    </Route>
                     <Route path="zonas" element={<ZonasPage />} />
-                    <Route path="precios" element={<PreciosPage />} />
+                    <Route path="packs" element={<PacksPage />} />
                     <Route path="combos" element={<CombosDepilacionPage />} />
+                    {/* La ruta vieja. `UltimaSolapa` recuerda la última pestaña abierta en
+                        localStorage, así que a quien tenía "Precios" abierta esta redirección
+                        es lo único que la salva de una pantalla en blanco. */}
+                    <Route
+                      path="precios"
+                      element={<Navigate to="/admin/depilacion/configuracion/precios" replace />}
+                    />
                   </Route>
                 </Route>
                 <Route path="facturacion" element={<BillerFrame />} />
