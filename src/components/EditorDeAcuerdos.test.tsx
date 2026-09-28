@@ -266,4 +266,37 @@ describe("EditorDeAcuerdos", () => {
       expect(tarifas[1]).toHaveValue("300");
     });
   });
+  // Ronda de arreglos 1, punto 6: `etiquetaTarifa` la fija la pantalla que usa
+  // el editor (Depilación le dice "Cuánto cobra" porque es el idioma del resto
+  // de esa pantalla), pero el porcentaje no es una preferencia de vocabulario:
+  // son puntos porcentuales, no pesos. Un llamador que fije la etiqueta Y
+  // ofrezca porcentaje vería un "($)" arriba de un 40 que no son pesos.
+  describe("etiqueta de la tarifa", () => {
+    it("el porcentaje le gana a la etiqueta que fija la pantalla", () => {
+      render(
+        <EditorDeAcuerdos
+          filas={[{ serviceProviderId: "p1", paymentType: "percentage", rate: "40" }]}
+          onChange={() => {}}
+          proveedoras={[{ id: "p1", fullName: "Romina" }]}
+          tiposDePago={TIPOS_TRES}
+          etiquetaTarifa="Cuánto cobra ($)"
+        />,
+      );
+      expect(screen.getByLabelText("Tarifa (%)")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Cuánto cobra ($)")).not.toBeInTheDocument();
+    });
+
+    it("sin porcentaje, la etiqueta que fija la pantalla manda", () => {
+      render(
+        <EditorDeAcuerdos
+          filas={[{ serviceProviderId: "p1", paymentType: "per_hour", rate: "28000" }]}
+          onChange={() => {}}
+          proveedoras={[{ id: "p1", fullName: "Romina" }]}
+          tiposDePago={TIPOS_TRES}
+          etiquetaTarifa="Cuánto cobra ($)"
+        />,
+      );
+      expect(screen.getByLabelText("Cuánto cobra ($)")).toBeInTheDocument();
+    });
+  });
 });

@@ -153,6 +153,12 @@ function BloqueDeEquipos({
           Las máquinas con las que se hace depilación definitiva. Un turno sólo se puede
           agendar si la proveedora sabe usar alguno de estos equipos.
         </p>
+        {/* Este bloque escribe al toque y el de abajo espera al Guardar: los
+            dos tienen el mismo tacho, así que la diferencia se dice acá y en
+            el texto del botón de abajo, no se deja adivinar. */}
+        <p className="text-xs font-medium text-ink-soft">
+          Los cambios de este bloque se aplican al instante, sin Guardar.
+        </p>
       </div>
 
       {error && (
@@ -178,7 +184,7 @@ function BloqueDeEquipos({
                     {puedeEditar && (
                       <button
                         type="button"
-                        title={`Sacar ${nombre} de depilación`}
+                        title={`Sacar ${nombre} de depilación (se aplica al instante)`}
                         onClick={() =>
                           correr(
                             () => sacar.mutateAsync(e.machineId),
@@ -280,7 +286,15 @@ function BloqueDeProveedoras({
   const proveedoras = useProvidersAdmin(false);
   const turnosFuturos = useTurnosFuturosDeDepilacion();
   const idsEnPantalla = filas.map((f) => f.serviceProviderId).filter(Boolean);
-  const { porProveedora } = useMaquinasDeProveedoras(idsEnPantalla);
+  // `isLoading` NO es opcional acá. Mientras el GET de certificaciones está en
+  // vuelo, `tildadas()` devuelve `[]` porque todavía no sabe nada — no porque
+  // la proveedora no tenga nada. Un tilde habilitado sobre ese vacío deja que
+  // el primer click lo congele en `maquinasEditadas`, que de ahí en más tiene
+  // precedencia sobre lo que conteste el servidor, y al guardar sale un DELETE
+  // de una máquina que nadie destildó. Como la certificación es global por
+  // proveedora, ese DELETE se la saca también de criolipólisis y de HIFU.
+  const { porProveedora, isLoading: cargandoCertificaciones } =
+    useMaquinasDeProveedoras(idsEnPantalla);
 
   const guardarAcuerdos = useSetServiceAgreements();
   const habilitarMaquina = useHabilitarMaquina();
@@ -345,6 +359,22 @@ function BloqueDeProveedoras({
    *  forma de cobrar: exactamente el problema de los $0 que esta pantalla
    *  existe para arreglar, así que no se guarda. */
   function primerError(): string | null {
+    // La misma proveedora dos veces no es un descuido estético. `diffAgreements`
+    // no deduplica, así que las dos filas van a `toCreate`, y
+    // `setServiceAgreements` cierra los acuerdos viejos ANTES de insertar y sin
+    // transacción: el índice único parcial hace fallar el INSERT, pero los
+    // cierres ya commitearon y la proveedora queda SIN acuerdo activo, cobrando
+    // $0. El borde también lo rechaza (PUT /agreements), esto es para que no se
+    // llegue hasta ahí.
+    const repetida = filas.find(
+      (f, i) =>
+        f.serviceProviderId &&
+        filas.findIndex((o) => o.serviceProviderId === f.serviceProviderId) !== i,
+    );
+    if (repetida) {
+      return `${nombreDe(repetida.serviceProviderId)} está dos veces en la lista: cada proveedora va una sola vez, con un solo acuerdo.`;
+    }
+
     for (const f of filas) {
       if (!f.serviceProviderId) {
         return "Falta elegir la proveedora en una de las filas.";
@@ -479,7 +509,7 @@ function BloqueDeProveedoras({
                         key={e.machineId}
                         label={e.machineName ?? "—"}
                         checked={tildadas(fila.serviceProviderId).includes(e.machineId)}
-                        disabled={!puedeEditar}
+                        disabled={!puedeEditar || cargandoCertificaciones}
                         onChange={(v) => alternarMaquina(fila.serviceProviderId, e.machineId, v)}
                       />
                     ))}
@@ -492,14 +522,20 @@ function BloqueDeProveedoras({
       />
 
       {puedeEditar && (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-3">
+          {/* Nada de este bloque —ni quitar una proveedora, ni destildar un
+              equipo— toca el servidor hasta acá. El bloque de equipos, con el
+              mismo tacho, sí borra al instante. */}
+          <p className="text-xs text-ink-soft">
+            Las proveedoras, las tarifas y los tildes de equipos se guardan recién acá.
+          </p>
           <button
             type="button"
             onClick={guardar}
             disabled={guardarAcuerdos.isPending}
-            className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-60"
+            className="shrink-0 rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-60"
           >
-            Guardar
+            Guardar proveedoras y tarifas
           </button>
         </div>
       )}

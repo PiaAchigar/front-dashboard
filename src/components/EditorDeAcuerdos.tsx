@@ -47,7 +47,9 @@ export function EditorDeAcuerdos({
   etiquetaTipoDePago?: string;
   /** Sin esto la etiqueta de la tarifa alterna entre "Tarifa (%)" y
    *  "Tarifa ($)" según el tipo de pago elegido. Quien no ofrece porcentaje
-   *  —Depilación— no necesita esa alternancia y puede fijar el texto. */
+   *  —Depilación— no necesita esa alternancia y puede fijar el texto.
+   *  Ojo: sólo reemplaza la variante en pesos. Si la fila está en
+   *  `percentage`, gana "Tarifa (%)" igual — la unidad no es negociable. */
   etiquetaTarifa?: string;
   /** Apaga el botón de agregar. Depilación lo usa mientras no haya ningún
    *  equipo cargado: habilitar a alguien sin equipo no la hace aparecer con
@@ -103,10 +105,16 @@ export function EditorDeAcuerdos({
                     ))}
                   </Select>
                 </Field>
+                {/* El porcentaje gana SIEMPRE, aunque la pantalla haya fijado
+                    su propia etiqueta: son puntos porcentuales, no pesos, y un
+                    "($)" arriba de un 40 miente sobre lo que se está cargando.
+                    La etiqueta de la pantalla es vocabulario; esto es la
+                    unidad. */}
                 <Field
                   label={
-                    etiquetaTarifa ??
-                    (a.paymentType === "percentage" ? "Tarifa (%)" : "Tarifa ($)")
+                    a.paymentType === "percentage"
+                      ? "Tarifa (%)"
+                      : (etiquetaTarifa ?? "Tarifa ($)")
                   }
                 >
                   <TextInput

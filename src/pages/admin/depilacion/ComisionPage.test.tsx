@@ -128,6 +128,9 @@ let acuerdos: ServiceAgreement[] = [];
 let config: Record<string, unknown> = {};
 let turnosFuturos: { providerId: string; turnos: number }[] = [];
 let maquinasPorProveedora: Record<string, EquipoDeDepilacion[]> = {};
+/** Deja colgado el GET de las certificaciones, para poder mirar la pantalla en
+ *  el estado "todavía no sé qué tiene tildado". */
+let maquinasColgadas = false;
 /** Todo lo que salió a la red, para poder afirmar que algo NO se mandó. */
 let llamadas: { url: string; method: string; body: unknown }[] = [];
 
@@ -154,6 +157,10 @@ function ok(data: unknown) {
 const escrituras = () => llamadas.filter((l) => l.method !== "GET");
 const llamada = (re: RegExp, method: string) =>
   llamadas.find((l) => re.test(l.url) && l.method === method);
+/** Cualquier escritura sobre una URL, sin importar el verbo. Es más fuerte que
+ *  preguntar por un DELETE puntual: lo que no se puede tocar, no se toca ni
+ *  para borrar ni para volver a escribir. */
+const escriturasSobre = (re: RegExp) => escrituras().filter((l) => re.test(l.url));
 
 beforeEach(() => {
   // El escenario por defecto: un equipo, Romina habilitada con monto fijo y
@@ -162,6 +169,7 @@ beforeEach(() => {
   acuerdos = [ROMINA_ACUERDO];
   turnosFuturos = [];
   maquinasPorProveedora = { p1: [CRYSTAL] };
+  maquinasColgadas = false;
   llamadas = [];
   mockConfig({});
 
@@ -178,6 +186,7 @@ beforeEach(() => {
       const deProveedora = /\/providers\/([^/]+)\/machines/.exec(url);
       if (deProveedora) {
         if (method !== "GET") return ok({ ok: true });
+        if (maquinasColgadas) return new Promise(() => {});
         return ok(maquinasPorProveedora[deProveedora[1]] ?? []);
       }
       if (url.includes("/providers/all")) return ok(PROVEEDORAS);
@@ -357,7 +366,56 @@ describe("ComisionPage", () => {
     await user.click(botonGuardar());
 
     await waitFor(() => expect(llamada(/\/providers\/p1\/machines\/m1$/, "DELETE")).toBeTruthy());
-    expect(llamada(/\/providers\/p1\/machines\/m9$/, "DELETE")).toBeUndefined();
+    // Ni un DELETE ni un PUT ni nada: sobre la HIFU esta pantalla no escribe.
+    // Preguntar sólo por el DELETE dejaba pasar una versión que la metía en la
+    // lista de tildadas y después la volvía a escribir.
+    expect(escriturasSobre(/\/providers\/p1\/machines\/m9/)).toHaveLength(0);
+  });
+
+  // Ronda de arreglos 1, punto 1. Mientras el GET de certificaciones está en
+  // vuelo no se sabe qué tiene tildado la proveedora. Si los tildes se pintan
+  // vacíos y habilitados, el primer click congela ese vacío mentiroso en el
+  // estado local —que de ahí en más tiene precedencia sobre lo que conteste el
+  // servidor— y al guardar sale un DELETE de una máquina que nadie destildó.
+  // Como la certificación es global, eso se la saca también de las otras áreas.
+  it("no deja tocar los tildes mientras las certificaciones están en vuelo", async () => {
+    const user = userEvent.setup();
+    maquinasColgadas = true;
+    mockEquipos([CRYSTAL]);
+    mockAcuerdos([ROMINA_ACUERDO]);
+    render(<ComisionPage />, { wrapper: Wrapper });
+    await screen.findByText("Romina");
+
+    const tilde = await screen.findByLabelText(/Crystal/);
+    expect(tilde).toBeDisabled();
+
+    // Y el click que igual se intente no tiene que dejar rastro: guardar
+    // después no puede escribir nada sobre las máquinas de Romina.
+    await user.click(tilde);
+    await user.click(botonGuardar());
+
+    await waitFor(() => expect(llamada(/\/agreements$/, "PUT")).toBeTruthy());
+    expect(escriturasSobre(/\/providers\/p1\/machines/)).toHaveLength(0);
+  });
+
+  // Ronda de arreglos 1, punto 2. Dos filas con la misma proveedora no son un
+  // problema estético: `diffAgreements` no deduplica, así que las dos van a
+  // `toCreate`, y `setServiceAgreements` cierra los acuerdos viejos ANTES de
+  // insertar y sin transacción. El índice único parcial hace fallar el INSERT,
+  // pero los cierres ya commitearon: la proveedora queda SIN acuerdo activo,
+  // cobrando $0. El mismo agujero que esta rama arregla, por otra puerta.
+  it("no guarda dos filas con la misma proveedora, y la nombra", async () => {
+    const user = userEvent.setup();
+    render(<ComisionPage />, { wrapper: Wrapper });
+    await screen.findByText("Romina");
+
+    await user.click(screen.getByRole("button", { name: /Agregar proveedora/i }));
+    await user.selectOptions(screen.getAllByLabelText("Proveedora")[1], "p1");
+
+    await user.click(botonGuardar());
+
+    expect(await screen.findByText(/Romina está dos veces/i)).toBeInTheDocument();
+    expect(escrituras()).toHaveLength(0);
   });
 
   // Decisión B: una proveedora habilitada sin forma de cobrar reproduce el
@@ -427,6 +485,25 @@ describe("ComisionPage", () => {
     await user.click(screen.getByRole("button", { name: /Agregar equipo/i }));
 
     await waitFor(() => expect(llamada(/\/depilacion\/equipos\/m2$/, "PUT")).toBeTruthy());
+  });
+
+  // Ronda de arreglos 1, punto 5: el tacho del bloque de equipos borra en el
+  // servidor al instante; el de proveedoras no escribe nada hasta Guardar.
+  // Mismo ícono, consecuencias opuestas — la pantalla tiene que decir cuál es
+  // cuál antes de que alguien lo descubra apretando.
+  it("distingue el borrado inmediato de equipos del guardado diferido de proveedoras", async () => {
+    const user = userEvent.setup();
+    render(<ComisionPage />, { wrapper: Wrapper });
+    await screen.findByText("Romina");
+
+    expect(screen.getByText(/se aplican al instante/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Guardar proveedoras y tarifas/i }),
+    ).toBeInTheDocument();
+
+    // Y el diferido es diferido de verdad: quitar a Romina no manda nada.
+    await user.click(screen.getByRole("button", { name: /Quitar/i }));
+    expect(escrituras()).toHaveLength(0);
   });
 
   it("un rol sin permiso de manage no ve el botón Guardar", async () => {
