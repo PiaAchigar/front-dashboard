@@ -8,8 +8,9 @@ import { useSetServiceSupplies } from "../../hooks/useRecetas";
 import { BenefitsInput } from "../../components/Services/BenefitsInput";
 import { EmbeddingsPendientesAviso } from "../../components/EmbeddingsPendientesAviso";
 import { Checkbox, Field, Select, TextArea, TextInput } from "../../components/form";
-import { ChevronRight, Plus, Trash } from "../../components/icons";
+import { ChevronRight } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
+import { EditorDeAcuerdos, type FilaDeAcuerdo, type TipoDePagoOpcion } from "../../components/EditorDeAcuerdos";
 import type { CategoryNode, ProviderAdmin, Service } from "../../lib/api-types";
 import { can, type Role } from "../../lib/permissions";
 import {
@@ -43,14 +44,11 @@ const TAX_OPTIONS = [
   { value: "VAT10.5", label: "IVA 10.5%" },
   { value: "exempt", label: "Exento" },
 ];
-const PAYMENT_TYPES = [
-  { value: "", label: "—" },
+const TIPOS_DE_PAGO: TipoDePagoOpcion[] = [
   { value: "per_hour", label: "Por hora" },
   { value: "percentage", label: "Porcentaje (%)" },
   { value: "fixed_per_service", label: "Fijo por servicio" },
 ];
-
-type AgreementForm = { serviceProviderId: string; paymentType: string; rate: string };
 
 /** Cuenta las categorías del árbol, para distinguir "no hay ninguna" de "hay". */
 function contarCategorias(nodes: CategoryNode[]): number {
@@ -194,90 +192,28 @@ function GrupoPlegable({
   );
 }
 
-export type AgreementsHandle = { getAgreements: () => AgreementForm[] };
+export type AgreementsHandle = { getAgreements: () => FilaDeAcuerdo[] };
 
 /** Editor de acuerdos proveedora↔servicio. Mantiene su propio estado (sembrado por
  *  el inicializador de useState) y el padre lee el valor actual vía ref en save().
- *  No usa effects: se re-monta por `key` cuando cambia el servicio. */
+ *  No usa effects: se re-monta por `key` cuando cambia el servicio.
+ *  El JSX del editor vive en EditorDeAcuerdos (Tarea 10) — Comisión de depilación
+ *  (Tarea 11) lo reusa con otros tipos de pago — así que acá sólo queda el estado
+ *  y el puente por ref que necesita el save() de esta pantalla. */
 const AgreementsEditor = forwardRef<
   AgreementsHandle,
-  { initial: AgreementForm[]; providers: ProviderAdmin[] }
+  { initial: FilaDeAcuerdo[]; providers: ProviderAdmin[] }
 >(function AgreementsEditor({ initial, providers }, ref) {
-  const [rows, setRows] = useState<AgreementForm[]>(initial);
+  const [rows, setRows] = useState<FilaDeAcuerdo[]>(initial);
   useImperativeHandle(ref, () => ({ getAgreements: () => rows }), [rows]);
 
-  const patch = (i: number, p: Partial<AgreementForm>) =>
-    setRows((rs) => rs.map((x, idx) => (idx === i ? { ...x, ...p } : x)));
-
   return (
-    <div className="space-y-2 rounded-xl border border-surface-high p-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-        Proveedoras y tarifa
-      </p>
-      {rows.length === 0 ? (
-        <p className="text-sm text-ink-soft">Sin proveedoras asignadas.</p>
-      ) : (
-        <ul className="space-y-2">
-          {rows.map((a, i) => (
-            <li
-              key={i}
-              className="flex items-end gap-2 rounded-lg border border-surface-high bg-white p-2.5"
-            >
-              <Field label="Proveedora">
-                <Select
-                  value={a.serviceProviderId}
-                  onChange={(e) => patch(i, { serviceProviderId: e.target.value })}
-                >
-                  <option value="">Elegí proveedora…</option>
-                  {providers.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.fullName ?? "—"}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Tipo de pago">
-                <Select value={a.paymentType} onChange={(e) => patch(i, { paymentType: e.target.value })}>
-                  {PAYMENT_TYPES.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label={a.paymentType === "percentage" ? "Tarifa (%)" : "Tarifa ($)"}>
-                <TextInput
-                  inputMode="numeric"
-                  value={a.rate}
-                  onChange={(e) => patch(i, { rate: e.target.value })}
-                  placeholder="0"
-                />
-              </Field>
-              <button
-                type="button"
-                title="Quitar proveedora"
-                onClick={() => setRows((rs) => rs.filter((_, idx) => idx !== i))}
-                className="mb-1.5 shrink-0 rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700"
-              >
-                <Trash size={15} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() =>
-            setRows((rs) => [...rs, { serviceProviderId: "", paymentType: "", rate: "" }])
-          }
-          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
-        >
-          <Plus size={15} />
-          Agregar proveedora
-        </button>
-      </div>
-    </div>
+    <EditorDeAcuerdos
+      filas={rows}
+      onChange={setRows}
+      proveedoras={providers}
+      tiposDePago={TIPOS_DE_PAGO}
+    />
   );
 });
 
@@ -295,7 +231,7 @@ function AgreementsSection({
   if (serviceId && isLoading) {
     return <p className="text-sm text-ink-soft">Cargando proveedoras…</p>;
   }
-  const initial: AgreementForm[] = (data ?? []).map((a) => ({
+  const initial: FilaDeAcuerdo[] = (data ?? []).map((a) => ({
     serviceProviderId: a.serviceProviderId,
     paymentType: a.paymentType ?? "",
     rate: a.rate != null ? String(a.rate) : "",
