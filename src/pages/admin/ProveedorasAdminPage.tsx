@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { can, type Role } from "../../lib/permissions";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
@@ -19,6 +20,13 @@ import {
 } from "../../hooks/useProvidersAdmin";
 import { useCreateMpAccountForProvider, useProviderMpAccounts } from "../../hooks/useProviderMpAccounts";
 import { useProviderServices } from "../../hooks/useProviderServices";
+import { useDepilacionConfig } from "../../hooks/useDepilacion";
+import { useServiceAgreements } from "../../hooks/useServiceAgreements";
+import { traduccionDeTarifa, type TipoDePago } from "../../lib/traduccion-de-tarifa";
+
+function esTipoDePago(valor: string | null): valor is TipoDePago {
+  return valor === "fixed_per_service" || valor === "per_hour";
+}
 
 type Form = {
   fullName: string;
@@ -59,6 +67,23 @@ function ProviderFicha({ provider }: { provider: ProviderAdmin }) {
   const { data: mp = [] } = useProviderMpAccounts(provider.id);
   const { data: services = [] } = useProviderServices(provider.id);
 
+  // El servicio ancla de depilación (`no_vendible`) NO sale en
+  // `useProviderServices`: esa consulta filtra `no_vendible` a propósito, para
+  // que no se pueda editar su precio ni archivarla desde acá. Pero sin este
+  // renglón Laura abre el perfil de Romina y cree que no cobra nada por
+  // depilación. Se arma aparte, desde el acuerdo sobre el ancla, y es de sólo
+  // lectura: se edita en la pestaña de Depilación → Configuración → Comisión.
+  const { role } = useAuth();
+  const puedeVerLinkComision = can(role as Role | null, "catalogo", "manage");
+  const { data: depilacionConfig } = useDepilacionConfig();
+  const anchorServiceId = depilacionConfig?.anchorServiceId ?? null;
+  const { data: acuerdosDelAncla = [] } = useServiceAgreements(anchorServiceId);
+  const acuerdoDeDepilacion = acuerdosDelAncla.find((a) => a.serviceProviderId === provider.id);
+  const traduccion =
+    acuerdoDeDepilacion && esTipoDePago(acuerdoDeDepilacion.paymentType) && acuerdoDeDepilacion.rate != null
+      ? traduccionDeTarifa(acuerdoDeDepilacion.paymentType, acuerdoDeDepilacion.rate)
+      : null;
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-surface-high p-3">
@@ -85,6 +110,22 @@ function ProviderFicha({ provider }: { provider: ProviderAdmin }) {
           </ul>
         )}
       </div>
+      {acuerdoDeDepilacion && (
+        <div className="rounded-xl border border-surface-high p-3">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-soft">
+            Depilación Definitiva
+          </p>
+          <p className="text-sm text-ink">{traduccion ?? "—"}</p>
+          {puedeVerLinkComision && (
+            <Link
+              to="/admin/depilacion/configuracion/comision"
+              className="mt-1 inline-block text-sm font-medium text-primary hover:underline"
+            >
+              Ver en Configuración →
+            </Link>
+          )}
+        </div>
+      )}
       <div className="rounded-xl border border-surface-high p-3">
         <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-soft">
           Cuentas de MercadoPago
