@@ -23,19 +23,29 @@ vi.mock("../../auth/AuthContext", () => ({
 
 const ANCLA = "svc-depilacion";
 
-const ROMINA: ProviderAdmin = {
-  id: "p1",
-  fullName: "Romina",
-  email: null,
-  phone: null,
-  dni: null,
-  cuit: null,
-  specialties: null,
-  notes: null,
-  address: null,
-  postalCode: null,
-  status: "active",
-};
+function proveedora(id: string, fullName: string): ProviderAdmin {
+  return {
+    id,
+    fullName,
+    email: null,
+    phone: null,
+    dni: null,
+    cuit: null,
+    specialties: null,
+    notes: null,
+    address: null,
+    postalCode: null,
+    status: "active",
+  };
+}
+
+const ROMINA = proveedora("p1", "Romina");
+// La segunda proveedora CON acuerdo no es decoración del fixture: mientras
+// `acuerdosDelAncla` traiga como mucho una fila, `find(a => a.serviceProviderId
+// === provider.id)` y `acuerdosDelAncla[0]` son indistinguibles, y romper el
+// `find` haría que la ficha de Ana mostrara la comisión de Romina — un dato de
+// plata, en una fila de sólo lectura que Laura va a creer.
+const ANA = proveedora("p2", "Ana");
 
 // ── Estado mutable del backend falso ────────────────────────────────────────
 let providers: ProviderAdmin[] = [];
@@ -51,7 +61,7 @@ function ok(data: unknown) {
 }
 
 beforeEach(() => {
-  providers = [ROMINA];
+  providers = [ROMINA, ANA];
   acuerdosDelAncla = [];
   anchorServiceId = ANCLA;
 
@@ -110,6 +120,59 @@ describe("ProveedorasAdminPage — ficha, comisión de depilación", () => {
       "href",
       "/admin/depilacion/configuracion/comision",
     );
+  });
+
+  it("cada ficha muestra SU comisión, no la de la primera proveedora de la lista", async () => {
+    const user = userEvent.setup();
+    mockAcuerdosDelAncla([
+      { serviceProviderId: "p1", providerName: "Romina", paymentType: "fixed_per_service", rate: 20000 },
+      { serviceProviderId: "p2", providerName: "Ana", paymentType: "fixed_per_service", rate: 35000 },
+    ]);
+    render(<ProveedorasAdminPage />, { wrapper: Wrapper });
+
+    // Ana es la SEGUNDA del acuerdo: si la ficha tomara `[0]`, acá saldría la
+    // comisión de Romina.
+    await user.click(await screen.findByText("Ana"));
+    expect(await screen.findByText(/Depilación Definitiva/)).toBeInTheDocument();
+    expect(screen.getByText(/Cada sesión paga \$35\.000, dure lo que dure\./)).toBeInTheDocument();
+    expect(screen.queryByText(/\$20\.000/)).not.toBeInTheDocument();
+  });
+
+  // Y el camino inverso, para que la aserción de arriba no pase por casualidad
+  // si alguien invirtiera el orden de la lista.
+  it("la ficha de la primera proveedora tampoco muestra la comisión de la segunda", async () => {
+    const user = userEvent.setup();
+    mockAcuerdosDelAncla([
+      { serviceProviderId: "p2", providerName: "Ana", paymentType: "fixed_per_service", rate: 35000 },
+      { serviceProviderId: "p1", providerName: "Romina", paymentType: "fixed_per_service", rate: 20000 },
+    ]);
+    render(<ProveedorasAdminPage />, { wrapper: Wrapper });
+
+    await user.click(await screen.findByText("Romina"));
+    expect(await screen.findByText(/Depilación Definitiva/)).toBeInTheDocument();
+    expect(screen.getByText(/Cada sesión paga \$20\.000, dure lo que dure\./)).toBeInTheDocument();
+    expect(screen.queryByText(/\$35\.000/)).not.toBeInTheDocument();
+  });
+
+  // Una proveedora que NO hace depilación, en una lista donde otra sí: sin el
+  // `find`, su ficha inventaría una comisión que no existe.
+  it("no muestra nada si esa proveedora no hace depilación, aunque otra sí", async () => {
+    const user = userEvent.setup();
+    mockAcuerdosDelAncla([
+      { serviceProviderId: "p1", providerName: "Romina", paymentType: "fixed_per_service", rate: 20000 },
+    ]);
+    render(<ProveedorasAdminPage />, { wrapper: Wrapper });
+
+    // Romina primero, a propósito: su ficha es la prueba de que el GET de
+    // acuerdos ya contestó. Sin ese paso, la ausencia del renglón en la ficha
+    // de Ana no prueba nada — podría ser sólo que la query todavía no volvió, y
+    // el test pasaría igual con el `find` roto.
+    await user.click(await screen.findByText("Romina"));
+    await screen.findByText(/Depilación Definitiva/);
+
+    await user.click(screen.getByText("Ana"));
+    await screen.findByText(/Servicios que ofrece/);
+    expect(screen.queryByText(/Depilación Definitiva/)).not.toBeInTheDocument();
   });
 
   it("no muestra nada si esa proveedora no hace depilación", async () => {
