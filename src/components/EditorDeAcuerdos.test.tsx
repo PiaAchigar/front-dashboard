@@ -123,6 +123,57 @@ describe("EditorDeAcuerdos", () => {
     expect(screen.getByText("Tarifa ($)")).toBeInTheDocument();
   });
 
+  // Revisión final, G6. Quien puede VER las comisiones pero no editarlas
+  // (`operator` llega a la pestaña de Comisión con dos clicks) tenía un editor
+  // sin ningún `disabled`: cambiaba tarifas y quitaba proveedoras, y recién al
+  // final descubría que no hay botón de Guardar y que todo se tiró.
+  describe("soloLectura", () => {
+    it("apaga los dos desplegables, la tarifa, el tacho y el botón de agregar", () => {
+      render(
+        <EditorDeAcuerdos
+          filas={[{ serviceProviderId: "p1", paymentType: "per_hour", rate: "100" }]}
+          onChange={() => {}}
+          proveedoras={[{ id: "p1", fullName: "Romina" }]}
+          tiposDePago={TIPOS_TRES}
+          soloLectura
+        />,
+      );
+      expect(screen.getByLabelText("Proveedora")).toBeDisabled();
+      expect(screen.getByLabelText("Tipo de pago")).toBeDisabled();
+      expect(screen.getByPlaceholderText("0")).toBeDisabled();
+      expect(screen.getByTitle("Quitar proveedora")).toBeDisabled();
+      expect(screen.getByRole("button", { name: /agregar proveedora/i })).toBeDisabled();
+    });
+
+    it("el dato se sigue viendo: sólo lectura no es lo mismo que invisible", () => {
+      render(
+        <EditorDeAcuerdos
+          filas={[{ serviceProviderId: "p1", paymentType: "per_hour", rate: "28000" }]}
+          onChange={() => {}}
+          proveedoras={[{ id: "p1", fullName: "Romina" }]}
+          tiposDePago={TIPOS_TRES}
+          soloLectura
+        />,
+      );
+      expect(screen.getByLabelText("Proveedora")).toHaveValue("p1");
+      expect(screen.getByPlaceholderText("0")).toHaveValue("28000");
+    });
+
+    it("por defecto NO es sólo lectura: la pantalla de Servicios sigue editando", () => {
+      render(
+        <EditorDeAcuerdos
+          filas={[{ serviceProviderId: "p1", paymentType: "per_hour", rate: "100" }]}
+          onChange={() => {}}
+          proveedoras={[{ id: "p1", fullName: "Romina" }]}
+          tiposDePago={TIPOS_TRES}
+        />,
+      );
+      expect(screen.getByLabelText("Proveedora")).toBeEnabled();
+      expect(screen.getByPlaceholderText("0")).toBeEnabled();
+      expect(screen.getByTitle("Quitar proveedora")).toBeEnabled();
+    });
+  });
+
   it("agregar proveedora suma una fila vacía vía onChange", async () => {
     const onChange = vi.fn();
     render(
@@ -284,6 +335,28 @@ describe("EditorDeAcuerdos", () => {
       );
       expect(screen.getByLabelText("Tarifa (%)")).toBeInTheDocument();
       expect(screen.queryByLabelText("Cuánto cobra ($)")).not.toBeInTheDocument();
+    });
+
+    // Revisión final, G4. El arreglo del "20.000" que valía $20 vive SÓLO en la
+    // pantalla de Comisión, y este test es el que dice por qué no puede subir
+    // acá: el editor compartido lo usa también ServiciosAdminPage, donde
+    // `percentage` existe y "12.5" es doce y medio por ciento legítimo. Si
+    // alguien mete la normalización de miles en este componente, "12.5" pasa a
+    // ser 125% y esto se pone rojo.
+    it("no toca el punto decimal de un porcentaje: 12.5 sigue siendo 12.5", async () => {
+      render(
+        <EditorConEstado
+          initial={[{ serviceProviderId: "p1", paymentType: "percentage", rate: "" }]}
+          proveedoras={[{ id: "p1", fullName: "Romina" }]}
+          tiposDePago={TIPOS_TRES}
+        />,
+      );
+      const tarifa = screen.getByPlaceholderText("0");
+      await userEvent.type(tarifa, "12.5");
+
+      expect(tarifa).toHaveValue("12.5");
+      // Y lo que ServiciosAdminPage manda al servidor sale de ese mismo texto.
+      expect(Number((tarifa as HTMLInputElement).value)).toBe(12.5);
     });
 
     it("sin porcentaje, la etiqueta que fija la pantalla manda", () => {

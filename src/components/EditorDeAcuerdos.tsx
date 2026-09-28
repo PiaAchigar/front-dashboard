@@ -32,6 +32,7 @@ export function EditorDeAcuerdos({
   etiquetaTarifa,
   deshabilitarAgregar = false,
   motivoDeshabilitarAgregar,
+  soloLectura = false,
 }: {
   filas: FilaDeAcuerdo[];
   onChange: (filas: FilaDeAcuerdo[]) => void;
@@ -59,6 +60,12 @@ export function EditorDeAcuerdos({
    *  Un botón apagado sin motivo anunciado no se puede entender con lector de
    *  pantalla. */
   motivoDeshabilitarAgregar?: string;
+  /** Apaga TODO el editor: los desplegables, la tarifa, el tacho y el botón de
+   *  agregar. Lo usa quien muestra la pantalla a alguien que puede VER las
+   *  comisiones pero no editarlas. Sin esto, esa persona cambia tarifas, quita
+   *  proveedoras, y recién al final descubre que no hay botón para guardar:
+   *  todo lo que tocó se tira sin avisar. */
+  soloLectura?: boolean;
 }): JSX.Element {
   const patch = (i: number, p: Partial<FilaDeAcuerdo>) =>
     onChange(filas.map((x, idx) => (idx === i ? { ...x, ...p } : x)));
@@ -82,6 +89,7 @@ export function EditorDeAcuerdos({
                 <Field label="Proveedora">
                   <Select
                     value={a.serviceProviderId}
+                    disabled={soloLectura}
                     onChange={(e) => patch(i, { serviceProviderId: e.target.value })}
                   >
                     <option value="">Elegí proveedora…</option>
@@ -95,6 +103,7 @@ export function EditorDeAcuerdos({
                 <Field label={etiquetaTipoDePago}>
                   <Select
                     value={a.paymentType}
+                    disabled={soloLectura}
                     onChange={(e) => patch(i, { paymentType: e.target.value })}
                   >
                     <option value="">—</option>
@@ -120,6 +129,7 @@ export function EditorDeAcuerdos({
                   <TextInput
                     inputMode="numeric"
                     value={a.rate}
+                    disabled={soloLectura}
                     onChange={(e) => patch(i, { rate: e.target.value })}
                     placeholder="0"
                   />
@@ -127,8 +137,9 @@ export function EditorDeAcuerdos({
                 <button
                   type="button"
                   title="Quitar proveedora"
+                  disabled={soloLectura}
                   onClick={() => onChange(filas.filter((_, idx) => idx !== i))}
-                  className="mb-1.5 shrink-0 rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700"
+                  className="mb-1.5 shrink-0 rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700 disabled:cursor-not-allowed disabled:text-surface-highest disabled:hover:bg-transparent disabled:hover:text-surface-highest"
                 >
                   <Trash size={15} />
                 </button>
@@ -141,7 +152,7 @@ export function EditorDeAcuerdos({
       <div className="flex justify-end">
         <button
           type="button"
-          disabled={deshabilitarAgregar}
+          disabled={deshabilitarAgregar || soloLectura}
           aria-describedby={motivoDeshabilitarAgregar}
           onClick={() =>
             onChange([...filas, { serviceProviderId: "", paymentType: "", rate: "" }])
