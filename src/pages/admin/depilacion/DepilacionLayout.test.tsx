@@ -44,7 +44,7 @@ function montar() {
 describe("DepilacionLayout", () => {
   it("sube el botón Agregar al renglón del título del área", () => {
     montar();
-    const titulo = screen.getByRole("heading", { name: "Depilación" });
+    const titulo = screen.getByRole("heading", { name: "Depilación Definitiva" });
     expect(titulo.parentElement).toContainElement(
       screen.getByRole("button", { name: /agregar/i }),
     );

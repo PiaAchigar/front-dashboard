@@ -25,7 +25,7 @@ export function traduccionDeTarifa(tipo: TipoDePago, monto: number): string | nu
   if (!Number.isFinite(monto) || monto <= 0) return null;
 
   // El formatter de Intl agrega non-breaking space entre $ y número en es-AR; lo sacamos.
-  const formatoMonto = (n: number) => PESOS.format(n).replace(/\$ /, "$");
+  const formatoMonto = (n: number) => PESOS.format(n).replace(/\$\u00a0/, "$");
 
   if (tipo === "fixed_per_service") {
     return `Cada sesión paga ${formatoMonto(monto)}, dure lo que dure.`;
