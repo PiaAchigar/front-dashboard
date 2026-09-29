@@ -1,5 +1,11 @@
 import { filtrarServicios } from "../../lib/filtrar-servicios";
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
@@ -7,10 +13,20 @@ import { SuppliesSection, type SuppliesHandle } from "./SuppliesSection";
 import { useSetServiceSupplies } from "../../hooks/useRecetas";
 import { BenefitsInput } from "../../components/Services/BenefitsInput";
 import { EmbeddingsPendientesAviso } from "../../components/EmbeddingsPendientesAviso";
-import { Checkbox, Field, Select, TextArea, TextInput } from "../../components/form";
+import {
+  Checkbox,
+  Field,
+  Select,
+  TextArea,
+  TextInput,
+} from "../../components/form";
 import { ChevronRight } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
-import { EditorDeAcuerdos, type FilaDeAcuerdo, type TipoDePagoOpcion } from "../../components/EditorDeAcuerdos";
+import {
+  EditorDeAcuerdos,
+  type FilaDeAcuerdo,
+  type TipoDePagoOpcion,
+} from "../../components/EditorDeAcuerdos";
 import type { CategoryNode, ProviderAdmin, Service } from "../../lib/api-types";
 import { can, type Role } from "../../lib/permissions";
 import {
@@ -52,7 +68,10 @@ const TIPOS_DE_PAGO: TipoDePagoOpcion[] = [
 
 /** Cuenta las categorías del árbol, para distinguir "no hay ninguna" de "hay". */
 function contarCategorias(nodes: CategoryNode[]): number {
-  return nodes.reduce((acc, n) => acc + 1 + contarCategorias(n.children ?? []), 0);
+  return nodes.reduce(
+    (acc, n) => acc + 1 + contarCategorias(n.children ?? []),
+    0,
+  );
 }
 
 /**
@@ -108,7 +127,9 @@ function RamaCategorias({
   const contenido = (
     <div
       className={
-        sinTitulo ? "space-y-0.5" : `mt-0.5 space-y-0.5 ${nivel === 0 ? "pl-2" : "pl-3"}`
+        sinTitulo
+          ? "space-y-0.5"
+          : `mt-0.5 space-y-0.5 ${nivel === 0 ? "pl-2" : "pl-3"}`
       }
     >
       {hijas.map((h) => (
@@ -187,7 +208,11 @@ function GrupoPlegable({
           </span>
         )}
       </button>
-      {abierto && <div className="border-t border-surface-high px-2.5 py-2">{children}</div>}
+      {abierto && (
+        <div className="border-t border-surface-high px-2.5 py-2">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -288,7 +313,8 @@ const EMPTY: Form = {
   specialAttentionNotes: "",
 };
 
-const money = (n: number | null) => (n != null ? `$${n.toLocaleString("es-AR")}` : "—");
+const money = (n: number | null) =>
+  n != null ? `$${n.toLocaleString("es-AR")}` : "—";
 const num = (s: string) => (s.trim() === "" ? null : Number(s));
 
 /**
@@ -300,9 +326,10 @@ const num = (s: string) => (s.trim() === "" ? null : Number(s));
  *
  * Sin `area`, la página es la de siempre: todos los servicios.
  */
-export function ServiciosAdminPage(
-  { area, soloSinArea }: { area?: string; soloSinArea?: boolean } = {},
-) {
+export function ServiciosAdminPage({
+  area,
+  soloSinArea,
+}: { area?: string; soloSinArea?: boolean } = {}) {
   const { role } = useAuth();
   const r = role as Role | null;
   const canEdit = can(r, "catalogo", "edit");
@@ -323,9 +350,15 @@ export function ServiciosAdminPage(
   // decide por si tiene algo tildado, así que un grupo se abre solo al editar
   // un servicio que ya está en esa rama — y sigue funcionando aunque el árbol
   // llegue después que el servicio, que es lo normal con dos consultas.
-  const [gruposTocados, setGruposTocados] = useState<Record<string, boolean>>({});
+  const [gruposTocados, setGruposTocados] = useState<Record<string, boolean>>(
+    {},
+  );
 
-  const { data: services = [], isLoading, error } = useServicesAdmin(showArchived);
+  const {
+    data: services = [],
+    isLoading,
+    error,
+  } = useServicesAdmin(showArchived);
   const create = useCreateService();
   const update = useUpdateServiceAdmin();
   const archive = useArchiveService();
@@ -345,8 +378,14 @@ export function ServiciosAdminPage(
   // Depilación Definitiva, Actividades y Capacitaciones son áreas y están
   // activas, así que venían en el árbol de categorías como si fueran del sitio.
   // Promos y Combos se van con ellas: describen cómo se vende, no qué es.
-  const arbolWeb = useMemo(() => categoriasDelFormulario(categoryTree), [categoryTree]);
-  const { ramas, generales } = useMemo(() => agruparParaElFormulario(arbolWeb), [arbolWeb]);
+  const arbolWeb = useMemo(
+    () => categoriasDelFormulario(categoryTree),
+    [categoryTree],
+  );
+  const { ramas, generales } = useMemo(
+    () => agruparParaElFormulario(arbolWeb),
+    [arbolWeb],
+  );
   const totalCategorias = useMemo(() => contarCategorias(arbolWeb), [arbolWeb]);
 
   // El editor de acuerdos mantiene su propio estado; lo leemos al guardar.
@@ -354,7 +393,13 @@ export function ServiciosAdminPage(
   const suppliesRef = useRef<SuppliesHandle>(null);
 
   const rows = useMemo(
-    () => filtrarServicios(services, { area, soloSinArea, nombresDeArea: AREAS_NOMBRES, search }),
+    () =>
+      filtrarServicios(services, {
+        area,
+        soloSinArea,
+        nombresDeArea: AREAS_NOMBRES,
+        search,
+      }),
     [services, search, area, soloSinArea, AREAS_NOMBRES],
   );
 
@@ -362,44 +407,69 @@ export function ServiciosAdminPage(
     {
       key: "name",
       header: "Servicio",
-      width: 240,
+      width: 230,
       render: (s) => (
         <div>
           <span className="font-medium text-ink">{s.name ?? "—"}</span>
-          {s.code && <span className="ml-2 text-xs text-ink-soft">{s.code}</span>}
+          {s.code && (
+            <span className="ml-2 text-xs text-ink-soft">{s.code}</span>
+          )}
         </div>
       ),
     },
-    { key: "list", header: "Lista", width: 110, render: (s) => money(s.unitPriceList) },
-    { key: "cash", header: "Efectivo", width: 110, render: (s) => money(s.unitPriceCash) },
+    {
+      key: "list",
+      header: "Lista",
+      width: 100,
+      render: (s) => money(s.unitPriceList),
+    },
+    {
+      key: "cash",
+      header: "Efectivo",
+      width: 100,
+      render: (s) => money(s.unitPriceCash),
+    },
     {
       key: "dur",
       header: "Duración",
-      width: 110,
-      render: (s) => (s.estimatedDurationMinutes != null ? `${s.estimatedDurationMinutes} min` : "—"),
+      width: 90,
+      render: (s) =>
+        s.estimatedDurationMinutes != null
+          ? `${s.estimatedDurationMinutes} min`
+          : "—",
     },
-    { key: "tax", header: "IVA", width: 90, render: (s) => s.taxCategory ?? "—" },
+    {
+      key: "tax",
+      header: "IVA",
+      width: 70,
+      render: (s) => s.taxCategory ?? "—",
+    },
     {
       key: "machine",
       header: "Máquina",
-      width: 160,
+      width: 140,
       render: (s) =>
         s.primaryMachine ? (
           <span className="text-ink-soft">{s.primaryMachine.name}</span>
         ) : (
-          <span className="text-ink-soft">{s.requiresMachine ? "Sin asignar" : "—"}</span>
+          <span className="text-ink-soft">
+            {s.requiresMachine ? "Sin asignar" : "—"}
+          </span>
         ),
     },
     {
       key: "cats",
       header: "Categorías",
-      width: 280,
+      width: 240,
+      title: (s) => etiquetaDeCategorias(s, AREAS_NOMBRES),
       // Todas las categorías del servicio, separadas por comas y con el área
       // adelante. Antes eran chips de colores ("también en Medicina", "sin
       // área") y no se entendían: obligaban a aprender qué quería decir cada
       // uno antes de poder leer la fila.
       render: (s) => (
-        <span className="text-ink-soft">{etiquetaDeCategorias(s, AREAS_NOMBRES)}</span>
+        <span className="text-ink-soft">
+          {etiquetaDeCategorias(s, AREAS_NOMBRES)}
+        </span>
       ),
     },
   ];
@@ -496,7 +566,10 @@ export function ServiciosAdminPage(
         serviceId = created.id;
       }
       if (!serviceId) throw new Error("No se pudo guardar el servicio.");
-      await setCategories.mutateAsync({ id: serviceId, categoryIds: form.categoryIds });
+      await setCategories.mutateAsync({
+        id: serviceId,
+        categoryIds: form.categoryIds,
+      });
       await setAgreements.mutateAsync({ id: serviceId, agreements });
       await setSupplies.mutateAsync({
         id: serviceId,
@@ -575,7 +648,8 @@ export function ServiciosAdminPage(
         hardDeleteName={(s) => s.name ?? "este servicio"}
         onHardDelete={(s) =>
           hardDelete.mutate(s.id, {
-            onSuccess: () => toast.success("Servicio eliminado definitivamente"),
+            onSuccess: () =>
+              toast.success("Servicio eliminado definitivamente"),
             onError: (e: Error) => toast.error(e.message),
           })
         }
@@ -599,7 +673,10 @@ export function ServiciosAdminPage(
           />
         </Field>
         <Field label="Código">
-          <TextInput value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+          <TextInput
+            value={form.code}
+            onChange={(e) => setForm({ ...form, code: e.target.value })}
+          />
         </Field>
         <Field label="Descripción">
           {/* 6 filas y redimensionable a mano: las descripciones reales rondan
@@ -618,7 +695,9 @@ export function ServiciosAdminPage(
               type="number"
               min={0}
               value={form.unitPriceList}
-              onChange={(e) => setForm({ ...form, unitPriceList: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, unitPriceList: e.target.value })
+              }
             />
           </Field>
           <Field label="Precio efectivo">
@@ -626,7 +705,9 @@ export function ServiciosAdminPage(
               type="number"
               min={0}
               value={form.unitPriceCash}
-              onChange={(e) => setForm({ ...form, unitPriceCash: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, unitPriceCash: e.target.value })
+              }
             />
           </Field>
         </div>
@@ -636,13 +717,17 @@ export function ServiciosAdminPage(
               type="number"
               min={0}
               value={form.estimatedDurationMinutes}
-              onChange={(e) => setForm({ ...form, estimatedDurationMinutes: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, estimatedDurationMinutes: e.target.value })
+              }
             />
           </Field>
           <Field label="IVA">
             <Select
               value={form.taxCategory}
-              onChange={(e) => setForm({ ...form, taxCategory: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, taxCategory: e.target.value })
+              }
             >
               {TAX_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -668,7 +753,9 @@ export function ServiciosAdminPage(
               type="number"
               min={0}
               value={form.webSortOrder}
-              onChange={(e) => setForm({ ...form, webSortOrder: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, webSortOrder: e.target.value })
+              }
             />
           </Field>
         </div>
@@ -687,7 +774,9 @@ export function ServiciosAdminPage(
             <Field label="Máquina">
               <Select
                 value={form.machineId}
-                onChange={(e) => setForm({ ...form, machineId: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, machineId: e.target.value })
+                }
               >
                 <option value="">— Sin asignar</option>
                 {machines.map((m) => (
@@ -720,9 +809,12 @@ export function ServiciosAdminPage(
           </p>
           <p className="text-xs leading-relaxed text-ink-soft">
             Decide en qué pestaña de Administración aparece el servicio.{" "}
-            <span className="font-medium text-ink">No se muestra en la web.</span> Podés marcar
-            más de una: el servicio aparece en las dos pestañas siendo la misma ficha, y editarlo
-            desde cualquiera, lo edita en las dos.
+            <span className="font-medium text-ink">
+              No se muestra en la web.
+            </span>{" "}
+            Podés marcar más de una: el servicio aparece en las dos pestañas
+            siendo la misma ficha, y editarlo desde cualquiera, lo edita en las
+            dos.
           </p>
           {areas.length === 0 ? (
             <p className="text-sm text-ink-soft">No hay áreas cargadas.</p>
@@ -747,8 +839,8 @@ export function ServiciosAdminPage(
             Categorías de la web
           </p>
           <p className="text-xs leading-relaxed text-ink-soft">
-            Son las que ve la clienta en el sitio público: el menú de servicios y el buscador de
-            tratamientos.
+            Son las que ve la clienta en el sitio público: el menú de servicios
+            y el buscador de tratamientos.
           </p>
           {totalCategorias === 0 ? (
             <p className="text-sm text-ink-soft">No hay categorías cargadas.</p>
@@ -824,7 +916,10 @@ export function ServiciosAdminPage(
         />
 
         {/* Insumos que consume el servicio (migración 1.43.0) */}
-        <SuppliesSection serviceId={editing?.id ?? null} editorRef={suppliesRef} />
+        <SuppliesSection
+          serviceId={editing?.id ?? null}
+          editorRef={suppliesRef}
+        />
 
         {/* Contenido RAG: alimenta la búsqueda de tratamientos y el chatbot (migración 1.4.0) */}
         <div className="space-y-1 rounded-xl border border-surface-high p-3">
@@ -835,9 +930,10 @@ export function ServiciosAdminPage(
               de saber que Beneficios se muestra en la web y los otros dos no:
               los tres están en el mismo recuadro y parecen del mismo tipo. */}
           <p className="mb-3 text-xs text-ink-soft/80">
-            Alimenta el buscador de la web, el que le sugiere tratamientos a la clienta
-            según lo que escribe (“quiero tonificar los brazos”). Escribí con las palabras
-            que usa ella, no con las del aparato. Cada campo aclara si sale publicado.
+            Alimenta el buscador de la web, el que le sugiere tratamientos a la
+            clienta según lo que escribe (“quiero tonificar los brazos”).
+            Escribí con las palabras que usa ella, no con las del aparato. Cada
+            campo aclara si sale publicado.
           </p>
           <BenefitsInput
             label="Beneficios"
@@ -859,7 +955,9 @@ export function ServiciosAdminPage(
             label="Instrucciones Especiales"
             description="Ej: Llevar protector solar, evitar sol 48h, usar ropa clara"
             value={form.specialAttentionNotes}
-            onChange={(value) => setForm({ ...form, specialAttentionNotes: value })}
+            onChange={(value) =>
+              setForm({ ...form, specialAttentionNotes: value })
+            }
             placeholder="Recomendaciones antes/después del tratamiento"
             sePublica={false}
           />

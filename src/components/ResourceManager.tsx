@@ -1,7 +1,20 @@
-import { Fragment, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import {
+  Fragment,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { Archive, ChevronRight, Pencil, Plus, RotateCcw, Search, Trash } from "./icons";
+import {
+  Archive,
+  ChevronRight,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash,
+} from "./icons";
 
 export type Column<T> = {
   key: string;
@@ -11,6 +24,12 @@ export type Column<T> = {
   width?: number;
   /** Clase extra para la celda (ej: alineación). */
   className?: string;
+  /**
+   * Texto completo al pasar el mouse, para las columnas que truncan de verdad
+   * (Categorías es una lista larga y nunca entra). Va sólo donde hace falta:
+   * un tooltip en cada celda de la tabla molesta más de lo que ayuda.
+   */
+  title?: (row: T) => string;
 };
 
 /** Una sección colapsable de la tabla. Ver la prop `groups`. */
@@ -26,16 +45,28 @@ const DEFAULT_WIDTH = 180;
 const MIN_WIDTH = 60;
 const ACTIONS_WIDTH = 96;
 
+/**
+ * Los anchos viven en el navegador de cada una, así que bajar los anchos por
+ * defecto no alcanza: quien ya tenga guardado un ajuste sigue viendo la tabla
+ * vieja y parece que el arreglo no hizo nada. Subir esta versión descarta lo
+ * guardado de una. Subirla cada vez que cambien los anchos por defecto.
+ */
+const WIDTHS_VERSION = "v2";
+
 function storageKey(title: string) {
-  return `rm-colwidths:${title}`;
+  return `rm-colwidths:${WIDTHS_VERSION}:${title}`;
 }
 
-function loadWidths<T>(title: string, columns: Column<T>[]): Record<string, number> {
+function loadWidths<T>(
+  title: string,
+  columns: Column<T>[],
+): Record<string, number> {
   const defaults: Record<string, number> = {};
   for (const c of columns) defaults[c.key] = c.width ?? DEFAULT_WIDTH;
   try {
     const raw = localStorage.getItem(storageKey(title));
-    if (raw) return { ...defaults, ...(JSON.parse(raw) as Record<string, number>) };
+    if (raw)
+      return { ...defaults, ...(JSON.parse(raw) as Record<string, number>) };
   } catch {
     /* ignore */
   }
@@ -151,9 +182,13 @@ export function ResourceManager<T>({
 }: Props<T>) {
   const [toArchive, setToArchive] = useState<T | null>(null);
   const [hardDeleteRow, setHardDeleteRow] = useState<T | null>(null);
-  const [hardDeleteImpact, setHardDeleteImpact] = useState<DeleteImpact | null>(null);
+  const [hardDeleteImpact, setHardDeleteImpact] = useState<DeleteImpact | null>(
+    null,
+  );
   const [previewingHardDelete, setPreviewingHardDelete] = useState(false);
-  const [widths, setWidths] = useState<Record<string, number>>(() => loadWidths(title, columns));
+  const [widths, setWidths] = useState<Record<string, number>>(() =>
+    loadWidths(title, columns),
+  );
   const [resizing, setResizing] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
 
@@ -163,11 +198,17 @@ export function ResourceManager<T>({
   const visibleRows = rows.filter((r) => isArchived(r) === showArchived);
 
   const showActions = Boolean(
-    rowActions || onEdit || (canArchive && (onArchive || onRestore)) || canHardDelete !== false,
+    rowActions ||
+    onEdit ||
+    (canArchive && (onArchive || onRestore)) ||
+    canHardDelete !== false,
   );
   const colWidth = (key: string) => widths[key] ?? DEFAULT_WIDTH;
   const totalWidth =
-    columns.reduce((acc, c) => acc + colWidth(c.key), 0) + (showActions ? ACTIONS_WIDTH : 0);
+    columns.reduce((acc, c) => acc + colWidth(c.key), 0) +
+    (showActions ? ACTIONS_WIDTH : 0);
+  /** Cuántas celdas tiene una fila completa: las columnas + el colchón + Acciones. */
+  const totalCeldas = columns.length + 1 + (showActions ? 1 : 0);
 
   function startResize(e: ReactPointerEvent, key: string) {
     e.preventDefault();
@@ -221,7 +262,9 @@ export function ResourceManager<T>({
   }
 
   function puedeEliminar(row: T): boolean {
-    return typeof canHardDelete === "function" ? canHardDelete(row) : canHardDelete;
+    return typeof canHardDelete === "function"
+      ? canHardDelete(row)
+      : canHardDelete;
   }
 
   function cascadeMessage(cascade: Record<string, number>): string {
@@ -240,9 +283,11 @@ export function ResourceManager<T>({
       promoTargets: "promoción(es) que lo tienen en oferta",
       zonas: "zona(s)",
       servicios: "servicio(s) que lo componen",
-      ventasDesenganchadas: "venta(s) que quedan sin la promo (conservan su nombre)",
+      ventasDesenganchadas:
+        "venta(s) que quedan sin la promo (conservan su nombre)",
       pagosAcordados: "pago(s) acordado(s) con proveedoras",
-      turnosAfectados: "turno(s) sin completar que pasan a cobrarse por el acuerdo general",
+      turnosAfectados:
+        "turno(s) sin completar que pasan a cobrarse por el acuerdo general",
       // Paquetes de promo (1.55.0). Sin esta etiqueta el cartel caía al
       // `labels[key] ?? key` y Laura leía "se van a desvincular: 3
       // paquetesVendidos".
@@ -251,7 +296,9 @@ export function ResourceManager<T>({
     const parts = Object.entries(cascade)
       .filter(([, count]) => count > 0)
       .map(([key, count]) => `${count} ${labels[key] ?? key}`);
-    return parts.length > 0 ? ` También se van a desvincular: ${parts.join(", ")}.` : "";
+    return parts.length > 0
+      ? ` También se van a desvincular: ${parts.join(", ")}.`
+      : "";
   }
 
   function toggleGroup(key: string) {
@@ -269,15 +316,27 @@ export function ResourceManager<T>({
       <tr
         key={rowKey(row)}
         onClick={onRowClick ? () => onRowClick(row) : undefined}
-        className={`${archived ? "opacity-60" : ""} ${onRowClick ? "cursor-pointer hover:bg-surface-low" : ""}`.trim()}
+        className={`group ${archived ? "opacity-60" : ""} ${onRowClick ? "cursor-pointer hover:bg-surface-low" : ""}`.trim()}
       >
         {columns.map((col) => (
           <td key={col.key} className="overflow-hidden px-4 py-3 text-ink">
-            <div className={`truncate ${col.className ?? ""}`}>{col.render(row)}</div>
+            <div
+              className={`truncate ${col.className ?? ""}`}
+              title={col.title?.(row)}
+            >
+              {col.render(row)}
+            </div>
           </td>
         ))}
+        {/* Colchón: se come el espacio que sobra. Ver el colgroup. */}
+        <td />
         {showActions && (
-          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+          <td
+            className={`sticky right-0 z-10 border-l border-surface-high px-4 py-3 ${
+              archived ? "bg-surface-low" : "bg-white"
+            } ${onRowClick ? "group-hover:bg-surface-low" : ""}`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-end gap-1">
               {rowActions && rowActions(row)}
               {onEdit && !archived && (
@@ -387,7 +446,11 @@ export function ResourceManager<T>({
         </div>
       </div>
 
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>}
+      {error && (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+          {error}
+        </p>
+      )}
 
       {/* Tabla con columnas redimensionables */}
       {/* ⚠️ Con `alturaLibre`, el `<thead>` sticky deja de quedar fijo.
@@ -403,11 +466,21 @@ export function ResourceManager<T>({
           alturaLibre ? "" : "min-h-0 flex-1 overflow-y-auto"
         } ${resizing ? "cursor-col-resize select-none" : ""}`}
       >
-        <table className="text-sm" style={{ tableLayout: "fixed", width: "100%", minWidth: totalWidth }}>
+        <table
+          className="text-sm"
+          style={{ tableLayout: "fixed", width: "100%", minWidth: totalWidth }}
+        >
           <colgroup>
             {columns.map((c) => (
               <col key={c.key} style={{ width: colWidth(c.key) }} />
             ))}
+            {/* La columna colchón, sin ancho declarado.
+                Con `table-layout: fixed`, si TODAS las columnas declaran ancho
+                y la suma queda por debajo del ancho de la tabla, el navegador
+                reparte el sobrante proporcionalmente entre todas: achicabas una
+                y se movían las ocho. Una sola columna sin ancho se lleva todo
+                el sobrante ella sola, y las demás quedan donde las dejaste. */}
+            <col />
             {showActions && <col style={{ width: ACTIONS_WIDTH }} />}
           </colgroup>
 
@@ -419,15 +492,19 @@ export function ResourceManager<T>({
                   className={`relative select-none border-b border-surface-highest bg-surface-high px-4 py-3 text-left font-medium ${col.className ?? ""}`}
                 >
                   <span className="block truncate pr-2">{col.header}</span>
+                  {/* Agarradera de 8px centrada sobre el borde, no de 6px
+                      pegada al costado: a 6px hay que apuntarle. */}
                   <span
                     onPointerDown={(e) => startResize(e, col.key)}
-                    className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-primary/40"
+                    style={{ touchAction: "none" }}
+                    className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize hover:bg-primary/40"
                     title="Arrastrá para ajustar el ancho"
                   />
                 </th>
               ))}
+              <th className="border-b border-surface-highest bg-surface-high" />
               {showActions && (
-                <th className="border-b border-surface-highest bg-surface-high px-4 py-3 text-right font-medium">
+                <th className="sticky right-0 z-20 border-b border-l border-surface-highest border-l-surface-high bg-surface-high px-4 py-3 text-right font-medium">
                   Acciones
                 </th>
               )}
@@ -437,14 +514,22 @@ export function ResourceManager<T>({
           <tbody className="divide-y divide-surface-high">
             {loading ? (
               <tr>
-                <td colSpan={columns.length + 1} className="px-4 py-10 text-center text-ink-soft">
+                <td
+                  colSpan={totalCeldas}
+                  className="px-4 py-10 text-center text-ink-soft"
+                >
                   Cargando…
                 </td>
               </tr>
             ) : visibleRows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + 1} className="px-4 py-10 text-center text-ink-soft">
-                  {showArchived ? "No hay elementos archivados." : "No hay elementos."}
+                <td
+                  colSpan={totalCeldas}
+                  className="px-4 py-10 text-center text-ink-soft"
+                >
+                  {showArchived
+                    ? "No hay elementos archivados."
+                    : "No hay elementos."}
                 </td>
               </tr>
             ) : groups && groupOf ? (
@@ -454,10 +539,7 @@ export function ResourceManager<T>({
                 return (
                   <Fragment key={g.key}>
                     <tr>
-                      <td
-                        colSpan={columns.length + (showActions ? 1 : 0)}
-                        className="bg-surface-low p-0"
-                      >
+                      <td colSpan={totalCeldas} className="bg-surface-low p-0">
                         <button
                           onClick={() => toggleGroup(g.key)}
                           aria-expanded={abierto}
@@ -468,7 +550,9 @@ export function ResourceManager<T>({
                             className={`shrink-0 text-ink-soft transition-transform ${abierto ? "rotate-90" : ""}`}
                           />
                           <span>{g.label}</span>
-                          <span className="text-xs font-normal text-ink-soft">({filas.length})</span>
+                          <span className="text-xs font-normal text-ink-soft">
+                            ({filas.length})
+                          </span>
                         </button>
                       </td>
                     </tr>
@@ -476,7 +560,7 @@ export function ResourceManager<T>({
                       (filas.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={columns.length + (showActions ? 1 : 0)}
+                            colSpan={totalCeldas}
                             className="px-4 py-4 text-center text-sm text-ink-soft"
                           >
                             Nada en esta sección.
@@ -505,8 +589,10 @@ export function ResourceManager<T>({
         message={
           <>
             ¿Seguro que querés archivar
-            {toArchive && archiveName ? ` "${archiveName(toArchive)}"` : " este elemento"}? No se
-            elimina: queda inactivo y podés restaurarlo después.
+            {toArchive && archiveName
+              ? ` "${archiveName(toArchive)}"`
+              : " este elemento"}
+            ? No se elimina: queda inactivo y podés restaurarlo después.
           </>
         }
         onCancel={() => setToArchive(null)}
@@ -520,14 +606,20 @@ export function ResourceManager<T>({
       {hardDeleteRow && hardDeleteImpact && (
         <ConfirmDialog
           open={true}
-          title={hardDeleteImpact.blocked ? "No se puede eliminar" : "Eliminar definitivamente"}
+          title={
+            hardDeleteImpact.blocked
+              ? "No se puede eliminar"
+              : "Eliminar definitivamente"
+          }
           danger={!hardDeleteImpact.blocked}
           confirmLabel={hardDeleteImpact.blocked ? "Entendido" : "Eliminar"}
           message={
             hardDeleteImpact.blocked
               ? hardDeleteImpact.blockReason
               : `¿Seguro que querés eliminar definitivamente${
-                  hardDeleteName ? ` "${hardDeleteName(hardDeleteRow)}"` : " este elemento"
+                  hardDeleteName
+                    ? ` "${hardDeleteName(hardDeleteRow)}"`
+                    : " este elemento"
                 }?${cascadeMessage(hardDeleteImpact.cascade)} Esta acción NO se puede deshacer.`
           }
           onCancel={closeHardDelete}

@@ -1,6 +1,6 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ResourceManager, type Column, type Group } from "./ResourceManager";
 
 type Fila = { id: string; nombre: string; cat: string; archivada?: boolean };
@@ -12,7 +12,9 @@ const FILAS: Fila[] = [
   { id: "4", nombre: "Axila", cat: "chica" },
 ];
 
-const COLUMNAS: Column<Fila>[] = [{ key: "nombre", header: "Nombre", render: (r) => r.nombre }];
+const COLUMNAS: Column<Fila>[] = [
+  { key: "nombre", header: "Nombre", render: (r) => r.nombre },
+];
 
 const GRUPOS: Group[] = [
   { key: "grande", label: "Grande" },
@@ -20,7 +22,9 @@ const GRUPOS: Group[] = [
   { key: "chica", label: "Chica" },
 ];
 
-function base(overrides: Partial<React.ComponentProps<typeof ResourceManager<Fila>>> = {}) {
+function base(
+  overrides: Partial<React.ComponentProps<typeof ResourceManager<Fila>>> = {},
+) {
   return {
     title: "Zonas",
     rows: FILAS,
@@ -39,7 +43,9 @@ function base(overrides: Partial<React.ComponentProps<typeof ResourceManager<Fil
 function filasVisibles() {
   return screen
     .getAllByRole("row")
-    .flatMap((tr) => within(tr).queryAllByText(/Pierna entera|Brazos|Abdomen|Axila/))
+    .flatMap((tr) =>
+      within(tr).queryAllByText(/Pierna entera|Brazos|Abdomen|Axila/),
+    )
     .map((el) => el.textContent);
 }
 
@@ -47,33 +53,56 @@ describe("ResourceManager — agrupado colapsable", () => {
   it("sin las props de grupo la tabla queda plana, sin encabezados de sección", () => {
     render(<ResourceManager {...base()} />);
 
-    expect(filasVisibles()).toEqual(["Pierna entera", "Brazos", "Abdomen", "Axila"]);
-    expect(screen.queryByRole("button", { name: /Grande/ })).not.toBeInTheDocument();
+    expect(filasVisibles()).toEqual([
+      "Pierna entera",
+      "Brazos",
+      "Abdomen",
+      "Axila",
+    ]);
+    expect(
+      screen.queryByRole("button", { name: /Grande/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("agrupa las filas bajo su sección y arranca con todas abiertas", () => {
-    render(<ResourceManager {...base()} groups={GRUPOS} groupOf={(r) => r.cat} />);
+    render(
+      <ResourceManager {...base()} groups={GRUPOS} groupOf={(r) => r.cat} />,
+    );
 
     for (const g of ["Grande", "Mediana", "Chica"]) {
-      expect(screen.getByRole("button", { name: new RegExp(g) })).toHaveAttribute(
-        "aria-expanded",
-        "true",
-      );
+      expect(
+        screen.getByRole("button", { name: new RegExp(g) }),
+      ).toHaveAttribute("aria-expanded", "true");
     }
-    expect(filasVisibles()).toEqual(["Pierna entera", "Brazos", "Abdomen", "Axila"]);
+    expect(filasVisibles()).toEqual([
+      "Pierna entera",
+      "Brazos",
+      "Abdomen",
+      "Axila",
+    ]);
   });
 
   it("el contador de cada sección cuenta solo sus filas", () => {
-    render(<ResourceManager {...base()} groups={GRUPOS} groupOf={(r) => r.cat} />);
+    render(
+      <ResourceManager {...base()} groups={GRUPOS} groupOf={(r) => r.cat} />,
+    );
 
-    expect(screen.getByRole("button", { name: /Grande/ })).toHaveTextContent("(2)");
-    expect(screen.getByRole("button", { name: /Mediana/ })).toHaveTextContent("(1)");
-    expect(screen.getByRole("button", { name: /Chica/ })).toHaveTextContent("(1)");
+    expect(screen.getByRole("button", { name: /Grande/ })).toHaveTextContent(
+      "(2)",
+    );
+    expect(screen.getByRole("button", { name: /Mediana/ })).toHaveTextContent(
+      "(1)",
+    );
+    expect(screen.getByRole("button", { name: /Chica/ })).toHaveTextContent(
+      "(1)",
+    );
   });
 
   it("colapsar una sección esconde SOLO sus filas; volver a tocar las trae", async () => {
     const user = userEvent.setup();
-    render(<ResourceManager {...base()} groups={GRUPOS} groupOf={(r) => r.cat} />);
+    render(
+      <ResourceManager {...base()} groups={GRUPOS} groupOf={(r) => r.cat} />,
+    );
 
     await user.click(screen.getByRole("button", { name: /Grande/ }));
 
@@ -85,7 +114,12 @@ describe("ResourceManager — agrupado colapsable", () => {
     expect(filasVisibles()).toEqual(["Abdomen", "Axila"]);
 
     await user.click(screen.getByRole("button", { name: /Grande/ }));
-    expect(filasVisibles()).toEqual(["Pierna entera", "Brazos", "Abdomen", "Axila"]);
+    expect(filasVisibles()).toEqual([
+      "Pierna entera",
+      "Brazos",
+      "Abdomen",
+      "Axila",
+    ]);
   });
 
   it("una sección vacía se muestra igual, en 0", () => {
@@ -97,7 +131,9 @@ describe("ResourceManager — agrupado colapsable", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /Mediana/ })).toHaveTextContent("(0)");
+    expect(screen.getByRole("button", { name: /Mediana/ })).toHaveTextContent(
+      "(0)",
+    );
     expect(screen.getAllByText("Nada en esta sección.")).toHaveLength(2);
   });
 
@@ -114,7 +150,9 @@ describe("ResourceManager — agrupado colapsable", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /Grande/ })).toHaveTextContent("(1)");
+    expect(screen.getByRole("button", { name: /Grande/ })).toHaveTextContent(
+      "(1)",
+    );
     expect(filasVisibles()).toEqual(["Pierna entera"]);
   });
 });
@@ -148,7 +186,9 @@ describe("ResourceManager — quién muestra el botón de eliminar definitivamen
   // Regresión: Servicios pasa un booleano y tiene que seguir mostrándolo tanto
   // sobre los activos como sobre los archivados.
   it("con `true` aparece en las dos vistas", () => {
-    const { unmount } = render(<ResourceManager<Fila> {...conBorrado(true, false)} />);
+    const { unmount } = render(
+      <ResourceManager<Fila> {...conBorrado(true, false)} />,
+    );
     expect(screen.getByText("Pierna entera")).toBeInTheDocument();
     expect(botones()).toHaveLength(1);
     unmount();
@@ -159,7 +199,9 @@ describe("ResourceManager — quién muestra el botón de eliminar definitivamen
   });
 
   it("con `false` no aparece en ninguna vista", () => {
-    const { unmount } = render(<ResourceManager<Fila> {...conBorrado(false, false)} />);
+    const { unmount } = render(
+      <ResourceManager<Fila> {...conBorrado(false, false)} />,
+    );
     expect(botones()).toHaveLength(0);
     unmount();
 
@@ -172,18 +214,94 @@ describe("ResourceManager — quién muestra el botón de eliminar definitivamen
   it("con una función decide fila por fila", () => {
     const soloArchivadas = (r: Fila) => Boolean(r.archivada);
 
-    const { unmount } = render(<ResourceManager<Fila> {...conBorrado(soloArchivadas, false)} />);
+    const { unmount } = render(
+      <ResourceManager<Fila> {...conBorrado(soloArchivadas, false)} />,
+    );
     expect(screen.getByText("Pierna entera")).toBeInTheDocument();
     expect(botones()).toHaveLength(0);
     unmount();
 
     render(<ResourceManager<Fila> {...conBorrado(soloArchivadas, true)} />);
     const filaArchivada = screen.getByText("Brazos").closest("tr")!;
-    expect(within(filaArchivada).getByTitle("Eliminar definitivamente")).toBeInTheDocument();
+    expect(
+      within(filaArchivada).getByTitle("Eliminar definitivamente"),
+    ).toBeInTheDocument();
   });
 
   it("una función que nunca da true se comporta igual que `false`", () => {
     render(<ResourceManager<Fila> {...conBorrado(() => false, true)} />);
     expect(botones()).toHaveLength(0);
+  });
+});
+
+describe("ResourceManager — la tabla no esconde las acciones", () => {
+  const DOS: Column<Fila>[] = [
+    { key: "nombre", header: "Nombre", width: 200, render: (r) => r.nombre },
+    { key: "cat", header: "Categoría", width: 300, render: (r) => r.cat },
+  ];
+
+  // El resize persiste el ancho en localStorage, así que sin esto un test le
+  // deja los anchos puestos al siguiente.
+  beforeEach(() => localStorage.clear());
+
+  /** Los `<col>` del colgroup, que son los que fijan el ancho de cada columna. */
+  function cols(container: HTMLElement) {
+    return Array.from(container.querySelectorAll("col"));
+  }
+
+  it("la columna de Acciones queda fija a la derecha, encabezado y celdas", () => {
+    render(<ResourceManager {...base({ columns: DOS })} onEdit={vi.fn()} />);
+
+    const encabezado = screen.getByRole("columnheader", { name: "Acciones" });
+    expect(encabezado.className).toMatch(/\bsticky\b/);
+    expect(encabezado.className).toMatch(/\bright-0\b/);
+
+    const celda = screen
+      .getByText("Pierna entera")
+      .closest("tr")!
+      .querySelector("td:last-child")!;
+    expect(celda.className).toMatch(/\bsticky\b/);
+    expect(celda.className).toMatch(/\bright-0\b/);
+  });
+
+  // El sobrante tiene que irse a una columna vacía. Si todas las columnas
+  // declaran ancho, `table-layout: fixed` reparte el sobrante ENTRE TODAS y
+  // mover una mueve las demás — que es el resizer elástico que sufría Laura.
+  it("hay una columna colchón sin ancho declarado que se come el sobrante", () => {
+    const { container } = render(
+      <ResourceManager {...base({ columns: DOS })} onEdit={vi.fn()} />,
+    );
+
+    const anchos = cols(container).map((c) => c.style.width);
+    expect(anchos).toEqual(["200px", "300px", "", "96px"]);
+  });
+
+  it("arrastrar una columna no toca el ancho de las demás", () => {
+    const { container } = render(
+      <ResourceManager {...base({ columns: DOS })} onEdit={vi.fn()} />,
+    );
+
+    const agarradera = screen
+      .getByRole("columnheader", { name: "Nombre" })
+      .querySelector("span[title]")!;
+    fireEvent.pointerDown(agarradera, { clientX: 200 });
+    fireEvent(window, new MouseEvent("pointermove", { clientX: 260 }));
+    fireEvent(window, new MouseEvent("pointerup", {}));
+
+    expect(cols(container).map((c) => c.style.width)).toEqual([
+      "260px",
+      "300px",
+      "",
+      "96px",
+    ]);
+  });
+
+  it("ignora los anchos guardados con la clave vieja, que quedó descalibrada", () => {
+    localStorage.setItem("rm-colwidths:Zonas", JSON.stringify({ nombre: 999 }));
+    const { container } = render(
+      <ResourceManager {...base({ columns: DOS })} onEdit={vi.fn()} />,
+    );
+
+    expect(cols(container)[0]!.style.width).toBe("200px");
   });
 });
