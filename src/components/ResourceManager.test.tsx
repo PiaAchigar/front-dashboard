@@ -249,6 +249,45 @@ describe("ResourceManager — la tabla no esconde las acciones", () => {
     return Array.from(container.querySelectorAll("col"));
   }
 
+  // La celda de Acciones es la única con fondo propio (lo necesita: queda
+  // flotando sobre las demás al scrollear). Si la caja de la tabla no fuera
+  // blanca, ese blanco cortaría contra el crema de la página justo en el
+  // borde de la columna fija — que es como se veía al principio.
+  it("la caja de la tabla es blanca, igual que la celda fija de Acciones", () => {
+    const { container } = render(
+      <ResourceManager {...base({ columns: DOS })} onEdit={vi.fn()} />,
+    );
+
+    const caja = container.querySelector("table")!.parentElement!;
+    expect(caja.className).toMatch(/\bbg-white\b/);
+
+    const celda = screen
+      .getByText("Pierna entera")
+      .closest("tr")!
+      .querySelector("td:last-child")!;
+    expect(celda.className).toMatch(/\bbg-white\b/);
+  });
+
+  it("una fila archivada no le cambia el fondo a la celda fija", () => {
+    render(
+      <ResourceManager
+        {...base({
+          columns: DOS,
+          rows: [{ id: "9", nombre: "Vieja", cat: "chica", archivada: true }],
+          showArchived: true,
+        })}
+        onEdit={vi.fn()}
+      />,
+    );
+
+    const celda = screen
+      .getByText("Vieja")
+      .closest("tr")!
+      .querySelector("td:last-child")!;
+    expect(celda.className).toMatch(/\bbg-white\b/);
+    expect(celda.className).not.toMatch(/bg-surface-low(?!.*group-hover)/);
+  });
+
   it("la columna de Acciones queda fija a la derecha, encabezado y celdas", () => {
     render(<ResourceManager {...base({ columns: DOS })} onEdit={vi.fn()} />);
 

@@ -332,9 +332,9 @@ export function ResourceManager<T>({
         <td />
         {showActions && (
           <td
-            className={`sticky right-0 z-10 border-l border-surface-high px-4 py-3 ${
-              archived ? "bg-surface-low" : "bg-white"
-            } ${onRowClick ? "group-hover:bg-surface-low" : ""}`}
+            className={`sticky right-0 z-10 border-l border-surface-high bg-white px-4 py-3 ${
+              onRowClick ? "group-hover:bg-surface-low" : ""
+            }`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-end gap-1">
@@ -462,7 +462,7 @@ export function ResourceManager<T>({
           Se aceptó a cambio de que la tabla se vea entera (pedido de Pia,
           2026-09-10). Volver atrás es sacarle `alturaLibre` a la pantalla. */}
       <div
-        className={`modal-scroll overflow-x-auto rounded-xl border border-surface-high ${
+        className={`modal-scroll overflow-x-auto rounded-xl border border-surface-high bg-white ${
           alturaLibre ? "" : "min-h-0 flex-1 overflow-y-auto"
         } ${resizing ? "cursor-col-resize select-none" : ""}`}
       >
