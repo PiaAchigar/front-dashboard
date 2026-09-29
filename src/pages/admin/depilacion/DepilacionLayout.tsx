@@ -29,7 +29,7 @@ export function DepilacionLayout() {
     <div className="flex h-full flex-col">
       <div className="shrink-0 px-4 pt-5 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="font-display text-2xl text-ink">Depilación</h1>
+          <h1 className="font-display text-2xl text-ink">Depilación Definitiva</h1>
           {/* El hueco donde la pantalla de abajo dibuja su botón Agregar. */}
           <div ref={setSlotAcciones} className="shrink-0" />
         </div>
