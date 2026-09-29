@@ -34,7 +34,7 @@ export function DepilacionLayout() {
           <div ref={setSlotAcciones} className="shrink-0" />
         </div>
         <p className="mt-1 text-sm text-ink-soft">
-          Zonas, precios y combos del motor de depilación definitiva.
+          Configuraciónes, zonas, packs y combos del motor de depilación definitiva.
         </p>
         <div className="mt-3">
           <SectionSubnav items={SUBNAV} />

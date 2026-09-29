@@ -189,7 +189,7 @@ function BloqueDeEquipos({
         {cargando ? (
           <p className="text-sm text-ink-soft">Cargando…</p>
         ) : equipos.length === 0 ? (
-          <p className="text-sm text-ink-soft">Todavía no hay ningún equipo de depilación.</p>
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Todavía no hay ningún equipo de depilación.</p>
         ) : (
           <ul className="space-y-2">
             {equipos.map((e) => {
@@ -514,15 +514,15 @@ function BloqueDeProveedoras({
         </div>
       )}
 
-      {sinEquipos && (
-        <p
-          id={MOTIVO_SIN_EQUIPOS_ID}
-          className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900"
-        >
-          Agregá primero un equipo de depilación acá arriba: sin equipo, habilitar a una
-          proveedora no la hace aparecer con horarios.
-        </p>
-      )}
+        {sinEquipos && (
+          <p
+            id={MOTIVO_SIN_EQUIPOS_ID}
+            className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          >
+            Agregá primero un equipo de depilación acá arriba: sin equipo, habilitar a una
+            proveedora no la hace aparecer con horarios.
+          </p>
+        )}
 
       {avisoDeTurnos && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
