@@ -6,6 +6,13 @@ import { HELP_ARTICLES } from "../help/content";
 
 const TITULO_GUIA = "Cómo hacer que el buscador de la web encuentre cada tratamiento";
 
+/** Los tres artículos que explican el buscador de la web. */
+const TITULOS_DEL_BUSCADOR = [
+  TITULO_GUIA,
+  "¿Cómo me doy cuenta de qué servicios les faltan palabras?",
+  "Un servicio no aparece en el buscador de la web",
+];
+
 async function buscar(texto: string) {
   render(<AyudaPage />);
   await userEvent.type(screen.getByPlaceholderText(/^Buscar/), texto);
@@ -19,12 +26,12 @@ describe("Centro de ayuda — la guía del buscador de la web", () => {
 
   // Estas son las palabras que Laura va a tipear cuando tenga el problema. Un
   // artículo que no sale con ninguna de ellas es un artículo que no existe.
-  it.each(["buscador", "tonificar", "no aparece", "palabras", "Mio Up"])(
+  it.each(["buscador", "tonificar", "no aparece", "palabras", "adiposidad"])(
     'se encuentra buscando "%s"',
     async (termino) => {
       await buscar(termino);
       const titulos = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-      expect(titulos.some((t) => t?.includes("buscador de la web"))).toBe(true);
+      expect(titulos.some((t) => t != null && TITULOS_DEL_BUSCADOR.includes(t))).toBe(true);
     },
   );
 
