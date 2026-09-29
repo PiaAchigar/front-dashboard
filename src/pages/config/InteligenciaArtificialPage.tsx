@@ -10,7 +10,10 @@ import {
   type CredencialInput,
   type ValidacionResultado,
 } from "../../hooks/useAICredentials";
-import { useEmbeddingsStatus, useRecalcularLote } from "../../hooks/useEmbeddingsStatus";
+import {
+  useEmbeddingsStatus,
+  useRecalcularLote,
+} from "../../hooks/useEmbeddingsStatus";
 
 const MODELO_DEFAULT = "text-embedding-3-small";
 const MAX_VUELTAS = 60;
@@ -43,14 +46,16 @@ export function InteligenciaArtificialPage() {
   // Filtra por proveedor: `listAICredentials` devuelve TODAS las credenciales
   // (también las de Anthropic que carga front-crm), así que sin este filtro
   // una fila activa de Anthropic se mostraba acá como si fuera la de OpenAI.
-  const activa = credenciales.find((c) => c.is_active && c.provider === "openai") ?? null;
+  const activa =
+    credenciales.find((c) => c.is_active && c.provider === "openai") ?? null;
 
   const [apiKey, setApiKey] = useState("");
   // Fijo, no editable (ver IMPORTANT 3 del review): es el único modelo de
   // OpenAI que devuelve 1536 dimensiones, que es lo que guardan las columnas
   // de embeddings.
   const modelo = MODELO_DEFAULT;
-  const [validacionError, setValidacionError] = useState<ValidacionResultado | null>(null);
+  const [validacionError, setValidacionError] =
+    useState<ValidacionResultado | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [corriendo, setCorriendo] = useState(false);
@@ -60,7 +65,11 @@ export function InteligenciaArtificialPage() {
 
   async function probarYGuardar() {
     setValidacionError(null);
-    const data: CredencialInput = { provider: "openai", api_key: apiKey, model: modelo };
+    const data: CredencialInput = {
+      provider: "openai",
+      api_key: apiKey,
+      model: modelo,
+    };
     try {
       const resultado = await validar.mutateAsync(data);
       if (!resultado.valid) {
@@ -71,7 +80,11 @@ export function InteligenciaArtificialPage() {
       setApiKey("");
       toast.success("Credencial guardada");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo validar la credencial.");
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "No se pudo validar la credencial.",
+      );
     }
   }
 
@@ -109,12 +122,18 @@ export function InteligenciaArtificialPage() {
         // mismas filas y termina sin mostrar ningún error.
         const huboExito = r.results?.some((x) => x.status === "success");
         if (r.results?.length && !huboExito) {
-          setErrorLoop(r.results[0].error ?? "No se pudo actualizar el buscador.");
+          setErrorLoop(
+            r.results[0].error ?? "No se pudo actualizar el buscador.",
+          );
           break;
         }
       }
     } catch (err) {
-      setErrorLoop(err instanceof Error ? err.message : "No se pudo actualizar el buscador.");
+      setErrorLoop(
+        err instanceof Error
+          ? err.message
+          : "No se pudo actualizar el buscador.",
+      );
     } finally {
       setCorriendo(false);
       await status.refetch();
@@ -122,18 +141,38 @@ export function InteligenciaArtificialPage() {
   }
 
   const canSubmit =
-    apiKey.trim().length > 0 && modelo.trim().length > 0 && !validar.isPending && !guardar.isPending;
+    apiKey.trim().length > 0 &&
+    modelo.trim().length > 0 &&
+    !validar.isPending &&
+    !guardar.isPending;
 
   const botonActualizarDeshabilitado =
-    !status.data || status.data.credencial_activa === false || status.data.pendientes === 0 || corriendo;
+    !status.data ||
+    status.data.credencial_activa === false ||
+    status.data.pendientes === 0 ||
+    corriendo;
+
+  /**
+   * Un botón apagado sin explicación se lee como un botón roto: pasó de verdad
+   * (2026-09-29), con el buscador al día y todo funcionando. Acá está apagado
+   * por dos motivos distintos —no hay nada pendiente, o falta la credencial— y
+   * el segundo ya tiene su propio cartel arriba, así que este texto es sólo
+   * para el primero.
+   */
+  const nadaQueActualizar =
+    !corriendo &&
+    status.data?.credencial_activa !== false &&
+    status.data?.pendientes === 0;
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-auto p-2 pl-4 sm:p-4">
       <div>
-        <h2 className="font-display text-xl text-ink">Inteligencia Artificial</h2>
+        <h2 className="font-display text-xl text-ink">
+          Inteligencia Artificial
+        </h2>
         <p className="text-xs text-ink-soft">
-          Credencial de OpenAI para generar los embeddings que alimentan el buscador de la web
-          pública.
+          Credencial de OpenAI para generar los embeddings que alimentan el
+          buscador de la web pública.
         </p>
       </div>
 
@@ -145,15 +184,18 @@ export function InteligenciaArtificialPage() {
           <p className="mt-2 text-sm text-ink-soft">Cargando…</p>
         ) : errorCredenciales ? (
           <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            No pudimos consultar el estado de la credencial. Probá recargar la página.
+            No pudimos consultar el estado de la credencial. Probá recargar la
+            página.
           </p>
         ) : activa ? (
           <div className="mt-2 rounded-lg bg-surface-high px-3 py-2 text-sm text-ink-soft">
             <p>
-              <span className="font-medium text-ink">Proveedor:</span> {activa.provider ?? "—"}
+              <span className="font-medium text-ink">Proveedor:</span>{" "}
+              {activa.provider ?? "—"}
             </p>
             <p>
-              <span className="font-medium text-ink">Modelo:</span> {activa.model ?? "—"}
+              <span className="font-medium text-ink">Modelo:</span>{" "}
+              {activa.model ?? "—"}
             </p>
             <p>
               <span className="font-medium text-ink">Cargada el:</span>{" "}
@@ -161,7 +203,9 @@ export function InteligenciaArtificialPage() {
             </p>
           </div>
         ) : (
-          <p className="mt-2 text-sm text-ink-soft">Todavía no hay una credencial cargada.</p>
+          <p className="mt-2 text-sm text-ink-soft">
+            Todavía no hay una credencial cargada.
+          </p>
         )}
 
         <div className="mt-4 flex flex-col gap-3">
@@ -178,9 +222,12 @@ export function InteligenciaArtificialPage() {
             <TextInput value={modelo} readOnly disabled />
           </Field>
           <p className="text-xs text-ink-soft">
-            Fijo en <code className="rounded bg-surface-high px-1 py-0.5">text-embedding-3-small</code>.
-            Las columnas de la base guardan vectores de 1536 dimensiones y es el único modelo que
-            devuelve esa medida; no se puede editar.
+            Fijo en{" "}
+            <code className="rounded bg-surface-high px-1 py-0.5">
+              text-embedding-3-small
+            </code>
+            . Las columnas de la base guardan vectores de 1536 dimensiones y es
+            el único modelo que devuelve esa medida; no se puede editar.
           </p>
 
           {validacionError && (
@@ -188,14 +235,18 @@ export function InteligenciaArtificialPage() {
               <p>{validacionError.error}</p>
               {validacionError.detalle && (
                 <details className="mt-1 text-xs">
-                  <summary className="cursor-pointer text-red-700">Ver detalle</summary>
-                  <p className="mt-1 whitespace-pre-wrap">{validacionError.detalle}</p>
+                  <summary className="cursor-pointer text-red-700">
+                    Ver detalle
+                  </summary>
+                  <p className="mt-1 whitespace-pre-wrap">
+                    {validacionError.detalle}
+                  </p>
                 </details>
               )}
             </div>
           )}
 
-          <div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <button
               onClick={probarYGuardar}
               disabled={!canSubmit}
@@ -207,6 +258,17 @@ export function InteligenciaArtificialPage() {
                   ? "Guardando…"
                   : "Probar y guardar"}
             </button>
+            {/* Sólo cuando está apagado por el campo vacío: si está apagado
+                porque la petición está en vuelo, el propio botón ya lo dice. */}
+            {apiKey.trim().length === 0 &&
+              !validar.isPending &&
+              !guardar.isPending && (
+                <p className="text-xs text-ink-soft">
+                  {activa
+                    ? "Escribí una key nueva para reemplazar la actual. La que está cargada sigue funcionando."
+                    : "Escribí la API key de OpenAI para poder guardarla."}
+                </p>
+              )}
           </div>
         </div>
       </section>
@@ -219,25 +281,27 @@ export function InteligenciaArtificialPage() {
           <p className="mt-2 text-sm text-ink-soft">Cargando…</p>
         ) : status.isError ? (
           <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            No pudimos consultar el estado del buscador. Probá recargar la página.
+            No pudimos consultar el estado del buscador. Probá recargar la
+            página.
           </p>
         ) : status.data ? (
           <div className="mt-2">
             {status.data.credencial_activa === false ? (
               <p className="rounded-lg bg-surface-high px-3 py-2 text-sm text-ink-soft">
-                Falta cargar una credencial de OpenAI. Hasta entonces no se puede actualizar el
-                buscador.
+                Falta cargar una credencial de OpenAI. Hasta entonces no se
+                puede actualizar el buscador.
               </p>
             ) : status.data.pendientes === 0 ? (
               <p className="text-sm text-ink-soft">
-                {status.data.indexados} {pluralItems(status.data.indexados)} indexados. El
-                buscador está al día.
+                {status.data.indexados} {pluralItems(status.data.indexados)}{" "}
+                indexados. El buscador está al día.
               </p>
             ) : (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                {status.data.indexados} {pluralItems(status.data.indexados)} indexados ·{" "}
-                {status.data.pendientes} {pluralItems(status.data.pendientes)} pendientes de
-                aparecer en el buscador de la web.
+                {status.data.indexados} {pluralItems(status.data.indexados)}{" "}
+                indexados · {status.data.pendientes}{" "}
+                {pluralItems(status.data.pendientes)} pendientes de aparecer en
+                el buscador de la web.
               </p>
             )}
           </div>
@@ -245,14 +309,36 @@ export function InteligenciaArtificialPage() {
 
         {/* Bloque 3 — Botón «Actualizar buscador» */}
         <div className="mt-4">
-          <button
-            onClick={abrirModal}
-            disabled={botonActualizarDeshabilitado}
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
-          >
-            {corriendo ? `Actualizando… ${procesados} de ${totalAlEmpezar}` : "Actualizar buscador"}
-          </button>
-          {errorLoop && <p className="mt-2 text-sm text-red-700">{errorLoop}</p>}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <button
+              onClick={abrirModal}
+              disabled={botonActualizarDeshabilitado}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+            >
+              {corriendo
+                ? `Actualizando… ${procesados} de ${totalAlEmpezar}`
+                : "Actualizar buscador"}
+            </button>
+            {nadaQueActualizar && (
+              <p className="text-xs text-ink-soft">
+                Ya está todo indexado, no hay nada para actualizar.
+              </p>
+            )}
+          </div>
+
+          {/* Cuándo conviene apretarlo. El cron del Worker corre a la hora en
+              punto (`crons = [..., "0 * * * *"]` en wrangler.toml), así que el
+              botón nunca es obligatorio: sólo adelanta lo que iba a pasar. */}
+          <p className="mt-3 max-w-prose text-xs text-ink-soft">
+            Si vas a editar o cargar más servicios, terminá todo y actualizá una
+            sola vez al final: cada actualización consume tokens de OpenAI. No
+            es obligatorio apretarlo —cada hora en punto se actualiza solo lo
+            que falte—; sirve para que los cambios salgan en la web ahora.
+          </p>
+
+          {errorLoop && (
+            <p className="mt-2 text-sm text-red-700">{errorLoop}</p>
+          )}
         </div>
       </section>
 
