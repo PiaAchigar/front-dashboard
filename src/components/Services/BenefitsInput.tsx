@@ -1,19 +1,18 @@
-import { useState } from "react";
-
 interface BenefitsInputProps {
   label: string;
   description?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  /** true si `service.description` ya tiene contenido: avisa que este campo
-   *  complementa (no reemplaza) esa descripción existente. */
-  hasExistingDescription?: boolean;
+  /** Si el texto sale publicado en la web o si queda sólo para la búsqueda.
+   *  Decide dónde conviene escribir cada cosa, así que se dice en el campo y
+   *  no en un instructivo aparte. */
+  sePublica: boolean;
 }
 
 const RECOMMENDED_LENGTH = 500;
 
-/** Textarea reutilizable para campos de contenido RAG del servicio
+/** Textarea de los campos que alimentan la búsqueda de tratamientos
  *  (beneficios, contraindicaciones, instrucciones especiales). */
 export function BenefitsInput({
   label,
@@ -21,31 +20,26 @@ export function BenefitsInput({
   value,
   onChange,
   placeholder,
-  hasExistingDescription,
+  sePublica,
 }: BenefitsInputProps) {
-  const [showWarning, setShowWarning] = useState(false);
-
-  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const newValue = e.target.value;
-    if (hasExistingDescription && newValue && !showWarning) {
-      setShowWarning(true);
-    }
-    onChange(newValue);
-  }
-
   return (
     <div className="mb-4">
       <label className="mb-1 block text-xs font-medium text-ink-soft">{label}</label>
+      {/* Beneficios se publica tal cual en la tarjeta de resultados de la web,
+          debajo de la descripción y con su propio rótulo. Contraindicaciones e
+          Instrucciones Especiales no se muestran en ninguna parte del sitio:
+          ayudan al buscador y le sirven al equipo. */}
+      <p
+        className={`mb-1 text-xs font-medium ${sePublica ? "text-primary" : "text-ink-soft"}`}
+      >
+        {sePublica
+          ? "Se publica en la web, debajo de la descripción del servicio."
+          : "No se publica: mejora la búsqueda y queda para el equipo."}
+      </p>
       {description && <p className="mb-2 text-xs text-ink-soft/70">{description}</p>}
-      {hasExistingDescription && showWarning && (
-        <div className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          ⚠️ Este servicio ya tiene descripción. Los datos aquí complementarán la búsqueda, no
-          la reemplazan.
-        </div>
-      )}
       <textarea
         value={value}
-        onChange={handleChange}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={4}
         className="w-full resize-none rounded-xl border border-surface-highest bg-white px-3 py-2 text-sm text-ink outline-none focus:border-primary"

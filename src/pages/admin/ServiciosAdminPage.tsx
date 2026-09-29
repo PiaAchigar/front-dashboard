@@ -828,8 +828,16 @@ export function ServiciosAdminPage(
 
         {/* Contenido RAG: alimenta la búsqueda de tratamientos y el chatbot (migración 1.4.0) */}
         <div className="space-y-1 rounded-xl border border-surface-high p-3">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-soft">
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
             Contenido para búsqueda de tratamientos
+          </p>
+          {/* Qué hace este bloque y qué sale publicado. Sin esto no hay forma
+              de saber que Beneficios se muestra en la web y los otros dos no:
+              los tres están en el mismo recuadro y parecen del mismo tipo. */}
+          <p className="mb-3 text-xs text-ink-soft/80">
+            Alimenta el buscador de la web, el que le sugiere tratamientos a la clienta
+            según lo que escribe (“quiero tonificar los brazos”). Escribí con las palabras
+            que usa ella, no con las del aparato. Cada campo aclara si sale publicado.
           </p>
           <BenefitsInput
             label="Beneficios"
@@ -837,7 +845,7 @@ export function ServiciosAdminPage(
             value={form.benefits}
             onChange={(value) => setForm({ ...form, benefits: value })}
             placeholder="Beneficios principales del tratamiento"
-            hasExistingDescription={!!form.description}
+            sePublica
           />
           <BenefitsInput
             label="Contraindicaciones"
@@ -845,7 +853,7 @@ export function ServiciosAdminPage(
             value={form.contraindications}
             onChange={(value) => setForm({ ...form, contraindications: value })}
             placeholder="Restricciones y contraindicaciones"
-            hasExistingDescription={!!form.description}
+            sePublica={false}
           />
           <BenefitsInput
             label="Instrucciones Especiales"
@@ -853,7 +861,7 @@ export function ServiciosAdminPage(
             value={form.specialAttentionNotes}
             onChange={(value) => setForm({ ...form, specialAttentionNotes: value })}
             placeholder="Recomendaciones antes/después del tratamiento"
-            hasExistingDescription={!!form.description}
+            sePublica={false}
           />
         </div>
       </EntityDrawer>
