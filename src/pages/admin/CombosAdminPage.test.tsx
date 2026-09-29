@@ -41,13 +41,24 @@ const SERVICIOS = [
     isActive: true,
     categories: ESTETICA,
   },
-  { id: PEELING, name: "Peeling", unitPriceList: 15000, isActive: true, categories: ESTETICA },
+  {
+    id: PEELING,
+    name: "Peeling",
+    unitPriceList: 15000,
+    isActive: true,
+    categories: ESTETICA,
+  },
   {
     id: BOTOX,
     name: "Baby Botox",
     unitPriceList: 90000,
     isActive: true,
-    categories: [{ id: "aaaaaaaa-3333-3333-3333-333333333333", name: "Medicina y Dermatología" }],
+    categories: [
+      {
+        id: "aaaaaaaa-3333-3333-3333-333333333333",
+        name: "Medicina y Dermatología",
+      },
+    ],
   },
 ];
 
@@ -74,8 +85,22 @@ const COMBO_GUARDADO = {
   packRoundingBase: null,
   servicesTogether: true,
   lines: [
-    { id: "l1", serviceId: LIMPIEZA, serviceName: "Limpieza facial", serviceIsActive: true, sessionsIncluded: 1, servicePrice: 20000 },
-    { id: "l2", serviceId: PEELING, serviceName: "Peeling", serviceIsActive: true, sessionsIncluded: 1, servicePrice: 15000 },
+    {
+      id: "l1",
+      serviceId: LIMPIEZA,
+      serviceName: "Limpieza facial",
+      serviceIsActive: true,
+      sessionsIncluded: 1,
+      servicePrice: 20000,
+    },
+    {
+      id: "l2",
+      serviceId: PEELING,
+      serviceName: "Peeling",
+      serviceIsActive: true,
+      sessionsIncluded: 1,
+      servicePrice: 15000,
+    },
   ],
 };
 
@@ -83,9 +108,17 @@ type Opciones = {
   combos?: unknown[];
   duplicados?: { id: string; name: string }[];
   /** Lo que devuelve GET /combos/admin/:id/delete-impact. */
-  impacto?: { blocked: boolean; blockReason?: string; cascade: Record<string, number> };
+  impacto?: {
+    blocked: boolean;
+    blockReason?: string;
+    cascade: Record<string, number>;
+  };
   /** Se llena con los cuerpos de cada POST, para poder mirar qué se mandó. */
   enviados?: Record<string, unknown>[];
+  /** Proveedoras por servicio. Un servicio ausente del mapa no tiene ninguna. */
+  proveedoras?: Record<string, { id: string; fullName: string }[]>;
+  /** Deja la consulta de proveedoras colgada, para probar el estado "todavía no sé". */
+  proveedorasColgadas?: boolean;
 };
 
 function makeFetchMock(op: Opciones = {}) {
@@ -101,12 +134,18 @@ function makeFetchMock(op: Opciones = {}) {
       return {
         ok: true,
         json: async () =>
-          op.impacto ?? { blocked: false, cascade: { servicios: 2, promoTargets: 0 } },
+          op.impacto ?? {
+            blocked: false,
+            cascade: { servicios: 2, promoTargets: 0 },
+          },
       };
     }
     if (u.includes("/api/agenda/combos/admin/duplicados")) {
       op.enviados?.push(JSON.parse(String(init?.body ?? "{}")));
-      return { ok: true, json: async () => ({ duplicados: op.duplicados ?? [] }) };
+      return {
+        ok: true,
+        json: async () => ({ duplicados: op.duplicados ?? [] }),
+      };
     }
     if (u.includes("/api/agenda/combos/admin")) {
       if (init?.method === "POST" || init?.method === "PATCH") {
@@ -114,6 +153,14 @@ function makeFetchMock(op: Opciones = {}) {
         return { ok: true, json: async () => ({}) };
       }
       return { ok: true, json: async () => op.combos ?? [] };
+    }
+    // Antes de /api/agenda/services: "providers?serviceId=" no lo pisa, pero
+    // dejarlo caer al catch-all devolvía `{}` en vez de una lista y la
+    // pantalla no podía distinguir "sin proveedora" de "todavía no sé".
+    if (u.includes("/api/agenda/providers")) {
+      const id = new URL(u, "http://x").searchParams.get("serviceId") ?? "";
+      if (op.proveedorasColgadas) return new Promise(() => {});
+      return { ok: true, json: async () => op.proveedoras?.[id] ?? [] };
     }
     if (u.includes("/api/agenda/services")) {
       return { ok: true, json: async () => SERVICIOS };
@@ -143,8 +190,10 @@ beforeEach(() => {
 async function armarComboDeDos(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole("button", { name: /agregar/i }));
   const dialog = await screen.findByRole("dialog");
-  for (const _ of [0, 1]) {
-    await user.click(within(dialog).getByRole("button", { name: /agregar servicio/i }));
+  for (let i = 0; i < 2; i++) {
+    await user.click(
+      within(dialog).getByRole("button", { name: /agregar servicio/i }),
+    );
   }
   const selects = within(dialog).getAllByRole("combobox");
   const deServicio = selects.filter((s) =>
@@ -162,8 +211,11 @@ afterEach(() => {
 describe("CombosAdminPage", () => {
   it("avisa que los combos se arman con servicios ya cargados", async () => {
     render(<CombosAdminPage />, { wrapper });
-    expect(await screen.findByText(/se arma con servicios y actividades que ya estén cargados/i))
-      .toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        /se arma con servicios y actividades que ya estén cargados/i,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("el aviso manda a los Servicios DE ESA ÁREA, no a la lista general", async () => {
@@ -180,7 +232,9 @@ describe("CombosAdminPage", () => {
   it("sin área no pinta link: no habría a dónde mandarla que no sea el lugar equivocado", async () => {
     render(<CombosAdminPage />, { wrapper });
     await screen.findByText(/se arma con servicios/i);
-    expect(screen.queryByRole("link", { name: /servicios/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /servicios/i }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -218,7 +272,9 @@ describe("CombosAdminPage — el área", () => {
 
     await screen.findByText(/se arma con servicios/i);
     const pedidos = fetchMock.mock.calls.map((c) => String(c[0]));
-    expect(pedidos.some((u) => u.includes("/api/agenda/combos/admin"))).toBe(false);
+    expect(pedidos.some((u) => u.includes("/api/agenda/combos/admin"))).toBe(
+      false,
+    );
   });
 });
 
@@ -234,11 +290,17 @@ describe("CombosAdminPage — sólo servicios del área", () => {
 
     await user.click(await screen.findByRole("button", { name: /agregar/i }));
     const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: /agregar servicio/i }));
+    await user.click(
+      within(dialog).getByRole("button", { name: /agregar servicio/i }),
+    );
 
-    expect(within(dialog).queryByRole("option", { name: /baby botox/i })).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("option", { name: /baby botox/i }),
+    ).not.toBeInTheDocument();
     // Y los del área sí están: el filtro acota, no vacía la lista.
-    expect(within(dialog).getByRole("option", { name: /limpieza facial/i })).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("option", { name: /limpieza facial/i }),
+    ).toBeInTheDocument();
   });
 
   it("sin área los ofrece todos: es la pantalla general", async () => {
@@ -247,9 +309,13 @@ describe("CombosAdminPage — sólo servicios del área", () => {
 
     await user.click(await screen.findByRole("button", { name: /agregar/i }));
     const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: /agregar servicio/i }));
+    await user.click(
+      within(dialog).getByRole("button", { name: /agregar servicio/i }),
+    );
 
-    expect(within(dialog).getByRole("option", { name: /baby botox/i })).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("option", { name: /baby botox/i }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -260,9 +326,13 @@ describe("CombosAdminPage — se hacen juntos (§4.4)", () => {
 
     await user.click(await screen.findByRole("button", { name: /agregar/i }));
     const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: /agregar servicio/i }));
+    await user.click(
+      within(dialog).getByRole("button", { name: /agregar servicio/i }),
+    );
 
-    expect(within(dialog).queryByLabelText(/se hacen juntos/i)).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByLabelText(/se hacen juntos/i),
+    ).not.toBeInTheDocument();
   });
 
   it("con dos servicios lo ofrece, y viene DESMARCADO", async () => {
@@ -270,12 +340,17 @@ describe("CombosAdminPage — se hacen juntos (§4.4)", () => {
     render(<CombosAdminPage area="Estética" />, { wrapper });
     const dialog = await armarComboDeDos(user);
 
-    const check = within(dialog).getByRole("checkbox", { name: /se hacen juntos/i });
+    const check = within(dialog).getByRole("checkbox", {
+      name: /se hacen juntos/i,
+    });
     expect(check).not.toBeChecked();
     // El default suelto es lo que pidió Pia: ante un descuido, la opción más
     // libre de agendar.
-    expect(within(dialog).getByText(/cada servicio se agenda cuando la clienta quiera/i))
-      .toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /cada servicio se agenda cuando la clienta quiera/i,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("al marcarlo explica que hay que agendarlos el mismo día", async () => {
@@ -283,10 +358,14 @@ describe("CombosAdminPage — se hacen juntos (§4.4)", () => {
     render(<CombosAdminPage area="Estética" />, { wrapper });
     const dialog = await armarComboDeDos(user);
 
-    await user.click(within(dialog).getByRole("checkbox", { name: /se hacen juntos/i }));
+    await user.click(
+      within(dialog).getByRole("checkbox", { name: /se hacen juntos/i }),
+    );
     expect(within(dialog).getByText(/el mismo día/i)).toBeInTheDocument();
     // Mismo día sí, pegados no: esa fue la decisión.
-    expect(within(dialog).getByText(/no hace falta que sean seguidos/i)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/no hace falta que sean seguidos/i),
+    ).toBeInTheDocument();
   });
 });
 
@@ -295,18 +374,28 @@ describe("CombosAdminPage — el aviso de duplicados", () => {
     const enviados: Record<string, unknown>[] = [];
     vi.stubGlobal(
       "fetch",
-      makeFetchMock({ duplicados: [{ id: "c9", name: "Combo Facial" }], enviados }),
+      makeFetchMock({
+        duplicados: [{ id: "c9", name: "Combo Facial" }],
+        enviados,
+      }),
     );
     const user = userEvent.setup();
     render(<CombosAdminPage area="Estética" />, { wrapper });
     const dialog = await armarComboDeDos(user);
 
-    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial Completo");
-    await user.type(within(dialog).getByLabelText(/porcentaje|precio del combo/i), "10");
+    await user.type(
+      within(dialog).getByLabelText(/nombre/i),
+      "Facial Completo",
+    );
+    await user.type(
+      within(dialog).getByLabelText(/porcentaje|precio del combo/i),
+      "10",
+    );
     await user.click(within(dialog).getByRole("button", { name: /guardar/i }));
 
-    expect(await screen.findByText(/ya existe un combo con estos mismos servicios/i))
-      .toBeInTheDocument();
+    expect(
+      await screen.findByText(/ya existe un combo con estos mismos servicios/i),
+    ).toBeInTheDocument();
     expect(screen.getByText("Combo Facial")).toBeInTheDocument();
     // Se consultó, pero NO se creó.
     expect(enviados).toHaveLength(1);
@@ -316,14 +405,23 @@ describe("CombosAdminPage — el aviso de duplicados", () => {
     const enviados: Record<string, unknown>[] = [];
     vi.stubGlobal(
       "fetch",
-      makeFetchMock({ duplicados: [{ id: "c9", name: "Combo Facial" }], enviados }),
+      makeFetchMock({
+        duplicados: [{ id: "c9", name: "Combo Facial" }],
+        enviados,
+      }),
     );
     const user = userEvent.setup();
     render(<CombosAdminPage area="Estética" />, { wrapper });
     const dialog = await armarComboDeDos(user);
 
-    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial Completo");
-    await user.type(within(dialog).getByLabelText(/porcentaje|precio del combo/i), "10");
+    await user.type(
+      within(dialog).getByLabelText(/nombre/i),
+      "Facial Completo",
+    );
+    await user.type(
+      within(dialog).getByLabelText(/porcentaje|precio del combo/i),
+      "10",
+    );
     await user.click(within(dialog).getByRole("button", { name: /guardar/i }));
     await screen.findByText(/ya existe un combo/i);
 
@@ -338,15 +436,24 @@ describe("CombosAdminPage — el aviso de duplicados", () => {
     render(<CombosAdminPage area="Estética" />, { wrapper });
     const dialog = await armarComboDeDos(user);
 
-    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial Completo");
-    await user.type(within(dialog).getByLabelText(/porcentaje|precio del combo/i), "10");
+    await user.type(
+      within(dialog).getByLabelText(/nombre/i),
+      "Facial Completo",
+    );
+    await user.type(
+      within(dialog).getByLabelText(/porcentaje|precio del combo/i),
+      "10",
+    );
     await user.click(within(dialog).getByRole("button", { name: /guardar/i }));
 
     await waitFor(() => expect(enviados.length).toBeGreaterThan(0));
     const cuerpo = enviados[0]!;
     expect(cuerpo.areaCategoryId).toBe(AREA_ESTETICA);
     expect(cuerpo.kind).toBe("combo");
-    expect(cuerpo.lines).toEqual([{ serviceId: LIMPIEZA }, { serviceId: PEELING }]);
+    expect(cuerpo.lines).toEqual([
+      { serviceId: LIMPIEZA },
+      { serviceId: PEELING },
+    ]);
   });
 });
 
@@ -367,20 +474,33 @@ describe("CombosAdminPage — por qué no se puede guardar", () => {
     const user = userEvent.setup();
     render(<CombosAdminPage area="Estética" />, { wrapper });
     const dialog = await armarComboDeDos(user);
-    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial Completo");
+    await user.type(
+      within(dialog).getByLabelText(/nombre/i),
+      "Facial Completo",
+    );
 
-    expect(await screen.findByText(/falta el precio del combo/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/falta el precio del combo/i),
+    ).toBeInTheDocument();
   });
 
   it("una vez completo, el aviso se va y el botón se prende", async () => {
     const user = userEvent.setup();
     render(<CombosAdminPage area="Estética" />, { wrapper });
     const dialog = await armarComboDeDos(user);
-    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial Completo");
-    await user.type(within(dialog).getByLabelText(/precio del combo/i), "250000");
+    await user.type(
+      within(dialog).getByLabelText(/nombre/i),
+      "Facial Completo",
+    );
+    await user.type(
+      within(dialog).getByLabelText(/precio del combo/i),
+      "250000",
+    );
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: /^guardar$/i })).not.toBeDisabled(),
+      expect(
+        screen.getByRole("button", { name: /^guardar$/i }),
+      ).not.toBeDisabled(),
     );
     expect(screen.queryByText(/^falta /i)).not.toBeInTheDocument();
   });
@@ -396,10 +516,12 @@ describe("CombosAdminPage — la composición no se edita (§4.2)", () => {
     await user.click(screen.getByRole("button", { name: /editar/i }));
     const dialog = await screen.findByRole("dialog");
 
-    expect(within(dialog).getByText(/los\s+servicios que lo forman no se cambian/i))
-      .toBeInTheDocument();
-    expect(within(dialog).queryByRole("button", { name: /agregar servicio/i }))
-      .not.toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/los\s+servicios que lo forman no se cambian/i),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: /agregar servicio/i }),
+    ).not.toBeInTheDocument();
 
     const selects = within(dialog).getAllByRole("combobox");
     const deServicio = selects.filter((s) =>
@@ -425,8 +547,12 @@ describe("CombosAdminPage — el borrado definitivo", () => {
     const user = userEvent.setup();
     render(<CombosAdminPage />, { wrapper });
 
-    await user.click((await screen.findAllByTitle("Eliminar definitivamente"))[0]!);
-    expect(await screen.findByText(/3 promoción\(es\) que lo tienen en oferta/i)).toBeInTheDocument();
+    await user.click(
+      (await screen.findAllByTitle("Eliminar definitivamente"))[0]!,
+    );
+    expect(
+      await screen.findByText(/3 promoción\(es\) que lo tienen en oferta/i),
+    ).toBeInTheDocument();
   });
 
   it("si está bloqueado muestra el motivo y no ofrece eliminar", async () => {
@@ -438,7 +564,8 @@ describe("CombosAdminPage — el borrado definitivo", () => {
         combos: [COMBO_GUARDADO],
         impacto: {
           blocked: true,
-          blockReason: "No se puede borrar: hay 1 compra de este combo. Archivalo en vez de borrarlo.",
+          blockReason:
+            "No se puede borrar: hay 1 compra de este combo. Archivalo en vez de borrarlo.",
           cascade: {},
         },
       }),
@@ -446,8 +573,84 @@ describe("CombosAdminPage — el borrado definitivo", () => {
     const user = userEvent.setup();
     render(<CombosAdminPage />, { wrapper });
 
-    await user.click((await screen.findAllByTitle("Eliminar definitivamente"))[0]!);
-    expect(await screen.findByText(/hay 1 compra de este combo/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Eliminar$/ })).not.toBeInTheDocument();
+    await user.click(
+      (await screen.findAllByTitle("Eliminar definitivamente"))[0]!,
+    );
+    expect(
+      await screen.findByText(/hay 1 compra de este combo/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^Eliminar$/ }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+// Un servicio sin proveedora se puede meter en un combo y vender, y después
+// NADIE lo puede hacer: la clienta pagó algo que no se le puede dar. Apareció
+// de verdad con "Baby Botox" en el Combo1-prueba. El armador de PROMOS ya
+// avisaba; éste es el mismo aviso donde el problema apareció.
+describe("CombosAdminPage — servicio sin proveedora", () => {
+  const CON_PROVEEDORA = {
+    [LIMPIEZA]: [{ id: "prov-1", fullName: "Vale" }],
+    [PEELING]: [{ id: "prov-1", fullName: "Vale" }],
+  };
+  const aviso = /no tiene proveedora asignada/i;
+
+  it("avisa sobre el servicio que no la tiene", async () => {
+    vi.stubGlobal(
+      "fetch",
+      makeFetchMock({ proveedoras: { [LIMPIEZA]: CON_PROVEEDORA[LIMPIEZA]! } }),
+    );
+    const user = userEvent.setup();
+    render(<CombosAdminPage />, { wrapper });
+    const dialog = await armarComboDeDos(user);
+
+    const avisos = await within(dialog).findAllByText(aviso);
+    expect(avisos).toHaveLength(1);
+    // El aviso va en la fila del servicio que falla, no suelto en el modal.
+    expect(avisos[0]!.closest("li")!.textContent).toMatch(/Peeling/);
+  });
+
+  it("no avisa cuando todas tienen proveedora", async () => {
+    vi.stubGlobal("fetch", makeFetchMock({ proveedoras: CON_PROVEEDORA }));
+    const user = userEvent.setup();
+    render(<CombosAdminPage />, { wrapper });
+    const dialog = await armarComboDeDos(user);
+
+    await waitFor(() =>
+      expect(within(dialog).queryByText(aviso)).not.toBeInTheDocument(),
+    );
+  });
+
+  // Si el aviso mirara `providers.length === 0` a secas, aparecería en TODAS
+  // las filas mientras la consulta viaja y se iría solo. Un cartel ámbar que
+  // parpadea en un servicio que sí tiene proveedora enseña a ignorarlo.
+  it("no avisa mientras todavía no sabe si tiene o no", async () => {
+    vi.stubGlobal("fetch", makeFetchMock({ proveedorasColgadas: true }));
+    const user = userEvent.setup();
+    render(<CombosAdminPage />, { wrapper });
+    const dialog = await armarComboDeDos(user);
+
+    expect(within(dialog).queryByText(aviso)).not.toBeInTheDocument();
+  });
+
+  it("avisa, no bloquea: el combo se puede guardar igual", async () => {
+    vi.stubGlobal("fetch", makeFetchMock({ proveedoras: {} }));
+    const user = userEvent.setup();
+    render(<CombosAdminPage area="Estética" />, { wrapper });
+    const dialog = await armarComboDeDos(user);
+
+    expect(await within(dialog).findAllByText(aviso)).toHaveLength(2);
+    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial dúo");
+    await user.type(
+      within(dialog).getByLabelText(/precio del combo/i),
+      "250000",
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /^guardar$/i }),
+      ).not.toBeDisabled(),
+    );
   });
 });

@@ -8,7 +8,12 @@ import { Field, Select, TextArea, TextInput } from "../../components/form";
 import { Plus, Trash } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
 import { useServices } from "../../hooks/useServices";
-import { computeComboFinalPrice, computeComboSubtotal, precioDeServicio } from "../../lib/combo-pricing";
+import { useProvidersByService } from "../../hooks/useProvidersByService";
+import {
+  computeComboFinalPrice,
+  computeComboSubtotal,
+  precioDeServicio,
+} from "../../lib/combo-pricing";
 import {
   useArchiveCombo,
   useChequeoDeDuplicados,
@@ -30,7 +35,6 @@ import type { ComboAdmin } from "../../lib/api-types";
 
 const money = (n: number | null | undefined) =>
   n == null ? "—" : `$${n.toLocaleString("es-AR")}`;
-
 
 /** Línea en edición: todo string, porque son inputs controlados. */
 type DraftLine = {
@@ -114,6 +118,18 @@ function LineRow({
   const isArchivedSelection =
     !!line.serviceId && !services.some((s) => s.id === line.serviceId);
 
+  // Un servicio sin proveedora se vende dentro del combo y después no se puede
+  // agendar: la clienta pagó algo que nadie puede hacerle. Mismo aviso que ya
+  // da el armador de promos (`PromosAdminPage`), puesto acá porque es donde el
+  // problema apareció de verdad (Baby Botox en el Combo1-prueba).
+  //
+  // `isSuccess` y no `data.length === 0` a secas: mientras la consulta viaja,
+  // `data` es undefined y el cartel saldría en TODAS las filas para irse solo
+  // un instante después. Un aviso que parpadea donde no corresponde enseña a
+  // ignorarlo.
+  const proveedoras = useProvidersByService(line.serviceId || null);
+  const sinProveedora = proveedoras.isSuccess && proveedoras.data.length === 0;
+
   return (
     <li className="space-y-2 rounded-lg border border-surface-high bg-white p-2.5">
       <div className="flex items-start gap-2">
@@ -121,7 +137,8 @@ function LineRow({
           <Field label="Servicio">
             {isArchivedSelection && (
               <p className="mb-1.5 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
-                Servicio archivado: <strong>{line.serviceName ?? "sin nombre guardado"}</strong>.
+                Servicio archivado:{" "}
+                <strong>{line.serviceName ?? "sin nombre guardado"}</strong>.
                 Elegí un reemplazo.
               </p>
             )}
@@ -129,7 +146,11 @@ function LineRow({
               value={line.serviceId}
               disabled={bloqueado}
               onChange={(e) =>
-                onChange({ ...line, serviceId: e.target.value, serviceName: null })
+                onChange({
+                  ...line,
+                  serviceId: e.target.value,
+                  serviceName: null,
+                })
               }
             >
               <option value="">Elegí un servicio…</option>
@@ -140,6 +161,15 @@ function LineRow({
               ))}
             </Select>
           </Field>
+          {sinProveedora && (
+            // Avisa, no bloquea: puede que Laura arme el combo antes de
+            // asignar la proveedora, pero tiene que enterarse antes de
+            // venderlo.
+            <p className="mt-1.5 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
+              Este servicio no tiene proveedora asignada: no se va a poder
+              agendar.
+            </p>
+          )}
         </div>
         {!bloqueado && (
           <button
@@ -156,7 +186,9 @@ function LineRow({
           sesión de cada servicio. Repetir es trabajo de un pack, y tener dos
           formas de armar lo mismo hacía imposible explicar por qué algo
           aparecía en una solapa y no en la otra. */}
-      <p className="text-sm text-ink-soft">{precio > 0 ? money(precio) : "—"}</p>
+      <p className="text-sm text-ink-soft">
+        {precio > 0 ? money(precio) : "—"}
+      </p>
     </li>
   );
 }
@@ -178,8 +210,8 @@ function ComboDependenciaAviso({ area }: { area?: string }) {
   const destino = AREAS.find((a) => a.categoria === area);
   return (
     <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-      Un combo se arma con servicios y actividades que ya estén cargados. Si falta alguno,
-      cargalo primero en{" "}
+      Un combo se arma con servicios y actividades que ya estén cargados. Si
+      falta alguno, cargalo primero en{" "}
       {destino ? (
         <Link
           to={`/admin/${destino.path}/servicios`}
@@ -233,11 +265,18 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
   // preview de precios necesita mirar cualquiera, incluido uno de otra área
   // que un combo viejo ya tenga. Ver `lib/servicios-de-combo.ts`.
   const serviciosElegibles = useMemo(
-    () => serviciosParaCombo(services, area, form.lines.map((l) => l.serviceId)),
+    () =>
+      serviciosParaCombo(
+        services,
+        area,
+        form.lines.map((l) => l.serviceId),
+      ),
     [services, area, form.lines],
   );
   const chequearDuplicados = useChequeoDeDuplicados();
-  const [duplicados, setDuplicados] = useState<{ id: string; name: string }[]>([]);
+  const [duplicados, setDuplicados] = useState<{ id: string; name: string }[]>(
+    [],
+  );
   const create = useCreateCombo();
   const update = useUpdateComboAdmin();
   const archive = useArchiveCombo();
@@ -253,22 +292,28 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
 
   const priceById = useMemo(() => {
     const m = new Map<string, number>();
-    for (const s of services) m.set(s.id, precioDeServicio(s.unitPriceList, s.unitPriceCash));
+    for (const s of services)
+      m.set(s.id, precioDeServicio(s.unitPriceList, s.unitPriceCash));
     return m;
   }, [services]);
 
   // Precio a usar en el preview: el "en vivo" de useServices() si el servicio
   // sigue activo, y si no, el que trajo el combo guardado (servicePrice de la
   // línea) — evita que un servicio archivado valga $0 en el preview.
-  const precioPreview = (l: DraftLine) => priceById.get(l.serviceId) ?? l.servicePrice ?? 0;
+  const precioPreview = (l: DraftLine) =>
+    priceById.get(l.serviceId) ?? l.servicePrice ?? 0;
 
   // Preview en vivo: mismo cálculo que combo-pricing.ts del backend.
   // Una sesión de cada servicio (spec §4.3): el subtotal es la suma de los
   // precios, sin multiplicar por nada.
   const subtotalPreview = computeComboSubtotal(
-    form.lines.map((l) => ({ servicePrice: precioPreview(l), sessionsIncluded: 1 })),
+    form.lines.map((l) => ({
+      servicePrice: precioPreview(l),
+      sessionsIncluded: 1,
+    })),
   );
-  const priceValue = form.priceValue.trim() === "" ? null : Number(form.priceValue);
+  const priceValue =
+    form.priceValue.trim() === "" ? null : Number(form.priceValue);
   const finalPreview = computeComboFinalPrice(
     subtotalPreview,
     form.priceType,
@@ -320,13 +365,17 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
       key: "subtotal",
       header: "Subtotal",
       width: 120,
-      render: (c) => <span className="text-ink-soft">{money(c.servicesSubtotal)}</span>,
+      render: (c) => (
+        <span className="text-ink-soft">{money(c.servicesSubtotal)}</span>
+      ),
     },
     {
       key: "final",
       header: "Precio combo",
       width: 130,
-      render: (c) => <span className="font-medium text-ink">{money(c.finalAmount)}</span>,
+      render: (c) => (
+        <span className="font-medium text-ink">{money(c.finalAmount)}</span>
+      ),
     },
     {
       key: "vigencia",
@@ -371,13 +420,15 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
         c.priceType === "fixed"
           ? String(c.fixedPrice ?? "")
           : String(c.discountPercentage ?? ""),
-      validityMonths: c.validityMonths != null ? String(c.validityMonths) : "12",
+      validityMonths:
+        c.validityMonths != null ? String(c.validityMonths) : "12",
       isVisibleWeb: c.isVisibleWeb ?? true,
       displayOrder: c.displayOrder != null ? String(c.displayOrder) : "0",
       servicesTogether: c.servicesTogether,
       lines: c.lines.map((l) => ({
         serviceId: l.serviceId ?? "",
-        sessionsIncluded: l.sessionsIncluded != null ? String(l.sessionsIncluded) : "",
+        sessionsIncluded:
+          l.sessionsIncluded != null ? String(l.sessionsIncluded) : "",
         serviceName: l.serviceName ?? null,
         servicePrice: l.servicePrice ?? null,
       })),
@@ -388,7 +439,8 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
   }
 
   function buildPayload(): ComboInput {
-    const value = form.priceValue.trim() === "" ? null : Number(form.priceValue);
+    const value =
+      form.priceValue.trim() === "" ? null : Number(form.priceValue);
     return {
       name: form.name.trim(),
       description: form.description.trim() || null,
@@ -404,7 +456,9 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
       // lo rechaza: no se manda.
       servicesTogether: form.lines.length >= 2 ? form.servicesTogether : false,
       // Sin `sessionsIncluded`: el backend lo pone en 1 (spec §4.3).
-      lines: form.lines.filter((l) => l.serviceId).map((l) => ({ serviceId: l.serviceId })),
+      lines: form.lines
+        .filter((l) => l.serviceId)
+        .map((l) => ({ serviceId: l.serviceId })),
     };
   }
 
@@ -442,7 +496,8 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
     }
   }
 
-  const saving = create.isPending || update.isPending || chequearDuplicados.isPending;
+  const saving =
+    create.isPending || update.isPending || chequearDuplicados.isPending;
   // El botón se habilita sólo si el combo puede existir: nombre, al menos un
   // servicio, un área y el precio que su tipo exige.
   const lineasValidas = form.lines.filter((l) => l.serviceId).length;
@@ -456,7 +511,9 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
   const faltantes: string[] = [];
   if (form.name.trim().length < 1) faltantes.push("el nombre");
   if (form.priceValue.trim() === "") {
-    faltantes.push(form.priceType === "fixed" ? "el precio del combo" : "el porcentaje");
+    faltantes.push(
+      form.priceType === "fixed" ? "el precio del combo" : "el porcentaje",
+    );
   }
   if (Number(form.validityMonths) < 1) faltantes.push("la vigencia");
   if (lineasValidas < 1) faltantes.push("al menos un servicio");
@@ -517,7 +574,9 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
 
       <EntityDrawer
         open={drawerOpen}
-        title={editing ? "Editar combo" : `Nuevo combo${area ? ` — ${area}` : ""}`}
+        title={
+          editing ? "Editar combo" : `Nuevo combo${area ? ` — ${area}` : ""}`
+        }
         error={formError}
         busy={saving}
         canSubmit={puedeGuardar}
@@ -539,18 +598,19 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
               ))}
             </ul>
             <p className="mt-1.5">
-              Si igual querés crearlo, volvé a apretar Guardar. Ojo que dos combos iguales con
-              precios distintos son un problema en el mostrador.
+              Si igual querés crearlo, volvé a apretar Guardar. Ojo que dos
+              combos iguales con precios distintos son un problema en el
+              mostrador.
             </p>
           </div>
         )}
 
         {editing && (
           <p className="rounded-lg border border-surface-high bg-surface-low px-3 py-2 text-sm text-ink-soft">
-            De un combo guardado se edita el <strong>precio</strong> y cómo se muestra. Los
-            servicios que lo forman no se cambian: sería otro combo, y las compras viejas
-            quedarían apuntando a algo que no es lo que se vendió. Si está mal cargado, borralo y
-            armalo de nuevo.
+            De un combo guardado se edita el <strong>precio</strong> y cómo se
+            muestra. Los servicios que lo forman no se cambian: sería otro
+            combo, y las compras viejas quedarían apuntando a algo que no es lo
+            que se vendió. Si está mal cargado, borralo y armalo de nuevo.
           </p>
         )}
 
@@ -578,14 +638,22 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
             <Select
               value={form.priceType}
               onChange={(e) =>
-                setForm({ ...form, priceType: e.target.value as Form["priceType"], priceValue: "" })
+                setForm({
+                  ...form,
+                  priceType: e.target.value as Form["priceType"],
+                  priceValue: "",
+                })
               }
             >
               <option value="fixed">Precio fijo ($)</option>
               <option value="percentage">% de descuento</option>
             </Select>
           </Field>
-          <Field label={form.priceType === "fixed" ? "Precio del combo *" : "Porcentaje *"}>
+          <Field
+            label={
+              form.priceType === "fixed" ? "Precio del combo *" : "Porcentaje *"
+            }
+          >
             <TextInput
               inputMode="numeric"
               value={form.priceValue}
@@ -611,7 +679,9 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
             <TextInput
               inputMode="numeric"
               value={form.validityMonths}
-              onChange={(e) => setForm({ ...form, validityMonths: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, validityMonths: e.target.value })
+              }
               placeholder="12"
             />
           </Field>
@@ -619,7 +689,9 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
             <TextInput
               inputMode="numeric"
               value={form.displayOrder}
-              onChange={(e) => setForm({ ...form, displayOrder: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, displayOrder: e.target.value })
+              }
               placeholder="0"
             />
           </Field>
@@ -627,7 +699,9 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
             <input
               type="checkbox"
               checked={form.isVisibleWeb}
-              onChange={(e) => setForm({ ...form, isVisibleWeb: e.target.checked })}
+              onChange={(e) =>
+                setForm({ ...form, isVisibleWeb: e.target.checked })
+              }
               className="h-4 w-4 accent-[var(--color-primary)]"
             />
             Mostrar en la web
@@ -641,7 +715,9 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
           </p>
           <p className="text-xs text-ink-soft">Una sesión de cada uno.</p>
           {form.lines.length === 0 ? (
-            <p className="text-sm text-ink-soft">Sin servicios. Agregá al menos uno.</p>
+            <p className="text-sm text-ink-soft">
+              Sin servicios. Agregá al menos uno.
+            </p>
           ) : (
             <ul className="space-y-2">
               {form.lines.map((l, i) => (
@@ -652,10 +728,16 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
                   precio={precioPreview(l)}
                   bloqueado={!!editing}
                   onChange={(nl) =>
-                    setForm({ ...form, lines: form.lines.map((x, idx) => (idx === i ? nl : x)) })
+                    setForm({
+                      ...form,
+                      lines: form.lines.map((x, idx) => (idx === i ? nl : x)),
+                    })
                   }
                   onRemove={() =>
-                    setForm({ ...form, lines: form.lines.filter((_, idx) => idx !== i) })
+                    setForm({
+                      ...form,
+                      lines: form.lines.filter((_, idx) => idx !== i),
+                    })
                   }
                 />
               ))}
@@ -665,7 +747,12 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => setForm({ ...form, lines: [...form.lines, { ...EMPTY_LINE }] })}
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    lines: [...form.lines, { ...EMPTY_LINE }],
+                  })
+                }
                 className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
               >
                 <Plus size={15} />
@@ -682,7 +769,9 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
                 <input
                   type="checkbox"
                   checked={form.servicesTogether}
-                  onChange={(e) => setForm({ ...form, servicesTogether: e.target.checked })}
+                  onChange={(e) =>
+                    setForm({ ...form, servicesTogether: e.target.checked })
+                  }
                   className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]"
                 />
                 <span>
@@ -703,7 +792,9 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
           </div>
           <div className="flex justify-between text-sm">
             <span className="font-medium text-ink">Precio del combo</span>
-            <span className="font-semibold text-ink">{money(finalPreview)}</span>
+            <span className="font-semibold text-ink">
+              {money(finalPreview)}
+            </span>
           </div>
           {finalPreview < subtotalPreview && (
             <p className="text-xs text-ink-soft">
@@ -712,7 +803,8 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
           )}
           {finalPreview > subtotalPreview && (
             <p className="text-xs text-amber-700">
-              El combo sale más caro que los servicios sueltos. Revisá el precio.
+              El combo sale más caro que los servicios sueltos. Revisá el
+              precio.
             </p>
           )}
         </div>
