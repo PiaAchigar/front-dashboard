@@ -82,7 +82,12 @@ const PACK = {
   lines: [],
 };
 
-type Opciones = { enviados?: Record<string, unknown>[]; promos?: PromotionAdmin[] };
+type Opciones = {
+  enviados?: Record<string, unknown>[];
+  promos?: PromotionAdmin[];
+  /** Deja la consulta de proveedoras colgada, para probar el estado "todavía no sé". */
+  proveedorasColgadas?: boolean;
+};
 
 // Promo de PAQUETE ya guardada, para probar que editarla relee bien el
 // precio y las cantidades. La cantidad es 3 (no 1) a propósito: con 1 el
@@ -103,7 +108,13 @@ const PROMO_PAQUETE: PromotionAdmin = {
   usageLimit: null,
   notes: null,
   destinos: [
-    { filaId: "f1", tipo: "servicio", id: SIN_PROVEEDORA, nombre: "Servicio sin proveedora", cantidad: 3 },
+    {
+      filaId: "f1",
+      tipo: "servicio",
+      id: SIN_PROVEEDORA,
+      nombre: "Servicio sin proveedora",
+      cantidad: 3,
+    },
   ],
   pagos: [],
 };
@@ -126,7 +137,13 @@ const PROMO_DESCUENTO: PromotionAdmin = {
   usageLimit: null,
   notes: null,
   destinos: [
-    { filaId: "f2", tipo: "servicio", id: SIN_PROVEEDORA, nombre: "Servicio sin proveedora", cantidad: 1 },
+    {
+      filaId: "f2",
+      tipo: "servicio",
+      id: SIN_PROVEEDORA,
+      nombre: "Servicio sin proveedora",
+      cantidad: 1,
+    },
   ],
   pagos: [],
 };
@@ -142,22 +159,33 @@ function makeFetchMock(op: Opciones = {}) {
       return { ok: true, json: async () => op.promos ?? [] };
     }
     if (u.includes("/api/agenda/combos/admin")) {
-      if (u.includes("kind=pack")) return { ok: true, json: async () => [PACK] };
-      if (u.includes("kind=combo")) return { ok: true, json: async () => [COMBO] };
+      if (u.includes("kind=pack"))
+        return { ok: true, json: async () => [PACK] };
+      if (u.includes("kind=combo"))
+        return { ok: true, json: async () => [COMBO] };
       return { ok: true, json: async () => [] };
     }
     if (u.includes("/api/agenda/depilacion/combos")) {
       return {
         ok: true,
-        json: async () => [{ id: "dddddddd-1111-1111-1111-111111111111", name: "Piernas completas" }],
+        json: async () => [
+          {
+            id: "dddddddd-1111-1111-1111-111111111111",
+            name: "Piernas completas",
+          },
+        ],
       };
     }
     if (u.includes("/api/agenda/providers?serviceId=")) {
+      if (op.proveedorasColgadas) return new Promise(() => {});
       // Único servicio SIN proveedora: el resto (p. ej. Baby Botox) sí tiene.
       const sinProveedora = u.includes(SIN_PROVEEDORA);
       return {
         ok: true,
-        json: async () => (sinProveedora ? [] : [{ id: "prov1", fullName: "Ana", specialties: null }]),
+        json: async () =>
+          sinProveedora
+            ? []
+            : [{ id: "prov1", fullName: "Ana", specialties: null }],
       };
     }
     if (u.includes("/api/agenda/services")) {
@@ -191,7 +219,9 @@ afterEach(() => {
 describe("PromosAdminPage — qué está en oferta", () => {
   it("muestra los tres bloques", async () => {
     render(<PromosAdminPage />, { wrapper });
-    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /agregar/i }),
+    );
     expect(screen.getByText(/servicios en oferta/i)).toBeInTheDocument();
     expect(screen.getByText(/combos en oferta/i)).toBeInTheDocument();
     expect(screen.getByText(/packs en oferta/i)).toBeInTheDocument();
@@ -201,7 +231,9 @@ describe("PromosAdminPage — qué está en oferta", () => {
     // Pedido de Pia: Laura tiene que ver qué servicios trae el combo, porque
     // son los que después va a tener que agendar.
     render(<PromosAdminPage />, { wrapper });
-    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /agregar/i }),
+    );
     await userEvent.click(await screen.findByLabelText(/combo facial/i));
     expect(await screen.findByText(/baby botox/i)).toBeInTheDocument();
   });
@@ -212,7 +244,9 @@ describe("PromosAdminPage — qué está en oferta", () => {
     // algo en oferta y acá van a aparecer sus servicios" con el pack ya
     // tildado — sin forma de cargarle un pago acordado.
     render(<PromosAdminPage />, { wrapper });
-    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /agregar/i }),
+    );
     await userEvent.click(await screen.findByLabelText(/pack facial x4/i));
     expect(await screen.findByText(/baby botox/i)).toBeInTheDocument();
     expect(screen.getByText(/de Pack Facial x4/i)).toBeInTheDocument();
@@ -222,26 +256,38 @@ describe("PromosAdminPage — qué está en oferta", () => {
     // Son zonas, no servicios con proveedora: no hay desglose posible. Sin
     // decirlo, Laura tilda el combo y espera filas que no van a aparecer.
     render(<PromosAdminPage />, { wrapper });
-    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /agregar/i }),
+    );
     await userEvent.click(await screen.findByLabelText(/piernas completas/i));
-    expect(await screen.findByText(/no abren servicios acá/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/no abren servicios acá/i),
+    ).toBeInTheDocument();
   });
 
   it("avisa cuando un servicio en oferta no tiene proveedora", async () => {
     // Laura estaría poniendo en oferta algo que después nadie puede atender:
     // la clienta pagaría por un turno que no existe.
     render(<PromosAdminPage />, { wrapper });
-    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
-    await userEvent.click(await screen.findByLabelText(/servicio sin proveedora/i));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /agregar/i }),
+    );
+    await userEvent.click(
+      await screen.findByLabelText(/servicio sin proveedora/i),
+    );
     expect(await screen.findByText(/no tiene proveedora/i)).toBeInTheDocument();
   });
 
   it("no deja guardar una promo sin nada en oferta", async () => {
     render(<PromosAdminPage />, { wrapper });
-    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /agregar/i }),
+    );
     await userEvent.type(screen.getByLabelText(/nombre/i), "Promo vacía");
     await userEvent.click(screen.getByRole("button", { name: /guardar/i }));
-    expect(await screen.findByText(/al menos un servicio, combo o pack/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/al menos un servicio, combo o pack/i),
+    ).toBeInTheDocument();
   });
 
   it("manda destinos y pagos al guardar", async () => {
@@ -249,9 +295,13 @@ describe("PromosAdminPage — qué está en oferta", () => {
     vi.stubGlobal("fetch", makeFetchMock({ enviados }));
     render(<PromosAdminPage />, { wrapper });
 
-    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /agregar/i }),
+    );
     await userEvent.type(screen.getByLabelText(/nombre/i), "Promo Facial");
-    await userEvent.click(await screen.findByLabelText(/servicio sin proveedora/i));
+    await userEvent.click(
+      await screen.findByLabelText(/servicio sin proveedora/i),
+    );
     await userEvent.click(screen.getByRole("button", { name: /guardar/i }));
 
     await waitFor(() => expect(enviados.length).toBeGreaterThan(0));
@@ -298,30 +348,54 @@ describe("PromosAdminPage — el tipo de promo cambia lo que dice la pantalla", 
     // significa algo distinto en cada tipo, y la pantalla tiene que decirlo o
     // Laura arma la promo equivocada.
     render(<PromosAdminPage />, { wrapper });
-    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
-    await userEvent.selectOptions(screen.getByLabelText(/tipo de descuento/i), "paquete");
+    await userEvent.click(
+      await screen.findByRole("button", { name: /agregar/i }),
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText(/tipo de descuento/i),
+      "paquete",
+    );
     expect(await screen.findByText(/se lleva todo/i)).toBeInTheDocument();
   });
 
   it("con tipo Porcentaje el encabezado dice que la clienta elige UNO", async () => {
     render(<PromosAdminPage />, { wrapper });
-    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
-    await userEvent.selectOptions(screen.getByLabelText(/tipo de descuento/i), "percentage");
+    await userEvent.click(
+      await screen.findByRole("button", { name: /agregar/i }),
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText(/tipo de descuento/i),
+      "percentage",
+    );
     expect(await screen.findByText(/elige uno/i)).toBeInTheDocument();
   });
 
   it("con tipo Paquete aparece el campo de precio del paquete", async () => {
     render(<PromosAdminPage />, { wrapper });
-    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
-    await userEvent.selectOptions(screen.getByLabelText(/tipo de descuento/i), "paquete");
-    expect(await screen.findByLabelText(/precio del paquete/i)).toBeInTheDocument();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /agregar/i }),
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText(/tipo de descuento/i),
+      "paquete",
+    );
+    expect(
+      await screen.findByLabelText(/precio del paquete/i),
+    ).toBeInTheDocument();
   });
 
   it("con tipo Paquete cada cosa tildada pide una cantidad", async () => {
     render(<PromosAdminPage />, { wrapper });
-    await userEvent.click(await screen.findByRole("button", { name: /agregar/i }));
-    await userEvent.selectOptions(screen.getByLabelText(/tipo de descuento/i), "paquete");
-    await userEvent.click(await screen.findByLabelText(/servicio sin proveedora/i));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /agregar/i }),
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText(/tipo de descuento/i),
+      "paquete",
+    );
+    await userEvent.click(
+      await screen.findByLabelText(/servicio sin proveedora/i),
+    );
     expect(await screen.findByLabelText(/cantidad/i)).toBeInTheDocument();
   });
 });
@@ -333,7 +407,9 @@ describe("PromosAdminPage — editar una promo existente", () => {
     vi.stubGlobal("fetch", makeFetchMock({ promos: [PROMO_PAQUETE] }));
     render(<PromosAdminPage />, { wrapper });
 
-    await userEvent.click(await screen.findByRole("button", { name: /editar/i }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /editar/i }),
+    );
 
     const precio = await screen.findByLabelText(/precio del paquete/i);
     expect(precio).toHaveValue("250000");
@@ -348,11 +424,36 @@ describe("PromosAdminPage — editar una promo existente", () => {
     vi.stubGlobal("fetch", makeFetchMock({ promos: [PROMO_DESCUENTO] }));
     render(<PromosAdminPage />, { wrapper });
 
-    await userEvent.click(await screen.findByRole("button", { name: /editar/i }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /editar/i }),
+    );
 
-    expect(await screen.findByLabelText(/tipo de descuento/i)).toHaveValue("percentage");
+    expect(await screen.findByLabelText(/tipo de descuento/i)).toHaveValue(
+      "percentage",
+    );
     expect(await screen.findByLabelText(/^porcentaje$/i)).toHaveValue("20");
-    expect(screen.queryByLabelText(/precio del paquete/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/precio del paquete/i),
+    ).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/cantidad/i)).not.toBeInTheDocument();
   });
+});
+
+// Antes de este fix, `providers.length === 0` con default `[]` disparaba
+// el cartel mientras la consulta todavía viajaba —para CUALQUIER
+// servicio, incluso uno con proveedora— y se apagaba solo un instante
+// después. Un aviso ámbar que parpadea donde no corresponde enseña a
+// ignorarlo. Ver la misma corrección, con el mismo test, en
+// CombosAdminPage.test.tsx.
+it("no avisa mientras todavía no sabe si tiene o no proveedora", async () => {
+  vi.stubGlobal("fetch", makeFetchMock({ proveedorasColgadas: true }));
+  render(<PromosAdminPage />, { wrapper });
+  await userEvent.click(
+    await screen.findByRole("button", { name: /agregar/i }),
+  );
+  await userEvent.click(
+    await screen.findByLabelText(/servicio sin proveedora/i),
+  );
+
+  expect(screen.queryByText(/no tiene proveedora/i)).not.toBeInTheDocument();
 });

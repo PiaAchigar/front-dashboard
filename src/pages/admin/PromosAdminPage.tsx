@@ -100,7 +100,9 @@ function BloqueDeOferta({
 }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">{titulo}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+        {titulo}
+      </p>
       {opciones.length === 0 ? (
         <p className="mt-1 text-sm text-ink-soft">Nada cargado todavía.</p>
       ) : (
@@ -115,7 +117,9 @@ function BloqueDeOferta({
                   <input
                     type="checkbox"
                     checked={checked}
-                    onChange={() => onToggle({ tipo: t, id: o.id, cantidad: 1 })}
+                    onChange={() =>
+                      onToggle({ tipo: t, id: o.id, cantidad: 1 })
+                    }
                     className="h-4 w-4 accent-[var(--color-primary)]"
                   />
                   {o.nombre}
@@ -127,7 +131,9 @@ function BloqueDeOferta({
                     min={1}
                     aria-label="Cantidad"
                     value={destino.cantidad ?? 1}
-                    onChange={(e) => onCantidadChange(destino, Number(e.target.value) || 1)}
+                    onChange={(e) =>
+                      onCantidadChange(destino, Number(e.target.value) || 1)
+                    }
                     className="w-16 rounded-lg border border-surface-highest px-2 py-1 text-sm"
                   />
                 )}
@@ -159,7 +165,12 @@ function FilaDePago({
   pago: PagoDraft | undefined;
   onChange: (p: PagoDraft) => void;
 }) {
-  const { data: providers = [] } = useProvidersByService(servicio.serviceId);
+  // `isSuccess`, no `providers.length === 0` a secas: mientras la consulta
+  // viaja, `data` es undefined y el cartel de abajo saldría en CUALQUIER
+  // servicio, incluso uno con proveedora, para irse solo un instante después.
+  const proveedoras = useProvidersByService(servicio.serviceId);
+  const providers = proveedoras.data ?? [];
+  const sinProveedora = proveedoras.isSuccess && providers.length === 0;
   const { data: services = [] } = useServices();
   const detalle = services.find((s) => s.id === servicio.serviceId);
   const actual: PagoDraft = pago ?? {
@@ -171,13 +182,20 @@ function FilaDePago({
   return (
     <li className="space-y-2 rounded-lg border border-surface-high bg-white p-2.5">
       <div className="text-sm">
-        <span className="font-medium text-ink">{servicio.serviceName ?? detalle?.name ?? "—"}</span>
-        {servicio.deCombo && <span className="text-ink-soft"> · de {servicio.deCombo}</span>}
+        <span className="font-medium text-ink">
+          {servicio.serviceName ?? detalle?.name ?? "—"}
+        </span>
+        {servicio.deCombo && (
+          <span className="text-ink-soft"> · de {servicio.deCombo}</span>
+        )}
         {detalle?.estimatedDurationMinutes != null && (
-          <span className="text-ink-soft"> · {detalle.estimatedDurationMinutes} min</span>
+          <span className="text-ink-soft">
+            {" "}
+            · {detalle.estimatedDurationMinutes} min
+          </span>
         )}
       </div>
-      {providers.length === 0 && (
+      {sinProveedora && (
         // Avisa, no bloquea: puede que Laura arme la promo antes de asignar
         // proveedora, pero tiene que enterarse antes de publicarla.
         <p className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
@@ -188,7 +206,9 @@ function FilaDePago({
         <Field label="Proveedora">
           <Select
             value={actual.serviceProviderId}
-            onChange={(e) => onChange({ ...actual, serviceProviderId: e.target.value })}
+            onChange={(e) =>
+              onChange({ ...actual, serviceProviderId: e.target.value })
+            }
           >
             <option value="">Sin acuerdo especial</option>
             {providers.map((p) => (
@@ -205,7 +225,9 @@ function FilaDePago({
           <TextInput
             inputMode="numeric"
             value={actual.providerPayment}
-            onChange={(e) => onChange({ ...actual, providerPayment: e.target.value })}
+            onChange={(e) =>
+              onChange({ ...actual, providerPayment: e.target.value })
+            }
             placeholder="0"
           />
         </Field>
@@ -224,9 +246,12 @@ function FilaDePago({
 function PromoDependenciaAviso() {
   return (
     <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-      Una promo se arma con servicios y actividades que ya estén cargados. Si falta alguno,
-      cargalo primero en{" "}
-      <Link to="/admin/servicios" className="font-medium underline underline-offset-2">
+      Una promo se arma con servicios y actividades que ya estén cargados. Si
+      falta alguno, cargalo primero en{" "}
+      <Link
+        to="/admin/servicios"
+        className="font-medium underline underline-offset-2"
+      >
         Servicios
       </Link>
       .
@@ -248,7 +273,11 @@ export function PromosAdminPage() {
   const [form, setForm] = useState<Form>(EMPTY);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const { data: promos = [], isLoading, error } = usePromotionsAdmin(showArchived);
+  const {
+    data: promos = [],
+    isLoading,
+    error,
+  } = usePromotionsAdmin(showArchived);
   const { data: services = [] } = useServices();
   // Sin `areaCategoryId`: acá hace falta el catálogo de combos/packs de TODAS
   // las áreas, no el de una sola.
@@ -284,7 +313,9 @@ export function PromosAdminPage() {
       key: "name",
       header: "Promo",
       width: 220,
-      render: (p) => <span className="font-medium text-ink">{p.name ?? "—"}</span>,
+      render: (p) => (
+        <span className="font-medium text-ink">{p.name ?? "—"}</span>
+      ),
     },
     {
       key: "type",
@@ -303,7 +334,8 @@ export function PromosAdminPage() {
       width: 120,
       // Sólo un paquete tiene precio propio: una de descuento no tiene un
       // total, se aplica sobre lo que la clienta se lleve.
-      render: (p) => (p.promotionType === "paquete" ? money(p.precioDelPaquete) : "—"),
+      render: (p) =>
+        p.promotionType === "paquete" ? money(p.precioDelPaquete) : "—",
     },
     {
       key: "oferta",
@@ -365,18 +397,24 @@ export function PromosAdminPage() {
           : p.promotionType === "fixed_amount"
             ? String(p.discountAmount ?? "")
             : "",
-      precioDelPaquete: p.precioDelPaquete != null ? String(p.precioDelPaquete) : "",
+      precioDelPaquete:
+        p.precioDelPaquete != null ? String(p.precioDelPaquete) : "",
       validFrom: p.validFrom ?? "",
       validUntil: p.validUntil ?? "",
       isFeatured: p.isFeatured ?? false,
       isVisibleWeb: p.isVisibleWeb ?? false,
       usageLimit: p.usageLimit != null ? String(p.usageLimit) : "",
       notes: p.notes ?? "",
-      destinos: p.destinos.map((d) => ({ tipo: d.tipo, id: d.id, cantidad: d.cantidad ?? 1 })),
+      destinos: p.destinos.map((d) => ({
+        tipo: d.tipo,
+        id: d.id,
+        cantidad: d.cantidad ?? 1,
+      })),
       pagos: p.pagos.map((pg) => ({
         serviceId: pg.serviceId,
         serviceProviderId: pg.serviceProviderId,
-        providerPayment: pg.providerPayment != null ? String(pg.providerPayment) : "",
+        providerPayment:
+          pg.providerPayment != null ? String(pg.providerPayment) : "",
       })),
     });
     setFormError(null);
@@ -400,7 +438,9 @@ export function PromosAdminPage() {
   function actualizarCantidad(d: DestinoDraft, cantidad: number) {
     setForm((f) => ({
       ...f,
-      destinos: f.destinos.map((x) => (x.tipo === d.tipo && x.id === d.id ? { ...x, cantidad } : x)),
+      destinos: f.destinos.map((x) =>
+        x.tipo === d.tipo && x.id === d.id ? { ...x, cantidad } : x,
+      ),
     }));
   }
 
@@ -417,19 +457,22 @@ export function PromosAdminPage() {
   }
 
   function buildPayload(): PromotionInput {
-    const value = form.discountValue.trim() === "" ? null : Number(form.discountValue);
+    const value =
+      form.discountValue.trim() === "" ? null : Number(form.discountValue);
     return {
       name: form.name.trim(),
       description: form.description.trim() || null,
       promotionType: form.promotionType || null,
       discountPercentage: form.promotionType === "percentage" ? value : null,
       discountAmount: form.promotionType === "fixed_amount" ? value : null,
-      precioDelPaquete: form.promotionType === "paquete" ? Number(form.precioDelPaquete) : null,
+      precioDelPaquete:
+        form.promotionType === "paquete" ? Number(form.precioDelPaquete) : null,
       validFrom: form.validFrom || null,
       validUntil: form.validUntil || null,
       isFeatured: form.isFeatured,
       isVisibleWeb: form.isVisibleWeb,
-      usageLimit: form.usageLimit.trim() === "" ? null : Number(form.usageLimit),
+      usageLimit:
+        form.usageLimit.trim() === "" ? null : Number(form.usageLimit),
       notes: form.notes.trim() || null,
       // La cantidad sólo dice algo en un paquete (cuántas unidades se lleva
       // la clienta); en una promo de descuento no se manda, aunque a la API
@@ -437,7 +480,9 @@ export function PromosAdminPage() {
       destinos: form.destinos.map((d) => ({
         tipo: d.tipo,
         id: d.id,
-        ...(form.promotionType === "paquete" ? { cantidad: d.cantidad ?? 1 } : {}),
+        ...(form.promotionType === "paquete"
+          ? { cantidad: d.cantidad ?? 1 }
+          : {}),
       })),
       // Se poda contra el desglose vigente antes de mandar: un pago cargado
       // para un servicio que Laura después destildó de la oferta no viaja
@@ -463,7 +508,11 @@ export function PromosAdminPage() {
       // El catálogo ya está cargado en la pantalla: con él se chequea que toda
       // parte de un paquete tenga precio, acá y no cuando Laura vaya a vender.
       // Combos y packs van juntos: en `promotion_target` los dos son `combo_id`.
-      { servicios: services, combos: [...combos, ...packs], depilacion: combosDepilacion },
+      {
+        servicios: services,
+        combos: [...combos, ...packs],
+        depilacion: combosDepilacion,
+      },
     );
     if (errores.length > 0) {
       setFormError(errores.join(" "));
@@ -567,7 +616,10 @@ export function PromosAdminPage() {
             <Select
               value={form.promotionType}
               onChange={(e) =>
-                setForm({ ...form, promotionType: e.target.value as Form["promotionType"] })
+                setForm({
+                  ...form,
+                  promotionType: e.target.value as Form["promotionType"],
+                })
               }
             >
               <option value="">Sin descuento</option>
@@ -581,18 +633,28 @@ export function PromosAdminPage() {
               <TextInput
                 inputMode="numeric"
                 value={form.precioDelPaquete}
-                onChange={(e) => setForm({ ...form, precioDelPaquete: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, precioDelPaquete: e.target.value })
+                }
                 placeholder="250000"
               />
             </Field>
           ) : (
-            <Field label={form.promotionType === "percentage" ? "Porcentaje" : "Monto"}>
+            <Field
+              label={
+                form.promotionType === "percentage" ? "Porcentaje" : "Monto"
+              }
+            >
               <TextInput
                 inputMode="numeric"
                 value={form.discountValue}
                 disabled={form.promotionType === ""}
-                onChange={(e) => setForm({ ...form, discountValue: e.target.value })}
-                placeholder={form.promotionType === "percentage" ? "20" : "5000"}
+                onChange={(e) =>
+                  setForm({ ...form, discountValue: e.target.value })
+                }
+                placeholder={
+                  form.promotionType === "percentage" ? "20" : "5000"
+                }
               />
             </Field>
           )}
@@ -629,7 +691,9 @@ export function PromosAdminPage() {
               <input
                 type="checkbox"
                 checked={form.isVisibleWeb}
-                onChange={(e) => setForm({ ...form, isVisibleWeb: e.target.checked })}
+                onChange={(e) =>
+                  setForm({ ...form, isVisibleWeb: e.target.checked })
+                }
                 className="h-4 w-4 accent-[var(--color-primary)]"
               />
               Mostrar en la web
@@ -638,7 +702,9 @@ export function PromosAdminPage() {
               <input
                 type="checkbox"
                 checked={form.isFeatured}
-                onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })}
+                onChange={(e) =>
+                  setForm({ ...form, isFeatured: e.target.checked })
+                }
                 className="h-4 w-4 accent-[var(--color-primary)]"
               />
               Destacada en la web
@@ -649,8 +715,8 @@ export function PromosAdminPage() {
             Servicios, Destacada además la sube al carrusel de la home. Por eso
             erroresDelFormulario avisa si se tilda Destacada sin Mostrar. */}
         <p className="-mt-2 text-xs text-ink-soft">
-          Mostrar la publica en la página de Servicios. Destacada la sube además al carrusel de la
-          home — sin Mostrar, Destacada no hace nada.
+          Mostrar la publica en la página de Servicios. Destacada la sube además
+          al carrusel de la home — sin Mostrar, Destacada no hace nada.
         </p>
 
         {/* Qué está en oferta. Tres bloques en vez de una lista sola: Laura
@@ -668,7 +734,10 @@ export function PromosAdminPage() {
           <BloqueDeOferta
             titulo="Servicios en oferta"
             tipo="servicio"
-            opciones={services.map((s) => ({ id: s.id, nombre: s.name ?? "—" }))}
+            opciones={services.map((s) => ({
+              id: s.id,
+              nombre: s.name ?? "—",
+            }))}
             destinos={form.destinos}
             onToggle={alternarDestino}
             esPaquete={form.promotionType === "paquete"}
@@ -679,7 +748,11 @@ export function PromosAdminPage() {
             tipo="combo"
             opciones={[
               ...combos.map((c) => ({ id: c.id, nombre: c.name ?? "—" })),
-              ...combosDepilacion.map((c) => ({ id: c.id, nombre: c.name, tipo: "depilacion" as const })),
+              ...combosDepilacion.map((c) => ({
+                id: c.id,
+                nombre: c.name,
+                tipo: "depilacion" as const,
+              })),
             ]}
             destinos={form.destinos}
             onToggle={alternarDestino}
@@ -707,16 +780,18 @@ export function PromosAdminPage() {
           </p>
           {hayDepilacion && (
             <p className="text-xs text-ink-soft">
-              Los combos de depilación no abren servicios acá: son zonas, no servicios con
-              proveedora. Se pagan por el acuerdo de depilación de siempre.
+              Los combos de depilación no abren servicios acá: son zonas, no
+              servicios con proveedora. Se pagan por el acuerdo de depilación de
+              siempre.
             </p>
           )}
           {desglose.sinResolver.length > 0 && (
             // No se puede desglosar lo que la pantalla no tiene, y tampoco se
             // pueden tirar sus pagos: se avisa y se dejan intactos.
             <p className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
-              {desglose.sinResolver.length} cosa(s) en oferta no se pudieron abrir (se archivaron o
-              se borraron). Sus pagos acordados se conservan tal como estaban.
+              {desglose.sinResolver.length} cosa(s) en oferta no se pudieron
+              abrir (se archivaron o se borraron). Sus pagos acordados se
+              conservan tal como estaban.
             </p>
           )}
           {desglose.servicios.length === 0 ? (
