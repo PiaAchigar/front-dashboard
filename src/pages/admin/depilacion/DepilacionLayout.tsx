@@ -6,8 +6,8 @@ import type { ContextoDeArea } from "../contexto-de-area";
 const SUBNAV = [
   { to: "/admin/depilacion/configuracion", label: "Configuración" },
   { to: "/admin/depilacion/zonas", label: "Zonas" },
-  { to: "/admin/depilacion/packs", label: "Packs" },
   { to: "/admin/depilacion/combos", label: "Combos" },
+  { to: "/admin/depilacion/packs", label: "Packs" },
 ];
 
 /**
