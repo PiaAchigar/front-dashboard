@@ -33,6 +33,10 @@ export interface SubscriptionWithAttendance {
   paidDate: string | null;
   paidStatus: "paid" | "pending" | "overdue";
   customerName: string;
+  /** Cuota del mes en curso (ART) */
+  cuotaDelMes: number;
+  /** Lo que falta cobrar de esa cuota; 0 = al día */
+  debeDelMes: number;
 }
 
 interface Activity {

@@ -1,15 +1,14 @@
 import { useState } from "react";
 import type { SubscriptionWithAttendance } from "../pages/admin/SubscriptionsAdminPage";
 import { useToast } from "./ui/Toast";
-import { Field, Select, TextArea, TextInput, Checkbox } from "./form";
+import { Field, Select, TextArea } from "./form";
 import { apiFetch } from "../lib/api-client";
 import { useToken } from "../hooks/useToken";
-import { todayLocal } from "../lib/format";
 
 /**
  * Modal/drawer de detalle de suscripción (Task 8 de planning/subscriptions_admin.md).
  * Muestra período/monto/cliente/actividad como read-only (no se pueden romper datos
- * históricos) y permite editar inline estado, pago y notas via
+ * históricos) y permite editar inline estado y notas via
  * PATCH /api/training-subscriptions/:id/admin.
  */
 interface SubscriptionDetailsModalProps {
@@ -47,8 +46,6 @@ function formatDate(dateStr: string | null): string {
   return `${parseInt(day, 10)}/${parseInt(month, 10)}/${year}`;
 }
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
 export function SubscriptionDetailsModal({
   subscription,
   onClose,
@@ -56,8 +53,6 @@ export function SubscriptionDetailsModal({
 }: SubscriptionDetailsModalProps) {
   const toast = useToast();
   const [status, setStatus] = useState<SubscriptionWithAttendance["status"]>(subscription.status);
-  const [paid, setPaid] = useState<boolean>(Boolean(subscription.paidDate));
-  const [paidDate, setPaidDate] = useState<string>(subscription.paidDate || "");
   const [notes, setNotes] = useState<string>(subscription.notes || "");
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -82,16 +77,10 @@ export function SubscriptionDetailsModal({
       return;
     }
 
-    if (paid && !DATE_RE.test(paidDate)) {
-      setFormError("La fecha de pago debe tener formato YYYY-MM-DD");
-      return;
-    }
-
     setSubmitting(true);
     try {
       const payload = {
         status,
-        paidDate: paid ? paidDate : null,
         notes: notes.trim() || null,
       };
 
@@ -171,32 +160,12 @@ export function SubscriptionDetailsModal({
             </Select>
           </Field>
 
-          <div className="space-y-2">
-            <Checkbox
-              label="Pagado"
-              checked={paid}
-              onChange={(checked) => {
-                setPaid(checked);
-                if (checked && !paidDate) {
-                  setPaidDate(todayLocal());
-                }
-              }}
-            />
-            {paid && (
-              <>
-                <TextInput
-                  type="date"
-                  value={paidDate}
-                  onChange={(e) => setPaidDate(e.target.value)}
-                />
-                {subscription.paidDate && (
-                  <p className="text-xs text-ink-soft">
-                    ✅ Pagado el {formatDate(subscription.paidDate)}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
+          {/* El mes queda pagado solo al cobrar la cuota (botón Cobrar de la tabla). */}
+          {subscription.paidDate && (
+            <p className="text-xs text-ink-soft">
+              ✅ Pagado el {formatDate(subscription.paidDate)}
+            </p>
+          )}
 
           <Field label="Notas">
             <TextArea

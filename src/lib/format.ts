@@ -12,6 +12,11 @@ export function todayLocal(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date());
 }
 
+/** Mes actual en hora de Argentina como YYYY-MM (el mes de una cuota). */
+export function mesActual(): string {
+  return todayLocal().slice(0, 7);
+}
+
 /** "DD/MM/AAAA" a partir de "YYYY-MM-DD" (fecha pura, sin zona horaria). */
 export function formatDate(isoDate: string): string {
   const [y, m, d] = isoDate.split("-");
