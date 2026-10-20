@@ -5,6 +5,7 @@ import { EntityDrawer } from "../../components/EntityDrawer";
 import { Checkbox, Field, Select, TextArea, TextInput } from "../../components/form";
 import { useToast } from "../../components/ui/Toast";
 import { can, type Role } from "../../lib/permissions";
+import { useContextoDeArea } from "./contexto-de-area";
 import {
   useArchiveTraining,
   useCreateTraining,
@@ -81,6 +82,8 @@ const EMPTY: Form = {
  */
 export function CapacitacionesAdminPage() {
   const { role } = useAuth();
+  // Dentro de GrupalLayout el botón Agregar sube al renglón del título.
+  const ctx = useContextoDeArea();
   const r = role as Role | null;
   const canEdit = can(r, "catalogo", "edit");
   const canManage = can(r, "catalogo", "manage");
@@ -225,6 +228,8 @@ export function CapacitacionesAdminPage() {
     <>
       <ResourceManager<Training>
         title="Capacitaciones"
+        slotAcciones={ctx?.slotAcciones ?? null}
+        alturaLibre={!!ctx}
         rows={rows}
         columns={columns}
         loading={isLoading}

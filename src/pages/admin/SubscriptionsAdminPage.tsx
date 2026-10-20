@@ -151,13 +151,8 @@ export function SubscriptionsAdminPage() {
 
   return (
     <div className="flex h-full flex-col gap-3 p-2 pl-4 sm:p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-ink">Suscripciones</h2>
-          <p className="mt-1 text-sm text-ink-soft">
-            Gestiona las suscripciones de clientes a actividades y capacitaciones.
-          </p>
-        </div>
+      {/* Sin título propio: lo da el layout (GrupalLayout) y la solapa activa. */}
+      <div className="flex items-center justify-end">
         <button
           onClick={() => setDrawerOpen(true)}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"

@@ -11,7 +11,6 @@ import { BillerFrame } from "./components/BillerFrame";
 import { CrmFrame } from "./components/CrmFrame";
 import { ToastProvider } from "./components/ui/Toast";
 import { AdminLayout } from "./pages/admin/AdminLayout";
-import { CapacitacionesAdminPage } from "./pages/admin/CapacitacionesAdminPage";
 import { CategoriasAdminPage } from "./pages/admin/CategoriasAdminPage";
 import { ServiciosAdminPage } from "./pages/admin/ServiciosAdminPage";
 import { AREAS } from "./lib/admin-nav";
@@ -22,8 +21,7 @@ import { PromosAdminPage } from "./pages/admin/PromosAdminPage";
 import { CombosAdminPage } from "./pages/admin/CombosAdminPage";
 import { PacksAdminPage } from "./pages/admin/PacksAdminPage";
 import { AreaLayout } from "./pages/admin/AreaLayout";
-import { ActividadesAdminPage } from "./pages/admin/ActividadesAdminPage";
-import { SubscriptionsAdminPage } from "./pages/admin/SubscriptionsAdminPage";
+import { rutasGrupales } from "./pages/admin/grupal/rutas-grupales";
 import { DepilacionRoutes } from "./pages/admin/depilacion/DepilacionRoutes";
 import { SitioWebLayout } from "./pages/web/SitioWebLayout";
 import { VisiblesWebPage } from "./pages/web/VisiblesWebPage";
@@ -96,14 +94,13 @@ export default function App() {
                       <Route path="packs" element={<PacksAdminPage area={a.categoria} />} />
                     </Route>
                   ))}
-                  <Route path="capacitaciones" element={<CapacitacionesAdminPage />} />
+                  {/* Actividades y Capacitaciones, cada una con sus solapas. */}
+                  {rutasGrupales()}
                   <Route path="proveedores" element={<ProveedorasAdminPage />} />
                   <Route path="categorias" element={<CategoriasAdminPage />} />
                   <Route path="maquinas" element={<MaquinasAdminPage />} />
                   <Route path="insumos" element={<InsumosAdminPage />} />
                   <Route path="promos" element={<PromosAdminPage />} />
-                  <Route path="actividades" element={<ActividadesAdminPage />} />
-                  <Route path="suscripciones" element={<SubscriptionsAdminPage />} />
                   {/* Rutas de Depilación aparte en `DepilacionRoutes.tsx` — incluye la
                       redirección de compatibilidad de `precios`, que necesita un test
                       propio que la ejerza de verdad (ver ese archivo). */}

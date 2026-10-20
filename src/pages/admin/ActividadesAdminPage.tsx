@@ -309,13 +309,8 @@ export function ActividadesAdminPage() {
 
   return (
     <div className="flex h-full flex-col gap-3 p-2 pl-4 sm:p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-ink">Actividades</h2>
-          <p className="mt-1 text-sm text-ink-soft">
-            Gestiona las actividades mensuales (Pilates, Yoga, máquinas, etc.)
-          </p>
-        </div>
+      {/* Sin título propio: lo da el layout (GrupalLayout) y la solapa activa. */}
+      <div className="flex items-center justify-end">
         <div className="flex items-center gap-3">
           <div className="flex overflow-hidden rounded-lg border border-surface-highest text-sm">
             {[

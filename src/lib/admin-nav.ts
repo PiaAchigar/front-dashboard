@@ -72,7 +72,6 @@ export const PESTANAS: Pestana[] = [
   { to: "/admin/masajes", label: "Masajes y Bienestar", grupo: "eje", section: "catalogo" },
   { to: "/admin/actividades", label: "Actividades", grupo: "eje", section: "catalogo" },
   { to: "/admin/capacitaciones", label: "Capacitaciones", grupo: "eje", section: "catalogo" },
-  { to: "/admin/suscripciones", label: "Suscripciones", grupo: "eje", section: "catalogo" },
   { to: "/admin/servicios", label: "Todos los servicios", grupo: "eje", section: "catalogo" },
   { to: "/admin/proveedores", label: "Proveedores", grupo: "recurso", section: "proveedoras" },
   { to: "/admin/maquinas", label: "Máquinas", grupo: "recurso", section: "catalogo" },
@@ -135,5 +134,28 @@ export function solapasDeArea(area: AreaDeCatalogo) {
     // manda sigue siendo "Combos".
     { to: `/admin/${area.path}/combos`, label: "Combos", sub: area.aliasDeCombos },
     { to: `/admin/${area.path}/packs`, label: "Packs" },
+  ];
+}
+
+/**
+ * Las solapas de Actividades. Suscripciones vive acá adentro y no como pestaña
+ * suelta de Administración: una suscripción es siempre de una actividad.
+ * La pestaña de arriba sigue marcada como activa en las tres porque el
+ * `NavLink` compara por prefijo (`/admin/actividades/...`).
+ */
+export function solapasDeActividades() {
+  return [
+    { to: "/admin/actividades/lista", label: "Actividades" },
+    { to: "/admin/actividades/horarios", label: "Horarios" },
+    { to: "/admin/actividades/suscripciones", label: "Suscripciones" },
+  ];
+}
+
+/** Las solapas de Capacitaciones: qué se dicta, cuándo y quién se anotó. */
+export function solapasDeCapacitaciones() {
+  return [
+    { to: "/admin/capacitaciones/lista", label: "Capacitaciones" },
+    { to: "/admin/capacitaciones/encuentros", label: "Encuentros" },
+    { to: "/admin/capacitaciones/inscriptas", label: "Inscriptas" },
   ];
 }

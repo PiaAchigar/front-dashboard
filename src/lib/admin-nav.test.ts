@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { AREAS, PESTANAS, solapasDeArea } from "./admin-nav";
+import {
+  AREAS,
+  PESTANAS,
+  solapasDeActividades,
+  solapasDeArea,
+  solapasDeCapacitaciones,
+} from "./admin-nav";
 
 describe("solapasDeArea", () => {
   const estetica = AREAS.find((a) => a.path === "estetica")!;
@@ -71,5 +77,27 @@ describe("AREAS", () => {
     for (const area of AREAS) {
       expect(PESTANAS.some((p) => p.to === `/admin/${area.path}`)).toBe(true);
     }
+  });
+});
+
+describe("Actividades y Capacitaciones con solapas", () => {
+  it("Suscripciones ya no es una pestaña de Administración: vive adentro de Actividades", () => {
+    expect(PESTANAS.map((p) => p.label)).not.toContain("Suscripciones");
+  });
+
+  it("las solapas de Actividades", () => {
+    expect(solapasDeActividades()).toEqual([
+      { to: "/admin/actividades/lista", label: "Actividades" },
+      { to: "/admin/actividades/horarios", label: "Horarios" },
+      { to: "/admin/actividades/suscripciones", label: "Suscripciones" },
+    ]);
+  });
+
+  it("las solapas de Capacitaciones", () => {
+    expect(solapasDeCapacitaciones()).toEqual([
+      { to: "/admin/capacitaciones/lista", label: "Capacitaciones" },
+      { to: "/admin/capacitaciones/encuentros", label: "Encuentros" },
+      { to: "/admin/capacitaciones/inscriptas", label: "Inscriptas" },
+    ]);
   });
 });
