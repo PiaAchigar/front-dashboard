@@ -4,6 +4,7 @@ import { ActividadesAdminPage } from "../ActividadesAdminPage";
 import { CapacitacionesAdminPage } from "../CapacitacionesAdminPage";
 import { SubscriptionsAdminPage } from "../SubscriptionsAdminPage";
 import { GrupalLayout } from "./GrupalLayout";
+import { HorariosPage } from "./HorariosPage";
 
 /**
  * Las rutas de Actividades y Capacitaciones, aparte de `App.tsx` para poder
@@ -26,6 +27,7 @@ export function rutasGrupales() {
       >
         <Route index element={<Navigate to="lista" replace />} />
         <Route path="lista" element={<ActividadesAdminPage />} />
+        <Route path="horarios" element={<HorariosPage />} />
         <Route path="suscripciones" element={<SubscriptionsAdminPage />} />
       </Route>
       <Route
