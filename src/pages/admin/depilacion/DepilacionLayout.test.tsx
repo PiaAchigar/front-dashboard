@@ -73,6 +73,6 @@ describe("DepilacionLayout", () => {
       </MemoryRouter>,
     );
     const pestañas = screen.getAllByRole("link").map((a) => a.textContent);
-    expect(pestañas).toEqual(["Configuración", "Zonas", "Packs", "Combos"]);
+    expect(pestañas).toEqual(["Configuración", "Zonas", "Combos", "Packs"]);
   });
 });
