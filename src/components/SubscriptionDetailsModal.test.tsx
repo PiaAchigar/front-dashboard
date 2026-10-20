@@ -91,6 +91,14 @@ describe("SubscriptionDetailsModal Renovar", () => {
     expect(onUpdate).toHaveBeenCalled();
   });
 
+  it("singular: 'Quedó anotada en 1 clase'", async () => {
+    fijarHoy();
+    apiFetch.mockResolvedValue({ anotadas: 1, sinLugar: [], superaPlan: false, clasesDelMes: 1 });
+    render(<SubscriptionDetailsModal subscription={sub()} onClose={vi.fn()} onUpdate={vi.fn()} />);
+    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(screen.getByRole("button", { name: "Renovar noviembre" }));
+    expect(await screen.findByText("Quedó anotada en 1 clase")).toBeInTheDocument();
+  });
+
   it("muestra 'Sin lugar' con fechas dd/mm y 'Supera las N clases del plan'", async () => {
     fijarHoy();
     apiFetch.mockResolvedValue({

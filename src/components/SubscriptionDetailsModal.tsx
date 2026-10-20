@@ -265,7 +265,7 @@ export function SubscriptionDetailsModal({
             {errorRenovar && <p className="text-red-700">{errorRenovar}</p>}
             {resultado && (
               <div className="space-y-1 text-ink">
-                <p>{`Quedó anotada en ${resultado.anotadas} clases`}</p>
+                <p>{`Quedó anotada en ${resultado.anotadas} ${resultado.anotadas === 1 ? "clase" : "clases"}`}</p>
                 {resultado.sinLugar.length > 0 && (
                   <p className="text-red-700">{`Sin lugar: ${resultado.sinLugar.map(diaMes).join(", ")}`}</p>
                 )}
