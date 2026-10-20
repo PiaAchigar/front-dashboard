@@ -3,6 +3,7 @@ import { solapasDeActividades, solapasDeCapacitaciones } from "../../../lib/admi
 import { ActividadesAdminPage } from "../ActividadesAdminPage";
 import { CapacitacionesAdminPage } from "../CapacitacionesAdminPage";
 import { SubscriptionsAdminPage } from "../SubscriptionsAdminPage";
+import { EncuentrosPage } from "./EncuentrosPage";
 import { GrupalLayout } from "./GrupalLayout";
 import { HorariosPage } from "./HorariosPage";
 
@@ -42,6 +43,7 @@ export function rutasGrupales() {
       >
         <Route index element={<Navigate to="lista" replace />} />
         <Route path="lista" element={<CapacitacionesAdminPage />} />
+        <Route path="encuentros" element={<EncuentrosPage />} />
       </Route>
       {/* La pestaña suelta de Suscripciones se sacó: quien tenga el link viejo aterriza adentro de Actividades. */}
       <Route
