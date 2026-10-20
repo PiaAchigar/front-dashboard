@@ -49,6 +49,13 @@ describe("SubscriptionTable cuota y deuda", () => {
     expect(screen.queryByRole("button", { name: "Cobrar" })).not.toBeInTheDocument();
   });
 
+  it("suscripción cancelada con deuda: no hay botón Cobrar", () => {
+    render(
+      <SubscriptionTable subscriptions={[fila({ status: "cancelled" })]} onSelectSubscription={vi.fn()} onRefresh={vi.fn()} />,
+    );
+    expect(screen.queryByRole("button", { name: "Cobrar" })).not.toBeInTheDocument();
+  });
+
   it("Cobrar abre el modal sin seleccionar la fila", async () => {
     const onSelect = vi.fn();
     render(<SubscriptionTable subscriptions={[fila({})]} onSelectSubscription={onSelect} onRefresh={vi.fn()} />);

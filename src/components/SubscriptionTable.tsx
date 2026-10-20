@@ -170,7 +170,8 @@ export function SubscriptionTable({
                   </span>
                 </td>
                 <td className="space-x-3 whitespace-nowrap px-6 py-3">
-                  {sub.debeDelMes > 0 && (
+                  {/* La API rechaza cobrar una suscripción cancelada: no se ofrece el botón. */}
+                  {sub.debeDelMes > 0 && sub.status !== "cancelled" && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
