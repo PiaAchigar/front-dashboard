@@ -6,6 +6,7 @@ import { SubscriptionsAdminPage } from "../SubscriptionsAdminPage";
 import { EncuentrosPage } from "./EncuentrosPage";
 import { GrupalLayout } from "./GrupalLayout";
 import { HorariosPage } from "./HorariosPage";
+import { InscriptasPage } from "./InscriptasPage";
 
 /**
  * Las rutas de Actividades y Capacitaciones, aparte de `App.tsx` para poder
@@ -44,6 +45,7 @@ export function rutasGrupales() {
         <Route index element={<Navigate to="lista" replace />} />
         <Route path="lista" element={<CapacitacionesAdminPage />} />
         <Route path="encuentros" element={<EncuentrosPage />} />
+        <Route path="inscriptas" element={<InscriptasPage />} />
       </Route>
       {/* La pestaña suelta de Suscripciones se sacó: quien tenga el link viejo aterriza adentro de Actividades. */}
       <Route
