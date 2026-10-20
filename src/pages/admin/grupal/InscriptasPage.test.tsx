@@ -35,7 +35,8 @@ function inscripta(customerPurchaseId: string, nombre: string, extra = {}) {
 }
 
 let inscriptas: Record<string, unknown[]> = {};
-let llamadas: { url: string; method: string }[] = [];
+let llamadas: { url: string; method: string; body?: unknown }[] = [];
+let respuestaAnotar: unknown = null;
 
 function ok(data: unknown, status = 200) {
   return { ok: true, status, json: async () => data };
@@ -43,6 +44,7 @@ function ok(data: unknown, status = 200) {
 
 beforeEach(() => {
   llamadas = [];
+  respuestaAnotar = null;
   inscriptas = {
     c1: [
       inscripta("cp1", "ZZ Ana Pérez", { debe: 2000, encuentrosAnotada: 2 }),
@@ -55,10 +57,14 @@ beforeEach(() => {
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
-      llamadas.push({ url, method });
+      llamadas.push({ url, method, body: init?.body ? JSON.parse(init.body as string) : undefined });
       if (url.includes("/api/agenda/trainings/admin")) return ok([CAP_A, CAP_B]);
       const m = url.match(/\/api\/agenda\/trainings\/(\w+)\/inscriptas$/);
       if (m && method === "GET") return ok(inscriptas[m[1]] ?? []);
+      if (url.endsWith("/api/agenda/classes/anotar-a-capacitacion")) {
+        if (respuestaAnotar) return ok(respuestaAnotar, 201);
+        return { ok: false, status: 400, json: async () => ({ error: "La clienta no compró esta capacitación" }) };
+      }
       return ok({});
     }),
   );
@@ -134,9 +140,46 @@ describe("InscriptasPage", () => {
     await waitFor(() => expect(screen.getByText("Todavía nadie compró esta capacitación.")).toBeInTheDocument());
   });
 
-  it("no tiene botones de anotar ni sacar (llegan en la entrega 2)", async () => {
+  it("'Anotar en los encuentros' sólo aparece cuando faltan encuentros", async () => {
     montar();
     await esperarFilas(2);
-    expect(screen.queryByRole("button", { name: /anotar|sacar|agregar/i })).toBeNull();
+    const filas = screen.getAllByRole("row").slice(1);
+    expect(within(filas[0]).getByRole("button", { name: "Anotar en los encuentros" })).toBeInTheDocument();
+    expect(within(filas[1]).queryByRole("button", { name: "Anotar en los encuentros" })).toBeNull();
+  });
+
+  it("anota con { trainingId, customerId }, avisa y recarga la lista", async () => {
+    const user = userEvent.setup();
+    respuestaAnotar = { success: true, data: { anotada: 2, yaEstaba: 2, sinLugar: [] } };
+    montar();
+    await esperarFilas(2);
+    const antes = llamadas.filter((l) => l.method === "GET" && l.url.endsWith("/c1/inscriptas")).length;
+    await user.click(screen.getByRole("button", { name: "Anotar en los encuentros" }));
+    expect(await screen.findByText("Quedó anotada en 2 encuentros")).toBeInTheDocument();
+    const post = llamadas.find((l) => l.method === "POST")!;
+    expect(post.url).toMatch(/\/api\/agenda\/classes\/anotar-a-capacitacion$/);
+    expect(post.body).toEqual({ trainingId: "c1", customerId: "cli-cp1" });
+    await waitFor(() =>
+      expect(llamadas.filter((l) => l.method === "GET" && l.url.endsWith("/c1/inscriptas")).length).toBeGreaterThan(antes),
+    );
+  });
+
+  it("avisa los encuentros sin lugar", async () => {
+    const user = userEvent.setup();
+    respuestaAnotar = { success: true, data: { anotada: 1, yaEstaba: 2, sinLugar: [3, 4] } };
+    montar();
+    await esperarFilas(2);
+    await user.click(screen.getByRole("button", { name: "Anotar en los encuentros" }));
+    expect(await screen.findByText("Quedó anotada en 1 encuentros")).toBeInTheDocument();
+    expect(screen.getByText("Sin lugar en el encuentro N.º 3, 4")).toBeInTheDocument();
+  });
+
+  it("muestra el error de la API tal cual", async () => {
+    const user = userEvent.setup();
+    respuestaAnotar = null;
+    montar();
+    await esperarFilas(2);
+    await user.click(screen.getByRole("button", { name: "Anotar en los encuentros" }));
+    expect(await screen.findByText("La clienta no compró esta capacitación")).toBeInTheDocument();
   });
 });

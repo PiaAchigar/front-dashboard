@@ -101,6 +101,9 @@ export function SubscriptionTable({
             <th className="px-6 py-3 text-left font-medium text-ink">
               Cuota del mes
             </th>
+            <th className="px-6 py-3 text-left font-medium text-ink">
+              Horarios
+            </th>
             <th className="px-6 py-3 text-left font-medium text-ink">Debe</th>
             <th className="px-6 py-3 text-left font-medium text-ink">Pagado</th>
             <th className="px-6 py-3 text-left font-medium text-ink">Estado</th>
@@ -144,6 +147,11 @@ export function SubscriptionTable({
                 </td>
                 <td className="whitespace-nowrap px-6 py-3 text-ink-soft">
                   {money(sub.cuotaDelMes)}
+                </td>
+                <td className="whitespace-nowrap px-6 py-3 text-ink-soft">
+                  {sub.horariosDelMes && sub.horariosDelMes.length > 0
+                    ? sub.horariosDelMes.join(" · ")
+                    : "Sin anotar este mes"}
                 </td>
                 <td className="whitespace-nowrap px-6 py-3">
                   {sub.debeDelMes > 0 ? (

@@ -17,6 +17,18 @@ export function mesActual(): string {
   return todayLocal().slice(0, 7);
 }
 
+/** Mes siguiente al actual (ART) como YYYY-MM: el que se renueva. Pasa de diciembre a enero del año que sigue. */
+export function mesSiguiente(): string {
+  const [y, m] = mesActual().split("-").map(Number);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+}
+
+/** "2026-11" -> "noviembre". UTC para que la zona del navegador no corra el día 1 al mes anterior. */
+export function nombreDelMes(mes: string): string {
+  const [y, m] = mes.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("es-AR", { month: "long", timeZone: "UTC" });
+}
+
 /** "DD/MM/AAAA" a partir de "YYYY-MM-DD" (fecha pura, sin zona horaria). */
 export function formatDate(isoDate: string): string {
   const [y, m, d] = isoDate.split("-");

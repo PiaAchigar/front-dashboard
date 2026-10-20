@@ -4,6 +4,7 @@ import { useToast } from "./ui/Toast";
 import { Field, Select, TextArea } from "./form";
 import { apiFetch } from "../lib/api-client";
 import { useToken } from "../hooks/useToken";
+import { mesSiguiente, nombreDelMes } from "../lib/format";
 
 /**
  * Modal/drawer de detalle de suscripción (Task 8 de planning/subscriptions_admin.md).
@@ -46,6 +47,21 @@ function formatDate(dateStr: string | null): string {
   return `${parseInt(day, 10)}/${parseInt(month, 10)}/${year}`;
 }
 
+/** Lo que responde POST /api/training-subscriptions/:id/renovar (sin envoltorio). */
+interface ResultadoRenovar {
+  anotadas: number;
+  /** startsAt ISO de las clases que no tenían lugar */
+  sinLugar: string[];
+  superaPlan: boolean;
+}
+
+/** ISO UTC -> dd/mm en hora de Argentina (la fecha del turno, no la del servidor). */
+function diaMes(iso: string): string {
+  const partes = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).format(new Date(iso));
+  const [, mm, dd] = partes.split("-");
+  return `${dd}/${mm}`;
+}
+
 export function SubscriptionDetailsModal({
   subscription,
   onClose,
@@ -58,6 +74,32 @@ export function SubscriptionDetailsModal({
   const [submitting, setSubmitting] = useState(false);
 
   const token = useToken();
+
+  const [renovando, setRenovando] = useState(false);
+  const [resultado, setResultado] = useState<ResultadoRenovar | null>(null);
+  const [errorRenovar, setErrorRenovar] = useState<string | null>(null);
+  const mesARenovar = mesSiguiente();
+
+  const handleRenovar = async () => {
+    setRenovando(true);
+    setErrorRenovar(null);
+    setResultado(null);
+    try {
+      const r = await apiFetch<ResultadoRenovar>(
+        `/api/training-subscriptions/${subscription.id}/renovar`,
+        token,
+        { method: "POST", body: JSON.stringify({ mes: mesARenovar }) },
+      );
+      setResultado(r);
+      // Recarga la lista de atrás (columna Horarios); el drawer queda abierto con el resultado.
+      onUpdate();
+    } catch (err) {
+      // Los 400/409 de la API ya traen el mensaje pensado para la usuaria: va tal cual.
+      setErrorRenovar(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setRenovando(false);
+    }
+  };
 
   const isMachine = subscription.activityType === "machine";
   const currentMonthLabel = MONTH_NAMES[new Date().getMonth()];
@@ -210,6 +252,29 @@ export function SubscriptionDetailsModal({
               </div>
             )}
           </div>
+
+          {/* Repite los horarios del mes anterior en el mes que viene. Las máquinas no tienen horarios fijos. */}
+          {!isMachine && (
+            <div className="space-y-2 rounded-lg border border-surface-high p-4 text-sm">
+              <button
+                onClick={handleRenovar}
+                disabled={renovando}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+              >
+                {renovando ? "Renovando..." : `Renovar ${nombreDelMes(mesARenovar)}`}
+              </button>
+              {errorRenovar && <p className="text-red-700">{errorRenovar}</p>}
+              {resultado && (
+                <div className="space-y-1 text-ink">
+                  <p>{`Quedó anotada en ${resultado.anotadas} clases`}</p>
+                  {resultado.sinLugar.length > 0 && (
+                    <p className="text-red-700">{`Sin lugar: ${resultado.sinLugar.map(diaMes).join(", ")}`}</p>
+                  )}
+                  {resultado.superaPlan && <p>{`Supera las ${classesPerMonth} clases del plan`}</p>}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-3 border-t border-surface-high pt-6">
             <button

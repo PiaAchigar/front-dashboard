@@ -37,6 +37,8 @@ export interface SubscriptionWithAttendance {
   cuotaDelMes: number;
   /** Lo que falta cobrar de esa cuota; 0 = al día */
   debeDelMes: number;
+  /** Horarios fijos del mes en curso, ej. ["Lun 10:00","Mié 10:00"]; vacío = sin anotar */
+  horariosDelMes?: string[];
 }
 
 interface Activity {

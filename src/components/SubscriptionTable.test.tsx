@@ -64,3 +64,24 @@ describe("SubscriptionTable cuota y deuda", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 });
+
+describe("SubscriptionTable columna Horarios", () => {
+  it("muestra los horarios del mes separados por ' · '", () => {
+    render(
+      <SubscriptionTable
+        subscriptions={[fila({ horariosDelMes: ["Lun 10:00", "Mié 10:00"] })]}
+        onSelectSubscription={vi.fn()}
+        onRefresh={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("columnheader", { name: "Horarios" })).toBeInTheDocument();
+    expect(screen.getByText("Lun 10:00 · Mié 10:00")).toBeInTheDocument();
+  });
+
+  it("sin horarios muestra 'Sin anotar este mes'", () => {
+    render(
+      <SubscriptionTable subscriptions={[fila({ horariosDelMes: [] })]} onSelectSubscription={vi.fn()} onRefresh={vi.fn()} />,
+    );
+    expect(screen.getByText("Sin anotar este mes")).toBeInTheDocument();
+  });
+});
