@@ -253,28 +253,26 @@ export function SubscriptionDetailsModal({
             )}
           </div>
 
-          {/* Repite los horarios del mes anterior en el mes que viene. Las máquinas no tienen horarios fijos. */}
-          {!isMachine && (
-            <div className="space-y-2 rounded-lg border border-surface-high p-4 text-sm">
-              <button
-                onClick={handleRenovar}
-                disabled={renovando}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
-              >
-                {renovando ? "Renovando..." : `Renovar ${nombreDelMes(mesARenovar)}`}
-              </button>
-              {errorRenovar && <p className="text-red-700">{errorRenovar}</p>}
-              {resultado && (
-                <div className="space-y-1 text-ink">
-                  <p>{`Quedó anotada en ${resultado.anotadas} clases`}</p>
-                  {resultado.sinLugar.length > 0 && (
-                    <p className="text-red-700">{`Sin lugar: ${resultado.sinLugar.map(diaMes).join(", ")}`}</p>
-                  )}
-                  {resultado.superaPlan && <p>{`Supera las ${classesPerMonth} clases del plan`}</p>}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Repite los horarios del mes anterior en el mes que viene (también en máquinas: Thermo Bike tiene horarios). */}
+          <div className="space-y-2 rounded-lg border border-surface-high p-4 text-sm">
+            <button
+              onClick={handleRenovar}
+              disabled={renovando}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+            >
+              {renovando ? "Renovando..." : `Renovar ${nombreDelMes(mesARenovar)}`}
+            </button>
+            {errorRenovar && <p className="text-red-700">{errorRenovar}</p>}
+            {resultado && (
+              <div className="space-y-1 text-ink">
+                <p>{`Quedó anotada en ${resultado.anotadas} clases`}</p>
+                {resultado.sinLugar.length > 0 && (
+                  <p className="text-red-700">{`Sin lugar: ${resultado.sinLugar.map(diaMes).join(", ")}`}</p>
+                )}
+                {resultado.superaPlan && <p>{`Supera las ${classesPerMonth} clases del plan`}</p>}
+              </div>
+            )}
+          </div>
 
           <div className="flex gap-3 border-t border-surface-high pt-6">
             <button

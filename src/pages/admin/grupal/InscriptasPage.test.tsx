@@ -170,7 +170,7 @@ describe("InscriptasPage", () => {
     montar();
     await esperarFilas(2);
     await user.click(screen.getByRole("button", { name: "Anotar en los encuentros" }));
-    expect(await screen.findByText("Quedó anotada en 1 encuentros")).toBeInTheDocument();
+    expect(await screen.findByText("Quedó anotada en 1 encuentro")).toBeInTheDocument();
     expect(screen.getByText("Sin lugar en el encuentro N.º 3, 4")).toBeInTheDocument();
   });
 

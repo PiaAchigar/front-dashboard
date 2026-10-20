@@ -112,8 +112,8 @@ describe("SubscriptionDetailsModal Renovar", () => {
     await waitFor(() => expect(screen.getByText("No hay horarios en el mes anterior")).toBeInTheDocument());
   });
 
-  it("no hay Renovar en actividades de máquina", () => {
+  it("también hay Renovar en actividades de máquina (Thermo Bike tiene horarios)", () => {
     render(<SubscriptionDetailsModal subscription={sub({ activityType: "machine" })} onClose={vi.fn()} onUpdate={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: /^Renovar/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /^Renovar / })).toBeInTheDocument();
   });
 });

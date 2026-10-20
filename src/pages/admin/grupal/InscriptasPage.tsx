@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Field, Select } from "../../../components/form";
 import { useAnotarEnEncuentros, useInscriptas } from "../../../hooks/useInscriptas";
 import { useTrainingsAdmin } from "../../../hooks/useTrainingsAdmin";
-import { useToast } from "../../../components/ui/Toast";
 import { formatDateTimeToDate, money } from "../../../lib/format";
 
 const TH = "px-3 py-2 text-left text-xs font-medium text-ink-soft";
@@ -22,7 +21,6 @@ export function InscriptasPage() {
   }, [capacitaciones, capId]);
 
   const { data: inscriptas = [], isLoading, error } = useInscriptas(capId || null);
-  const toast = useToast();
   const anotar = useAnotarEnEncuentros();
   const [aviso, setAviso] = useState<{ ok: string; sinLugar: string | null } | null>(null);
   const [errorAnotar, setErrorAnotar] = useState<string | null>(null);
@@ -35,10 +33,9 @@ export function InscriptasPage() {
       {
         onSuccess: (r) => {
           setAviso({
-            ok: `Quedó anotada en ${r.anotada} encuentros`,
+            ok: `Quedó anotada en ${r.anotada} ${r.anotada === 1 ? "encuentro" : "encuentros"}`,
             sinLugar: r.sinLugar.length > 0 ? `Sin lugar en el encuentro N.º ${r.sinLugar.join(", ")}` : null,
           });
-          toast.success("Clienta anotada en los encuentros");
         },
         // El mensaje de la API ya está pensado para la usuaria: va tal cual.
         onError: (e) => setErrorAnotar((e as Error).message),
