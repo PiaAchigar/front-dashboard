@@ -278,6 +278,8 @@ export function ResourceManager<T>({
       exceptions: "excepción(es) de disponibilidad",
       mpAccounts: "cuenta(s) de MercadoPago",
       serviceLinks: "servicio(s) que la tienen asignada",
+      // Proveedora por horario (1.60.0): al borrarla, esos horarios quedan sin proveedora.
+      classSchedules: "horario(s) de clases que la tienen asignada",
       // Promos (1.53.0). `promoTargets` es "está en oferta en N promos";
       // `promotions`, los pagos acordados que lo nombran.
       promoTargets: "promoción(es) que lo tienen en oferta",
