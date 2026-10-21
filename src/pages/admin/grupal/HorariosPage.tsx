@@ -165,7 +165,7 @@ export function HorariosPage() {
   );
 
   return (
-    <div className="px-4 py-4 sm:px-6">
+    <div className="flex h-full flex-col px-4 py-4 sm:px-6">
       {ctx?.slotAcciones ? createPortal(botonAgregar || null, ctx.slotAcciones) : botonAgregar}
 
       <div className="mb-4 max-w-sm">
@@ -182,9 +182,9 @@ export function HorariosPage() {
 
       {error && <p className="mb-3 text-sm text-red-700">{(error as Error).message}</p>}
 
-      <div className="overflow-x-auto rounded-xl border border-surface-high">
+      <div className="modal-scroll min-h-0 flex-1 overflow-auto rounded-xl border border-surface-high">
         <table className="w-full">
-          <thead className="bg-surface-low">
+          <thead className="sticky top-0 z-10 bg-surface-low">
             <tr>
               <th className={TH}>Día</th>
               <th className={TH}>Desde</th>
