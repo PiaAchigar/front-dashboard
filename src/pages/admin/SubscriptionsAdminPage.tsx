@@ -156,8 +156,10 @@ export function SubscriptionsAdminPage() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3 p-2 pl-4 sm:p-4">
-      {/* Sin título propio: lo da el layout (GrupalLayout) y la solapa activa. */}
+    <div className="flex flex-col gap-3 p-2 pl-4 sm:p-4">
+      {/* Sin título propio: lo da el layout (GrupalLayout) y la solapa activa.
+          Sin scroll propio tampoco: como en Estética, la lista crece entera y
+          desfila en el scroll del layout, por debajo de las solapas. */}
       <div className="flex items-center justify-end">
         <button
           onClick={() => setDrawerOpen(true)}
@@ -227,7 +229,7 @@ export function SubscriptionsAdminPage() {
         </select>
       </div>
 
-      <div className="modal-scroll min-h-0 flex-1 overflow-auto rounded-lg border border-surface-high bg-white">
+      <div className="modal-scroll overflow-x-auto rounded-lg border border-surface-high bg-white">
         {loading ? (
           <div className="p-6 text-center text-ink-soft">Cargando suscripciones...</div>
         ) : (

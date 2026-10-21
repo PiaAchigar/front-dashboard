@@ -486,7 +486,7 @@ export function ResourceManager<T>({
             {showActions && <col style={{ width: ACTIONS_WIDTH }} />}
           </colgroup>
 
-          <thead className="sticky top-0 z-10 text-xs uppercase tracking-wider text-ink-soft">
+          <thead className="sticky top-0 z-20 text-xs uppercase tracking-wider text-ink-soft">
             <tr>
               {columns.map((col) => (
                 <th

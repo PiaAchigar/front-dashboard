@@ -221,8 +221,10 @@ export function ActividadesAdminPage() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3 p-2 pl-4 sm:p-4">
-      {/* Sin título propio: lo da el layout (GrupalLayout) y la solapa activa. */}
+    <div className="flex flex-col gap-3 p-2 pl-4 sm:p-4">
+      {/* Sin título propio: lo da el layout (GrupalLayout) y la solapa activa.
+          Sin scroll propio tampoco: como en Estética, la lista crece entera y
+          desfila en el scroll del layout, por debajo de las solapas. */}
       <div className="flex items-center justify-end">
         <div className="flex items-center gap-3">
           <div className="flex overflow-hidden rounded-lg border border-surface-highest text-sm">
@@ -254,7 +256,7 @@ export function ActividadesAdminPage() {
 
       <EmbeddingsPendientesAviso />
 
-      <div className="modal-scroll min-h-0 flex-1 overflow-auto rounded-lg border border-surface-high bg-white">
+      <div className="modal-scroll overflow-x-auto rounded-lg border border-surface-high bg-white">
         {activities.length === 0 ? (
           <div className="p-6 text-center text-ink-soft">
             {showArchived ? "No hay actividades archivadas." : "No hay actividades registradas."}

@@ -18,6 +18,13 @@ function Ubicacion() {
   return <div data-testid="ubicacion">{useLocation().pathname}</div>;
 }
 
+/** Las cajas con scroll vertical propio. */
+function scrollsVerticales(container: HTMLElement) {
+  return Array.from(container.querySelectorAll("*")).filter((el) =>
+    /\boverflow-(y-)?auto\b/.test(el.getAttribute("class") ?? ""),
+  );
+}
+
 /** Una pantalla que dibuja en el hueco de acciones, como las de área. */
 function PantallaConAccion() {
   const ctx = useContextoDeArea();
@@ -92,6 +99,14 @@ describe("rutas de Actividades y Capacitaciones (montadas como en App.tsx)", () 
     montar("/admin/actividades");
     expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/actividades/lista");
     expect(await screen.findByText(/Cargando actividades|No hay actividades/)).toBeInTheDocument();
+  });
+
+  // Como las áreas del catálogo (Estética): del buscador para abajo todo
+  // desfila en el único scroll del layout y se esconde bajo las solapas.
+  it("Suscripciones no tiene un scroll propio: el único es el del layout", async () => {
+    const { container } = montar("/admin/actividades/suscripciones");
+    await screen.findByText(/Cargando suscripciones/);
+    expect(scrollsVerticales(container)).toHaveLength(1);
   });
 
   it("/admin/capacitaciones redirige a la lista", async () => {

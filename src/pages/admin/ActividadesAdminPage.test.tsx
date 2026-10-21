@@ -61,4 +61,22 @@ describe("ActividadesAdminPage", () => {
     expect(post.body).not.toHaveProperty("serviceProviderId");
     expect(post.body).toMatchObject({ name: "ZZ Yoga", activityType: "class", classesPerMonth: 8 });
   });
+
+  it("como Estética, la lista no tiene scroll propio: scrollea el layout y pasa bajo las solapas", async () => {
+    const { container } = render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ToastProvider>
+          <MemoryRouter>
+            <ActividadesAdminPage />
+          </MemoryRouter>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    await screen.findByText("No hay actividades registradas.");
+    const conScroll = Array.from(container.querySelectorAll("*")).filter((el) =>
+      /\boverflow-(y-)?auto\b/.test(el.getAttribute("class") ?? ""),
+    );
+    expect(conScroll).toHaveLength(0);
+    expect((container.firstElementChild as HTMLElement).className).not.toMatch(/\bh-full\b/);
+  });
 });

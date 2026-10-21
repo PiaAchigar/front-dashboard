@@ -303,6 +303,17 @@ describe("ResourceManager — la tabla no esconde las acciones", () => {
     expect(celda.className).toMatch(/\bright-0\b/);
   });
 
+  // Con la tabla en su propio scroll, el encabezado (sticky arriba) y las
+  // celdas de Acciones (sticky a la derecha) se cruzan: si empatan en z-index
+  // la celda, que va después, tapa "ACCIONES" al bajar.
+  it("el encabezado de la tabla queda por encima de las celdas fijas de Acciones", () => {
+    const { container } = render(<ResourceManager {...base({ columns: DOS })} onEdit={vi.fn()} />);
+    const z = (el: Element) => Number(/\bz-(\d+)\b/.exec(el.className)?.[1] ?? 0);
+    const thead = container.querySelector("thead")!;
+    const celda = screen.getByText("Pierna entera").closest("tr")!.querySelector("td:last-child")!;
+    expect(z(thead)).toBeGreaterThan(z(celda));
+  });
+
   // El sobrante tiene que irse a una columna vacía. Si todas las columnas
   // declaran ancho, `table-layout: fixed` reparte el sobrante ENTRE TODAS y
   // mover una mueve las demás — que es el resizer elástico que sufría Laura.
