@@ -24,6 +24,9 @@ export type ActivitySchedule = {
   /** null = sin límite */
   capacity: number | null;
   isActive: boolean | null;
+  /** Quién dicta ese horario. null = sin proveedora (máquinas). */
+  serviceProviderId?: string | null;
+  providerName?: string | null;
 };
 
 export type HorarioInput = {
@@ -34,6 +37,7 @@ export type HorarioInput = {
   validFrom?: string | null;
   validUntil?: string | null;
   capacity: number | null;
+  serviceProviderId?: string | null;
 };
 
 const KEY = "activity-schedules";

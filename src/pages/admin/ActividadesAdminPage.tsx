@@ -23,63 +23,15 @@ type Form = {
   name: string;
   description: string;
   activity_type: "class" | "machine";
-  service_provider_id: string | null;
   classes_per_month: string;
   monthly_base_price: string;
   is_active: boolean;
 };
 
-interface ServiceProvider {
-  id: string;
-  /** La API devuelve `fullName`, no `name` */
-  fullName: string | null;
-  specialties: string | null;
-}
-
-/** Ventana de trabajo semanal de una proveedora. */
-interface WeeklyWindow {
-  dayOfWeek: number;
-  workStartTime: string;
-  workEndTime: string;
-}
-
-const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-
-/**
- * Resume el horario semanal de una proveedora: "Lun a Vie 09:00–13:00".
- *
- * Agrupa por franja horaria en vez de listar día por día, porque el caso
- * habitual es la misma franja repetida toda la semana y una lista de siete
- * líneas idénticas no se puede leer de un vistazo dentro de un <option>.
- */
-function formatWeeklySchedule(windows: WeeklyWindow[] | undefined): string {
-  if (!windows || windows.length === 0) return "";
-
-  const bySlot = new Map<string, number[]>();
-  for (const w of windows) {
-    const slot = `${w.workStartTime.slice(0, 5)}–${w.workEndTime.slice(0, 5)}`;
-    bySlot.set(slot, [...(bySlot.get(slot) ?? []), w.dayOfWeek]);
-  }
-
-  return Array.from(bySlot.entries())
-    .map(([slot, days]) => {
-      const sorted = [...new Set(days)].sort((a, b) => a - b);
-      // Días corridos (Lun,Mar,Mié,Jue,Vie) se muestran como rango.
-      const isRun =
-        sorted.length > 2 && sorted.every((d, i) => i === 0 || d === sorted[i - 1]! + 1);
-      const label = isRun
-        ? `${DAY_NAMES[sorted[0]!]} a ${DAY_NAMES[sorted[sorted.length - 1]!]}`
-        : sorted.map((d) => DAY_NAMES[d]).join(", ");
-      return `${label} ${slot}`;
-    })
-    .join(" · ");
-}
-
 const EMPTY_FORM: Form = {
   name: "",
   description: "",
   activity_type: "class",
-  service_provider_id: null,
   classes_per_month: "0",
   monthly_base_price: "0",
   is_active: true,
@@ -88,8 +40,6 @@ const EMPTY_FORM: Form = {
 export function ActividadesAdminPage() {
   const toast = useToast();
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [serviceProviders, setServiceProviders] = useState<ServiceProvider[]>([]);
-  const [providerSchedules, setProviderSchedules] = useState<Record<string, WeeklyWindow[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -100,30 +50,6 @@ export function ActividadesAdminPage() {
   const [showArchived, setShowArchived] = useState(false);
 
   const token = useToken();
-
-  const fetchServiceProviders = async () => {
-    try {
-      // OJO: este endpoint devuelve un ARRAY pelado, no { data: [...] }.
-      // Leerlo como data.data dejaba la lista vacía y el select sin opciones.
-      const data = await apiFetch<ServiceProvider[]>("/api/agenda/providers", token);
-      setServiceProviders(data || []);
-    } catch (err) {
-      console.error("Error loading service providers:", err);
-    }
-  };
-
-  /** Horario semanal de todas las proveedoras, para mostrarlo al elegir. */
-  const fetchProviderSchedules = async () => {
-    try {
-      const data = await apiFetch<Record<string, WeeklyWindow[]>>(
-        "/api/agenda/providers/availability/weekly",
-        token,
-      );
-      setProviderSchedules(data || {});
-    } catch (err) {
-      console.error("Error loading provider schedules:", err);
-    }
-  };
 
   const fetchActivities = async () => {
     try {
@@ -144,12 +70,6 @@ export function ActividadesAdminPage() {
     }
   };
 
-  useEffect(() => {
-    fetchServiceProviders();
-    fetchProviderSchedules();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
   // Cambiar de pestaña Activas/Archivadas pide otra lista al backend.
   useEffect(() => {
     fetchActivities();
@@ -169,7 +89,6 @@ export function ActividadesAdminPage() {
       name: activity.name,
       description: activity.description || "",
       activity_type: activity.activityType,
-      service_provider_id: activity.serviceProviderId,
       classes_per_month: String(activity.classesPerMonth),
       monthly_base_price: String(activity.monthlyBasePrice),
       is_active: activity.isActive,
@@ -206,11 +125,6 @@ export function ActividadesAdminPage() {
       return;
     }
 
-    if (form.activity_type === "class" && !form.service_provider_id) {
-      setFormError("Debes seleccionar una proveedora para actividades de tipo clase");
-      return;
-    }
-
     setSubmitting(true);
     try {
       const url = editing ? `/api/activities/${editing.id}` : "/api/activities";
@@ -219,7 +133,6 @@ export function ActividadesAdminPage() {
         name: form.name.trim(),
         description: form.description.trim() || null,
         activityType: form.activity_type,
-        serviceProviderId: form.service_provider_id || null,
         classesPerMonth: classesPerMonth,
         monthlyBasePrice: price,
       };
@@ -506,31 +419,6 @@ export function ActividadesAdminPage() {
                   </select>
                 )}
               </Field>
-
-              {form.activity_type === "class" && (
-                <Field label="Proveedora *">
-                  <select
-                    value={form.service_provider_id || ""}
-                    onChange={(e) => setForm({ ...form, service_provider_id: e.target.value || null })}
-                    className="rounded-lg border border-surface-high px-3 py-2 text-sm text-ink"
-                  >
-                    <option value="">Seleccionar proveedora...</option>
-                    {serviceProviders.map((provider) => (
-                      <option key={provider.id} value={provider.id}>
-                        {provider.fullName ?? "(sin nombre)"}
-                        {formatWeeklySchedule(providerSchedules[provider.id]) &&
-                          ` — ${formatWeeklySchedule(providerSchedules[provider.id])}`}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-ink-soft">
-                    {form.service_provider_id
-                      ? formatWeeklySchedule(providerSchedules[form.service_provider_id]) ||
-                        "Esta proveedora todavía no tiene horario semanal cargado."
-                      : "Se muestra el horario semanal de cada una para elegir con criterio."}
-                  </p>
-                </Field>
-              )}
 
               {form.activity_type === "class" && (
                 <Field label="Clases por mes *">

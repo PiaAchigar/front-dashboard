@@ -39,6 +39,7 @@ function horario(id: string, dayOfWeek: number, start: string, end: string, extr
 }
 
 let horarios: Record<string, unknown[]> = {};
+let respuestaError: unknown = null;
 let llamadas: { url: string; method: string; body?: unknown }[] = [];
 
 function ok(data: unknown) {
@@ -47,10 +48,11 @@ function ok(data: unknown) {
 
 beforeEach(() => {
   llamadas = [];
+  respuestaError = null;
   horarios = {
     a1: [
-      horario("h3", 3, "18:00:00", "19:00:00", { capacity: 8 }),
-      horario("h1", 1, "19:00:00", "20:00:00"),
+      horario("h3", 3, "18:00:00", "19:00:00", { capacity: 8, serviceProviderId: "p1", providerName: "ZZ Ana" }),
+      horario("h1", 1, "19:00:00", "20:00:00", { serviceProviderId: null, providerName: null }),
       horario("h2", 1, "09:00:00", "10:00:00"),
     ],
     a2: [horario("h4", 2, "10:00:00", "11:00:00", { activityId: "a2", machineId: "m1" })],
@@ -63,6 +65,14 @@ beforeEach(() => {
       if (/\/api\/activities$/.test(url)) return ok({ success: true, data: [PILATES, CAMILLA, VIEJA] });
       const m = url.match(/\/api\/activities\/(\w+)\/schedules/);
       if (m && method === "GET") return ok({ success: true, data: horarios[m[1]] ?? [] });
+      if (url.endsWith("/api/agenda/providers"))
+        return ok([
+          { id: "p1", fullName: "ZZ Ana", specialties: null },
+          { id: "p2", fullName: "ZZ Bea", specialties: null },
+        ]);
+      if (url.includes("/api/agenda/providers/availability/weekly"))
+        return ok({ p1: [{ dayOfWeek: 1, workStartTime: "09:00:00", workEndTime: "13:00:00" }] });
+      if (method !== "GET" && respuestaError) return respuestaError;
       if (url.includes("/machines")) return ok([{ id: "m1", name: "ZZ Máquina 1" }]);
       return ok({ success: true, data: {} });
     }),
@@ -137,11 +147,18 @@ describe("HorariosPage", () => {
     await user.type(screen.getByLabelText("Desde"), "10:00");
     await user.type(screen.getByLabelText("Hasta"), "11:30");
     await user.type(screen.getByLabelText("Cupo"), "6");
+    await user.selectOptions(screen.getByLabelText("Proveedora"), "p2");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
     await waitFor(() => expect(llamadas.some((l) => l.method === "POST")).toBe(true));
     const post = llamadas.find((l) => l.method === "POST")!;
     expect(post.url).toContain("/api/activities/a1/schedules");
-    expect(post.body).toMatchObject({ dayOfWeek: 5, startTime: "10:00:00", endTime: "11:30:00", capacity: 6 });
+    expect(post.body).toMatchObject({
+      dayOfWeek: 5,
+      startTime: "10:00:00",
+      endTime: "11:30:00",
+      capacity: 6,
+      serviceProviderId: "p2",
+    });
   });
 
   it("con hasta menor o igual a desde avisa y no manda", async () => {
@@ -175,5 +192,81 @@ describe("HorariosPage", () => {
     await user.selectOptions(screen.getByLabelText("Actividad"), "a2");
     expect(await screen.findByRole("columnheader", { name: "Máquina" })).toBeInTheDocument();
     expect(await screen.findByText("ZZ Máquina 1")).toBeInTheDocument();
+  });
+
+  it("la tabla muestra la columna Proveedora, después de Hasta, con el nombre o un guion", async () => {
+    montar();
+    await esperarFilas();
+    const cab = screen.getAllByRole("columnheader").map((c) => c.textContent);
+    expect(cab.indexOf("Proveedora")).toBe(cab.indexOf("Hasta") + 1);
+    const filas = screen.getAllByRole("row").slice(1);
+    const col = cab.indexOf("Proveedora");
+    expect(filas.map((f) => within(f).getAllByRole("cell")[col].textContent)).toEqual(["—", "—", "ZZ Ana"]);
+  });
+
+  it("en una Clase sin proveedora no manda y avisa", async () => {
+    const user = userEvent.setup();
+    montar();
+    await esperarFilas();
+    await user.click(await screen.findByRole("button", { name: "Agregar horario" }));
+    await user.type(screen.getByLabelText("Desde"), "10:00");
+    await user.type(screen.getByLabelText("Hasta"), "11:00");
+    expect(screen.queryByRole("option", { name: "Sin proveedora" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(await screen.findByText("Elegí la proveedora del horario")).toBeInTheDocument();
+    expect(llamadas.some((l) => l.method === "POST")).toBe(false);
+  });
+
+  it("en una Máquina se guarda sin proveedora y manda serviceProviderId null", async () => {
+    const user = userEvent.setup();
+    montar();
+    await esperarFilas();
+    await user.selectOptions(screen.getByLabelText("Actividad"), "a2");
+    await screen.findByText("ZZ Máquina 1");
+    await user.click(screen.getByRole("button", { name: "Agregar horario" }));
+    await user.type(screen.getByLabelText("Desde"), "10:00");
+    await user.type(screen.getByLabelText("Hasta"), "11:00");
+    await user.selectOptions(screen.getByLabelText("Máquina"), "m1");
+    expect(screen.getByRole("option", { name: "Sin proveedora" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(llamadas.some((l) => l.method === "POST")).toBe(true));
+    expect(llamadas.find((l) => l.method === "POST")!.body).toMatchObject({ serviceProviderId: null });
+  });
+
+  it("avisa si la proveedora elegida no tiene horario semanal cargado", async () => {
+    const user = userEvent.setup();
+    montar();
+    await esperarFilas();
+    await user.click(await screen.findByRole("button", { name: "Agregar horario" }));
+    await user.selectOptions(screen.getByLabelText("Proveedora"), "p2");
+    expect(screen.getByText("Esta proveedora todavía no tiene horario semanal cargado.")).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Proveedora"), "p1");
+    expect(screen.queryByText("Esta proveedora todavía no tiene horario semanal cargado.")).toBeNull();
+  });
+
+  it("editar precarga la proveedora del horario", async () => {
+    const user = userEvent.setup();
+    montar();
+    await esperarFilas();
+    await user.click(screen.getAllByRole("button", { name: "Editar" })[2]);
+    expect(screen.getByLabelText("Proveedora")).toHaveValue("p1");
+  });
+
+  it("un 409 de la API se ve en el modal y no lo cierra", async () => {
+    const user = userEvent.setup();
+    respuestaError = {
+      ok: false,
+      status: 409,
+      json: async () => ({ error: "Esa proveedora ya tiene un horario de ZZ Pilates a esa hora" }),
+    };
+    montar();
+    await esperarFilas();
+    await user.click(await screen.findByRole("button", { name: "Agregar horario" }));
+    await user.type(screen.getByLabelText("Desde"), "10:00");
+    await user.type(screen.getByLabelText("Hasta"), "11:00");
+    await user.selectOptions(screen.getByLabelText("Proveedora"), "p1");
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(await screen.findByText(/Esa proveedora ya tiene un horario/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Proveedora")).toBeInTheDocument();
   });
 });

@@ -4,6 +4,8 @@ import { useAuth } from "../../../auth/AuthContext";
 import { EntityDrawer } from "../../../components/EntityDrawer";
 import { Field, Select, TextInput } from "../../../components/form";
 import { useToast } from "../../../components/ui/Toast";
+import { formatWeeklySchedule } from "../../../lib/horario-proveedora";
+import { useHorarioSemanalProveedoras, useProveedorasActivas } from "../../../hooks/useProveedorasDeHorario";
 import { useMachinesList } from "../../../hooks/useMachinesAdmin";
 import {
   useActividadesResumen,
@@ -35,11 +37,12 @@ type Form = {
   endTime: string;
   capacity: string;
   machineId: string;
+  serviceProviderId: string;
   validFrom: string;
   validUntil: string;
 };
 
-const EMPTY: Form = { dayOfWeek: "1", startTime: "", endTime: "", capacity: "", machineId: "", validFrom: "", validUntil: "" };
+const EMPTY: Form = { dayOfWeek: "1", startTime: "", endTime: "", capacity: "", machineId: "", serviceProviderId: "", validFrom: "", validUntil: "" };
 
 const TH = "px-3 py-2 text-left text-xs font-medium text-ink-soft";
 const TD = "px-3 py-2 text-sm text-ink";
@@ -68,6 +71,8 @@ export function HorariosPage() {
 
   const { data: horarios = [], isLoading, error } = useActivitySchedules(actividadId || null);
   const { data: maquinas = [] } = useMachinesList();
+  const { data: proveedoras = [] } = useProveedorasActivas();
+  const { data: horarioProveedoras = {} } = useHorarioSemanalProveedoras();
   const crear = useCrearHorario(actividadId);
   const editar = useEditarHorario(actividadId);
 
@@ -100,6 +105,7 @@ export function HorariosPage() {
       endTime: hhmm(h.endTime),
       capacity: h.capacity == null ? "" : String(h.capacity),
       machineId: h.machineId ?? "",
+      serviceProviderId: h.serviceProviderId ?? "",
       validFrom: h.validFrom ?? "",
       validUntil: h.validUntil ?? "",
     });
@@ -121,6 +127,10 @@ export function HorariosPage() {
       setErrorForm("Elegí la máquina");
       return;
     }
+    if (!esMaquina && !form.serviceProviderId) {
+      setErrorForm("Elegí la proveedora del horario");
+      return;
+    }
     const payload = {
       dayOfWeek: Number(form.dayOfWeek),
       startTime: conSegundos(form.startTime),
@@ -128,6 +138,7 @@ export function HorariosPage() {
       // Vacío = sin límite
       capacity: form.capacity.trim() === "" ? null : Number(form.capacity),
       ...(esMaquina ? { machineId: form.machineId } : {}),
+      serviceProviderId: form.serviceProviderId || null,
       validFrom: form.validFrom || null,
       validUntil: form.validUntil || null,
     };
@@ -189,6 +200,7 @@ export function HorariosPage() {
               <th className={TH}>Día</th>
               <th className={TH}>Desde</th>
               <th className={TH}>Hasta</th>
+              <th className={TH}>Proveedora</th>
               <th className={TH}>Cupo</th>
               {esMaquina && <th className={TH}>Máquina</th>}
               <th className={TH}>Vigencia</th>
@@ -204,6 +216,7 @@ export function HorariosPage() {
                 <td className={TD}>{h.dayOfWeek == null ? "—" : DIAS[h.dayOfWeek]}</td>
                 <td className={TD}>{hhmm(h.startTime)}</td>
                 <td className={TD}>{hhmm(h.endTime)}</td>
+                <td className={TD}>{h.providerName ?? "—"}</td>
                 <td className={TD}>{h.capacity == null ? "Sin límite" : h.capacity}</td>
                 {esMaquina && <td className={TD}>{nombreMaquina(h.machineId)}</td>}
                 <td className={TD}>{vigencia(h)}</td>
@@ -263,6 +276,29 @@ export function HorariosPage() {
             <TextInput type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
           </Field>
         </div>
+        <Field label="Proveedora">
+          <Select
+            value={form.serviceProviderId}
+            onChange={(e) => setForm({ ...form, serviceProviderId: e.target.value })}
+          >
+            <option value="">{esMaquina ? "Sin proveedora" : "Seleccionar proveedora..."}</option>
+            {proveedoras.map((p) => {
+              const horario = formatWeeklySchedule(horarioProveedoras[p.id]);
+              return (
+                <option key={p.id} value={p.id}>
+                  {p.fullName ?? "(sin nombre)"}
+                  {horario && ` — ${horario}`}
+                </option>
+              );
+            })}
+          </Select>
+        </Field>
+        <p className="-mt-2 text-xs text-ink-soft">
+          {form.serviceProviderId
+            ? formatWeeklySchedule(horarioProveedoras[form.serviceProviderId]) ||
+              "Esta proveedora todavía no tiene horario semanal cargado."
+            : "Se muestra el horario semanal de cada una para elegir con criterio."}
+        </p>
         <Field label="Cupo" help="Vacío = sin límite.">
           <TextInput type="number" min={1} step={1} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} />
         </Field>
