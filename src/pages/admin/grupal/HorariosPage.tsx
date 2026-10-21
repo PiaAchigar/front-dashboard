@@ -90,6 +90,14 @@ export function HorariosPage() {
   const [form, setForm] = useState<Form>(EMPTY);
   const [errorForm, setErrorForm] = useState<string | null>(null);
 
+  // La proveedora actual del horario puede estar archivada: no viene en la lista de activas.
+  const archivadaActual =
+    editando?.serviceProviderId &&
+    form.serviceProviderId === editando.serviceProviderId &&
+    !proveedoras.some((p) => p.id === editando.serviceProviderId)
+      ? { id: editando.serviceProviderId, nombre: editando.providerName ?? "(sin nombre)" }
+      : null;
+
   function abrirAlta() {
     setEditando(null);
     setForm(EMPTY);
@@ -276,12 +284,23 @@ export function HorariosPage() {
             <TextInput type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
           </Field>
         </div>
-        <Field label="Proveedora">
+        <Field
+          label={esMaquina ? "Proveedora" : "Proveedora *"}
+          help={
+            form.serviceProviderId
+              ? formatWeeklySchedule(horarioProveedoras[form.serviceProviderId]) ||
+                "Esta proveedora todavía no tiene horario semanal cargado."
+              : "Se muestra el horario semanal de cada una para elegir con criterio."
+          }
+        >
           <Select
             value={form.serviceProviderId}
             onChange={(e) => setForm({ ...form, serviceProviderId: e.target.value })}
           >
             <option value="">{esMaquina ? "Sin proveedora" : "Seleccionar proveedora..."}</option>
+            {archivadaActual && (
+              <option value={archivadaActual.id}>{archivadaActual.nombre} (archivada)</option>
+            )}
             {proveedoras.map((p) => {
               const horario = formatWeeklySchedule(horarioProveedoras[p.id]);
               return (
@@ -293,12 +312,6 @@ export function HorariosPage() {
             })}
           </Select>
         </Field>
-        <p className="-mt-2 text-xs text-ink-soft">
-          {form.serviceProviderId
-            ? formatWeeklySchedule(horarioProveedoras[form.serviceProviderId]) ||
-              "Esta proveedora todavía no tiene horario semanal cargado."
-            : "Se muestra el horario semanal de cada una para elegir con criterio."}
-        </p>
         <Field label="Cupo" help="Vacío = sin límite.">
           <TextInput type="number" min={1} step={1} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} />
         </Field>

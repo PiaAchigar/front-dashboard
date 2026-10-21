@@ -147,7 +147,7 @@ describe("HorariosPage", () => {
     await user.type(screen.getByLabelText("Desde"), "10:00");
     await user.type(screen.getByLabelText("Hasta"), "11:30");
     await user.type(screen.getByLabelText("Cupo"), "6");
-    await user.selectOptions(screen.getByLabelText("Proveedora"), "p2");
+    await user.selectOptions(screen.getByLabelText(/^Proveedora/), "p2");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
     await waitFor(() => expect(llamadas.some((l) => l.method === "POST")).toBe(true));
     const post = llamadas.find((l) => l.method === "POST")!;
@@ -238,9 +238,9 @@ describe("HorariosPage", () => {
     montar();
     await esperarFilas();
     await user.click(await screen.findByRole("button", { name: "Agregar horario" }));
-    await user.selectOptions(screen.getByLabelText("Proveedora"), "p2");
+    await user.selectOptions(screen.getByLabelText(/^Proveedora/), "p2");
     expect(screen.getByText("Esta proveedora todavía no tiene horario semanal cargado.")).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText("Proveedora"), "p1");
+    await user.selectOptions(screen.getByLabelText(/^Proveedora/), "p1");
     expect(screen.queryByText("Esta proveedora todavía no tiene horario semanal cargado.")).toBeNull();
   });
 
@@ -249,7 +249,48 @@ describe("HorariosPage", () => {
     montar();
     await esperarFilas();
     await user.click(screen.getAllByRole("button", { name: "Editar" })[2]);
-    expect(screen.getByLabelText("Proveedora")).toHaveValue("p1");
+    expect(screen.getByLabelText(/^Proveedora/)).toHaveValue("p1");
+  });
+
+  it("editar un horario cuya proveedora está archivada la muestra seleccionada y conserva su id", async () => {
+    const user = userEvent.setup();
+    horarios.a1.push(
+      horario("h9", 5, "08:00:00", "09:00:00", { serviceProviderId: "p9", providerName: "ZZ Carla" }),
+    );
+    montar();
+    // 5 filas: esperarFilas() asume 3 horarios.
+    await screen.findByText("ZZ Carla");
+    const botones = screen.getAllByRole("button", { name: "Editar" });
+    // Orden por día: el viernes (día 5) queda último.
+    await user.click(botones[botones.length - 1]);
+    const select = screen.getByLabelText(/^Proveedora/);
+    expect(select).toHaveValue("p9");
+    expect(screen.getByRole("option", { name: "ZZ Carla (archivada)" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(llamadas.some((l) => l.method === "PATCH" || l.method === "PUT")).toBe(true));
+    const envio = llamadas.find((l) => l.method === "PATCH" || l.method === "PUT")!;
+    expect(envio.body).toMatchObject({ serviceProviderId: "p9" });
+  });
+
+  it("la proveedora activa no se duplica como archivada", async () => {
+    const user = userEvent.setup();
+    montar();
+    await esperarFilas();
+    await user.click(screen.getAllByRole("button", { name: "Editar" })[2]);
+    expect(screen.queryByRole("option", { name: /archivada/ })).toBeNull();
+  });
+
+  it("la etiqueta marca Proveedora como obligatoria en clases y no en máquinas", async () => {
+    const user = userEvent.setup();
+    montar();
+    await esperarFilas();
+    await user.click(await screen.findByRole("button", { name: "Agregar horario" }));
+    expect(screen.getByLabelText("Proveedora *")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    await user.selectOptions(screen.getByLabelText("Actividad"), "a2");
+    await screen.findByText("ZZ Máquina 1");
+    await user.click(screen.getByRole("button", { name: "Agregar horario" }));
+    expect(screen.getByLabelText("Proveedora")).toBeInTheDocument();
   });
 
   it("un 409 de la API se ve en el modal y no lo cierra", async () => {
@@ -264,9 +305,9 @@ describe("HorariosPage", () => {
     await user.click(await screen.findByRole("button", { name: "Agregar horario" }));
     await user.type(screen.getByLabelText("Desde"), "10:00");
     await user.type(screen.getByLabelText("Hasta"), "11:00");
-    await user.selectOptions(screen.getByLabelText("Proveedora"), "p1");
+    await user.selectOptions(screen.getByLabelText(/^Proveedora/), "p1");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
     expect(await screen.findByText(/Esa proveedora ya tiene un horario/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Proveedora")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Proveedora/)).toBeInTheDocument();
   });
 });
