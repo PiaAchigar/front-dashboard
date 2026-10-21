@@ -16,6 +16,7 @@ import {
 } from "../../../hooks/useActivitySchedules";
 import { can, type Role } from "../../../lib/permissions";
 import { useContextoDeArea } from "../contexto-de-area";
+import { ACCION_RECUPERAR, FILA_APAGADA } from "../../../components/accion-de-recuperar";
 
 const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
@@ -220,7 +221,7 @@ export function HorariosPage() {
           </thead>
           <tbody>
             {ordenados.map((h) => (
-              <tr key={h.id} className={`border-t border-surface-high ${h.isActive === false ? "opacity-60" : ""}`}>
+              <tr key={h.id} className={`border-t border-surface-high ${h.isActive === false ? FILA_APAGADA : ""}`}>
                 <td className={TD}>{h.dayOfWeek == null ? "—" : DIAS[h.dayOfWeek]}</td>
                 <td className={TD}>{hhmm(h.startTime)}</td>
                 <td className={TD}>{hhmm(h.endTime)}</td>
@@ -243,7 +244,11 @@ export function HorariosPage() {
                         type="button"
                         onClick={() => alternarActivo(h)}
                         disabled={editar.isPending}
-                        className="rounded-full px-3 py-1 text-xs text-ink-soft hover:bg-surface-high disabled:opacity-50"
+                        className={
+                          h.isActive === false
+                            ? `${ACCION_RECUPERAR} ml-1 px-3 py-1 text-xs font-medium`
+                            : "rounded-full px-3 py-1 text-xs text-ink-soft hover:bg-surface-high disabled:opacity-50"
+                        }
                       >
                         {h.isActive === false ? "Reactivar" : "Pausar"}
                       </button>

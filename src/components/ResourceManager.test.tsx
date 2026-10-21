@@ -268,6 +268,27 @@ describe("ResourceManager — la tabla no esconde las acciones", () => {
     expect(celda.className).toMatch(/\bbg-white\b/);
   });
 
+  it("en una fila archivada, Restaurar no se apaga con la fila y se ve como acción de la marca", () => {
+    render(
+      <ResourceManager
+        {...base({
+          columns: DOS,
+          rows: [{ id: "9", nombre: "Vieja", cat: "chica", archivada: true }],
+          showArchived: true,
+        })}
+        canArchive
+        onArchive={vi.fn()}
+        onRestore={vi.fn()}
+      />,
+    );
+    const boton = screen.getByRole("button", { name: "Restaurar" });
+    for (let n: HTMLElement | null = boton; n; n = n.parentElement) {
+      expect(n.classList.contains("opacity-60")).toBe(false);
+    }
+    expect(boton.className).toMatch(/\btext-primary-dark\b/);
+    expect(boton.className).toMatch(/\bhover:bg-primary-dark\b/);
+  });
+
   it("una fila archivada no le cambia el fondo a la celda fija", () => {
     render(
       <ResourceManager

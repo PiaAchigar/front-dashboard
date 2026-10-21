@@ -15,6 +15,7 @@ import { useProvidersAdmin } from "../../../hooks/useProvidersAdmin";
 import { useTrainingsAdmin } from "../../../hooks/useTrainingsAdmin";
 import { can, type Role } from "../../../lib/permissions";
 import { useContextoDeArea } from "../contexto-de-area";
+import { ACCION_RECUPERAR, FILA_APAGADA } from "../../../components/accion-de-recuperar";
 
 const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
@@ -267,7 +268,7 @@ export function EncuentrosPage() {
           </thead>
           <tbody>
             {ordenados.map((e) => (
-              <tr key={e.id} className={`border-t border-surface-high ${e.isActive ? "" : "opacity-60"}`}>
+              <tr key={e.id} className={`border-t border-surface-high ${e.isActive ? "" : FILA_APAGADA}`}>
                 <td className={TD}>{e.sessionNumber}</td>
                 <td className={TD}>{fechaConDia(e.sessionDate)}</td>
                 <td className={TD}>{hhmm(e.startTime)}</td>
@@ -292,7 +293,11 @@ export function EncuentrosPage() {
                         type="button"
                         onClick={() => alternarActivo(e)}
                         disabled={editar.isPending}
-                        className="rounded-full px-3 py-1 text-xs text-ink-soft hover:bg-surface-high disabled:opacity-50"
+                        className={
+                          e.isActive
+                            ? "rounded-full px-3 py-1 text-xs text-ink-soft hover:bg-surface-high disabled:opacity-50"
+                            : `${ACCION_RECUPERAR} ml-1 px-3 py-1 text-xs font-medium`
+                        }
                       >
                         {e.isActive ? "Dar de baja" : "Reactivar"}
                       </button>

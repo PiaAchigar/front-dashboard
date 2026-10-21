@@ -106,6 +106,15 @@ async function esperarFilas() {
   await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(4));
 }
 
+
+/** Ni el botón ni sus ancestros están apagados con `opacity-60` entero. */
+function apagado(el: HTMLElement) {
+  for (let n: HTMLElement | null = el; n; n = n.parentElement) {
+    if (n.classList.contains("opacity-60")) return true;
+  }
+  return false;
+}
+
 describe("HorariosPage", () => {
   it("lista los horarios de la actividad elegida ordenados por día y hora", async () => {
     montar();
@@ -163,6 +172,17 @@ describe("HorariosPage", () => {
     await user.click(screen.getByRole("button", { name: "Guardar" }));
     expect(await screen.findByText("La hora de fin tiene que ser posterior a la de inicio")).toBeInTheDocument();
     expect(llamadas.some((l) => l.method === "POST")).toBe(false);
+  });
+
+  it("en un horario pausado, Reactivar no queda apagado con la fila y se ve como acción de la marca", async () => {
+    horarios.a1 = [horario("h9", 3, "12:00:00", "13:00:00", { isActive: false })];
+    montar();
+    const boton = await screen.findByRole("button", { name: "Reactivar" });
+    expect(apagado(boton)).toBe(false);
+    expect(boton.className).toMatch(/\btext-primary-dark\b/);
+    expect(boton.className).toMatch(/\bhover:bg-primary-dark\b/);
+    // Los datos de la fila sí siguen apagados: se nota que está pausado.
+    expect(screen.getByText("Pausado").closest("tr")!.className).toMatch(/opacity-60/);
   });
 
   it("Pausar manda isActive false al PATCH real", async () => {

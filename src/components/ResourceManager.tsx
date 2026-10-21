@@ -15,6 +15,7 @@ import {
   Search,
   Trash,
 } from "./icons";
+import { ACCION_RECUPERAR, FILA_APAGADA } from "./accion-de-recuperar";
 
 export type Column<T> = {
   key: string;
@@ -318,7 +319,7 @@ export function ResourceManager<T>({
       <tr
         key={rowKey(row)}
         onClick={onRowClick ? () => onRowClick(row) : undefined}
-        className={`group ${archived ? "opacity-60" : ""} ${onRowClick ? "cursor-pointer hover:bg-surface-low" : ""}`.trim()}
+        className={`group ${archived ? (showActions ? FILA_APAGADA : "opacity-60") : ""} ${onRowClick ? "cursor-pointer hover:bg-surface-low" : ""}`.trim()}
       >
         {columns.map((col) => (
           <td key={col.key} className="overflow-hidden px-4 py-3 text-ink">
@@ -363,7 +364,8 @@ export function ResourceManager<T>({
                 <button
                   onClick={() => onRestore(row)}
                   title="Restaurar"
-                  className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-primary"
+                  aria-label="Restaurar"
+                  className={`${ACCION_RECUPERAR} p-1.5`}
                 >
                   <RotateCcw size={16} />
                 </button>

@@ -102,6 +102,14 @@ async function esperarFilas(n: number) {
   await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(n + 1));
 }
 
+/** Ni el botón ni sus ancestros están apagados con `opacity-60` entero. */
+function apagado(el: HTMLElement) {
+  for (let n: HTMLElement | null = el; n; n = n.parentElement) {
+    if (n.classList.contains("opacity-60")) return true;
+  }
+  return false;
+}
+
 describe("EncuentrosPage", () => {
   it("muestra la tabla con Anotadas, fecha dd/mm/aaaa con día y cupo de la capacitación", async () => {
     montar();
@@ -133,6 +141,16 @@ describe("EncuentrosPage", () => {
     await esperarFilas(1);
     expect(screen.queryByRole("button", { name: "Generar encuentros" })).toBeNull();
     expect(screen.getByRole("button", { name: "Reactivar" })).toBeInTheDocument();
+  });
+
+  it("Reactivar no queda apagado con la fila de baja y se ve como acción de la marca", async () => {
+    encuentros.c1 = [encuentro("e3", 3, "2026-11-19", { isActive: false })];
+    montar();
+    await esperarFilas(1);
+    const boton = screen.getByRole("button", { name: "Reactivar" });
+    expect(apagado(boton)).toBe(false);
+    expect(boton.className).toMatch(/\btext-primary-dark\b/);
+    expect(boton.className).toMatch(/\bhover:bg-primary-dark\b/);
   });
 
   it("Dar de baja manda isActive false al PATCH", async () => {
