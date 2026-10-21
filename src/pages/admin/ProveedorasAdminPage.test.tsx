@@ -224,3 +224,19 @@ describe("ProveedorasAdminPage — ficha, comisión de depilación", () => {
     expect(screen.queryByRole("link", { name: /Configuración/i })).not.toBeInTheDocument();
   });
 });
+
+describe("ProveedorasAdminPage — columna Servicios", () => {
+  // Pedido de Pia (2026-10-22): ver de un vistazo qué ofrece cada una, sin abrir la ficha.
+  it("muestra los servicios de cada una en la lista, y 'Sin servicios' si no tiene", async () => {
+    providers = [
+      { ...ROMINA, servicios: ["Depilación Definitiva", "Limpieza facial"] },
+      { ...ANA, servicios: [] },
+    ];
+    render(<ProveedorasAdminPage />, { wrapper: Wrapper });
+    expect(await screen.findByRole("columnheader", { name: "Servicios" })).toBeInTheDocument();
+    const celda = await screen.findByText("Depilación Definitiva, Limpieza facial");
+    expect(celda).toHaveAttribute("title", "Depilación Definitiva, Limpieza facial");
+    expect(screen.getByText("Sin servicios")).toBeInTheDocument();
+  });
+});
+

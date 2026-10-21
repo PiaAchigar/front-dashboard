@@ -16,6 +16,8 @@ export type ProviderAdmin = {
   address: string | null;
   postalCode: string | null;
   status: string | null;
+  /** Nombres de los servicios que tiene habilitados (lista admin). */
+  servicios?: string[];
 };
 
 export type ProviderService = {

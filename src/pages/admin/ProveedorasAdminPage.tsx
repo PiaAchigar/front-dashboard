@@ -201,6 +201,15 @@ export function ProveedorasAdminPage() {
     },
     { key: "phone", header: "Teléfono", width: 150, render: (p) => p.phone ?? "—" },
     {
+      // De un vistazo, sin abrir la ficha (pedido de Pia, 2026-10-22).
+      key: "servicios",
+      header: "Servicios",
+      width: 320,
+      title: (p) => (p.servicios ?? []).join(", "),
+      render: (p) =>
+        p.servicios?.length ? p.servicios.join(", ") : <span className="text-ink-soft">Sin servicios</span>,
+    },
+    {
       key: "spec",
       header: "Especialidades",
       width: 280,
