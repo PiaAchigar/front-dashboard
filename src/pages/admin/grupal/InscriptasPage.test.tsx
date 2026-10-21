@@ -97,14 +97,6 @@ async function esperarFilas(n: number) {
 }
 
 describe("InscriptasPage", () => {
-  it("los títulos de la tabla quedan fijos: la tabla tiene su propio scroll", async () => {
-    montar();
-    const tabla = await screen.findByRole("table");
-    expect(tabla.querySelector("thead")!.className).toContain("sticky");
-    expect(tabla.parentElement!.className).toContain("overflow-auto");
-    expect(tabla.parentElement!.className).toContain("flex-1");
-  });
-
   it("muestra Nombre, Comprada el, Debe en rojo o Pagada, y Encuentros como 'X de Y'", async () => {
     montar();
     await esperarFilas(2);

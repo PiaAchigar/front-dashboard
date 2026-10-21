@@ -44,7 +44,7 @@ export function InscriptasPage() {
   };
 
   return (
-    <div className="flex h-full flex-col px-4 py-4 sm:px-6">
+    <div className="px-4 py-4 sm:px-6">
       <div className="mb-4 max-w-sm">
         <Field label="Capacitación">
           <Select value={capId} onChange={(e) => setCapId(e.target.value)}>
@@ -67,9 +67,9 @@ export function InscriptasPage() {
 
       {error && <p className="mb-3 text-sm text-red-700">{(error as Error).message}</p>}
 
-      <div className="modal-scroll min-h-0 flex-1 overflow-auto rounded-xl border border-surface-high">
+      <div className="overflow-x-auto rounded-xl border border-surface-high">
         <table className="w-full">
-          <thead className="sticky top-0 z-10 bg-surface-low">
+          <thead className="bg-surface-low">
             <tr>
               <th className={TH}>Nombre</th>
               <th className={TH}>Comprada el</th>

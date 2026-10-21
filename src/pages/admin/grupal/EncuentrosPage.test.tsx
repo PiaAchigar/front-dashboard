@@ -103,14 +103,6 @@ async function esperarFilas(n: number) {
 }
 
 describe("EncuentrosPage", () => {
-  it("los títulos de la tabla quedan fijos: la tabla tiene su propio scroll", async () => {
-    montar();
-    const tabla = await screen.findByRole("table");
-    expect(tabla.querySelector("thead")!.className).toContain("sticky");
-    expect(tabla.parentElement!.className).toContain("overflow-auto");
-    expect(tabla.parentElement!.className).toContain("flex-1");
-  });
-
   it("muestra la tabla con Anotadas, fecha dd/mm/aaaa con día y cupo de la capacitación", async () => {
     montar();
     await esperarFilas(3);

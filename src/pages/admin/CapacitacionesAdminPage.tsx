@@ -229,6 +229,7 @@ export function CapacitacionesAdminPage() {
       <ResourceManager<Training>
         title="Capacitaciones"
         slotAcciones={ctx?.slotAcciones ?? null}
+        alturaLibre={!!ctx}
         rows={rows}
         columns={columns}
         loading={isLoading}

@@ -6,7 +6,6 @@ import { PESTANAS, acentoDe } from "../../lib/admin-nav";
 import { useServicesAdmin } from "../../hooks/useServicesAdmin";
 import { nombresDeArea, useAreas } from "../../hooks/useAreas";
 import { contarSinArea } from "../../lib/areas";
-import { Plegable, ProveedorDePliegue } from "./encabezado-plegable";
 
 export function AdminLayout() {
   const { role } = useAuth();
@@ -30,23 +29,17 @@ export function AdminLayout() {
     });
   }
 
-  // El encabezado se pliega cuando una pantalla de adentro lo pide (hoy,
-  // Actividades y Capacitaciones al bajar por su tabla: `encabezado-plegable`).
   return (
-    <ProveedorDePliegue>
-      <div className="flex h-full flex-col">
-        <Plegable>
-          <div className="px-4 pt-5 sm:px-6">
-            <h1 className="font-display text-2xl text-ink">Administración</h1>
-            <div className="mt-3">
-              <SectionSubnav items={items} />
-            </div>
-          </div>
-        </Plegable>
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <Outlet />
+    <div className="flex h-full flex-col">
+      <div className="shrink-0 px-4 pt-5 sm:px-6">
+        <h1 className="font-display text-2xl text-ink">Administración</h1>
+        <div className="mt-3">
+          <SectionSubnav items={items} />
         </div>
       </div>
-    </ProveedorDePliegue>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <Outlet />
+      </div>
+    </div>
   );
 }
