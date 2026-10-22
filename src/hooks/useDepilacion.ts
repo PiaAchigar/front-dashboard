@@ -122,6 +122,8 @@ export type DepilacionConfigInput = {
   packSessions: number;
   packDiscountPercentage: number;
   packRoundingBase: number;
+  /** 1.61.0 — Días entre sesiones del pack global. `null` = sin cargar. */
+  sessionIntervalDays?: number | null;
 };
 
 /** Lo que devuelve el `GET /config`: la aritmética de precios MÁS dos datos que
@@ -132,6 +134,8 @@ export type DepilacionConfigInput = {
 export type DepilacionConfigResponse = DepilationConfig & {
   anchorServiceId: string | null;
   sesionesEsperandoTurno: number;
+  /** 1.61.0 — Opcional para no romper fixtures viejos que todavía no lo declaran. */
+  sessionIntervalDays?: number | null;
 };
 
 /** GET /config: la forma ANIDADA que consume directamente `calcularPrecioCombo`. */
@@ -231,6 +235,9 @@ export type ComboDepilacionInput = {
   packRoundingBase?: number | null;
   /** 1.56.0 — Meses de vigencia del pack. `null` = no vence. */
   validityMonths?: number | null;
+  /** 1.61.0 — Días entre sesiones del pack. `null` = usa el de la config global.
+   *  Mandarlo SIEMPRE: si no viaja, la API lo borra. */
+  sessionIntervalDays?: number | null;
 };
 
 function useInvalidateCombos() {

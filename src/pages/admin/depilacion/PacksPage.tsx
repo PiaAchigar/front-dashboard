@@ -10,9 +10,16 @@ import {
   useDepilacionConfig,
   useGuardarConfig,
   type DepilacionConfigInput,
+  type DepilacionConfigResponse,
 } from "../../../hooks/useDepilacion";
 import type { ComboDepilacion } from "../../../lib/api-types";
 import { parseEnteroPositivo, parsePorcentaje } from "../../../lib/depilation-form-validation";
+import {
+  AYUDA_DIAS_ENTRE_SESIONES,
+  diasAForm,
+  ERROR_DIAS_ENTRE_SESIONES,
+  parseDiasEntreSesiones,
+} from "../../../lib/dias-entre-sesiones";
 
 /** Los tres campos que edita esta pantalla, como texto — mismo criterio que
  *  `Form` en PreciosPage.tsx: permite borrar el campo mientras se escribe, la
@@ -21,10 +28,12 @@ type Form = {
   packSessions: string;
   packDiscountPercentage: string;
   packRoundingBase: string;
+  sessionIntervalDays: string;
 };
 
-function configToForm(c: DepilationConfig): Form {
+function configToForm(c: DepilacionConfigResponse): Form {
   return {
+    sessionIntervalDays: diasAForm(c.sessionIntervalDays),
     packSessions: String(c.packSesiones),
     packDiscountPercentage: String(c.packDescuentoPct),
     packRoundingBase: String(c.packRedondeo),
@@ -109,7 +118,7 @@ function PacksForm({
   combos,
   combosCargando,
 }: {
-  config: DepilationConfig;
+  config: DepilacionConfigResponse;
   combos: ComboDepilacion[] | undefined;
   combosCargando: boolean;
 }) {
@@ -150,6 +159,12 @@ function PacksForm({
       return;
     }
 
+    const dias = parseDiasEntreSesiones(form.sessionIntervalDays);
+    if (dias === undefined) {
+      setFormError(ERROR_DIAS_ENTRE_SESIONES);
+      return;
+    }
+
     try {
       // La config ENTERA, no sólo estos tres campos: ver el comentario de
       // `configAFlatSalvoPack` más arriba.
@@ -158,6 +173,7 @@ function PacksForm({
         packSessions: sesiones,
         packDiscountPercentage: descuento,
         packRoundingBase: redondeo,
+        sessionIntervalDays: dias,
       });
       toast.success("Configuración guardada");
     } catch (e) {
@@ -205,6 +221,14 @@ function PacksForm({
               disabled={!canManage}
               value={form.packRoundingBase}
               onChange={(e) => set("packRoundingBase", e.target.value)}
+            />
+          </Field>
+          <Field label="Días entre sesiones" help={AYUDA_DIAS_ENTRE_SESIONES}>
+            <TextInput
+              inputMode="numeric"
+              disabled={!canManage}
+              value={form.sessionIntervalDays}
+              onChange={(e) => set("sessionIntervalDays", e.target.value)}
             />
           </Field>
         </div>

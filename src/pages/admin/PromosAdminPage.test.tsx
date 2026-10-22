@@ -457,3 +457,50 @@ it("no avisa mientras todavía no sabe si tiene o no proveedora", async () => {
 
   expect(screen.queryByText(/no tiene proveedora/i)).not.toBeInTheDocument();
 });
+
+describe("PromosAdminPage — días entre sesiones", () => {
+  it("el formulario tiene 'Días entre sesiones' (número, opcional) y lo manda como sessionIntervalDays", async () => {
+    const enviados: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", makeFetchMock({ enviados }));
+    const user = userEvent.setup();
+    render(<PromosAdminPage />, { wrapper });
+
+    await user.click(await screen.findByRole("button", { name: /agregar/i }));
+    await user.type(screen.getByLabelText(/nombre/i), "Promo Facial");
+    await user.click(await screen.findByLabelText(/servicio sin proveedora/i));
+    expect(
+      screen.getByText("Cada cuántos días se sugiere la próxima sesión al agendar"),
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/días entre sesiones/i), "30");
+    await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+    await waitFor(() => expect(enviados.length).toBeGreaterThan(0));
+    expect(enviados.at(-1)!.sessionIntervalDays).toBe(30);
+  });
+
+  it("vacío se manda null", async () => {
+    const enviados: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", makeFetchMock({ enviados }));
+    const user = userEvent.setup();
+    render(<PromosAdminPage />, { wrapper });
+
+    await user.click(await screen.findByRole("button", { name: /agregar/i }));
+    await user.type(screen.getByLabelText(/nombre/i), "Promo Facial");
+    await user.click(await screen.findByLabelText(/servicio sin proveedora/i));
+    await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+    await waitFor(() => expect(enviados.length).toBeGreaterThan(0));
+    expect(enviados.at(-1)).toHaveProperty("sessionIntervalDays", null);
+  });
+
+  it("al editar trae el valor guardado", async () => {
+    vi.stubGlobal(
+      "fetch",
+      makeFetchMock({ promos: [{ ...PROMO_PAQUETE, sessionIntervalDays: 12 }] }),
+    );
+    render(<PromosAdminPage />, { wrapper });
+
+    await userEvent.click(await screen.findByRole("button", { name: /editar/i }));
+    expect(await screen.findByLabelText(/días entre sesiones/i)).toHaveValue("12");
+  });
+});

@@ -127,7 +127,11 @@ const PACK_OK: ComboDepilacion = {
   pack: { sesiones: 3, descuentoPct: 15, redondeo: 1000, propio: false, precio: 26000, ahorro: 4000 },
 };
 
-const COMBOS: ComboDepilacion[] = [COMBO_ARCHIVADA, PACK_EXCEDE, PACK_OK];
+const COMBOS: ComboDepilacion[] = [
+  COMBO_ARCHIVADA,
+  PACK_EXCEDE,
+  { ...PACK_OK, sessionIntervalDays: 14 },
+];
 
 let patchCalls: { url: string; body: Record<string, unknown> }[] = [];
 
@@ -502,6 +506,61 @@ describe("CombosDepilacionPage", () => {
 
       // 15.000 × 3 × 0,85 = 38.250 → 38.000. Sobre la fórmula daría 31.000.
       expect(screen.getByTestId("preview-pack-combo")).toHaveTextContent("$38.000");
+    });
+  });
+
+  describe("días entre sesiones", () => {
+    async function abrirEdicion(user: ReturnType<typeof userEvent.setup>, nombre: string) {
+      const fila = (await screen.findByText(nombre)).closest("tr");
+      await user.click(within(fila as HTMLElement).getByTitle("Editar"));
+    }
+
+    it("el formulario tiene 'Días entre sesiones' (número, opcional) y lo manda como sessionIntervalDays", async () => {
+      const user = userEvent.setup();
+      render(<CombosDepilacionPage />, { wrapper });
+      await abrirEdicion(user, "Combo con zona archivada");
+
+      const campo = await screen.findByLabelText(/días entre sesiones/i);
+      expect(
+        screen.getByText("Cada cuántos días se sugiere la próxima sesión al agendar"),
+      ).toBeInTheDocument();
+      await user.type(campo, "21");
+      await user.click(await screen.findByLabelText("Rostro completo (archivada)"));
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      await waitFor(() => expect(patchCalls).toHaveLength(1));
+      expect(patchCalls[0]!.body).toMatchObject({ sessionIntervalDays: 21 });
+    });
+
+    it("vacío se manda null", async () => {
+      const user = userEvent.setup();
+      render(<CombosDepilacionPage />, { wrapper });
+      await abrirEdicion(user, "Combo con zona archivada");
+      expect(await screen.findByLabelText(/días entre sesiones/i)).toHaveValue("");
+      await user.click(await screen.findByLabelText("Rostro completo (archivada)"));
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      await waitFor(() => expect(patchCalls).toHaveLength(1));
+      expect(patchCalls[0]!.body).toHaveProperty("sessionIntervalDays", null);
+    });
+
+    it("al editar trae el valor guardado", async () => {
+      const user = userEvent.setup();
+      render(<CombosDepilacionPage />, { wrapper });
+      await abrirEdicion(user, PACK_OK.name);
+      expect(await screen.findByLabelText(/días entre sesiones/i)).toHaveValue("14");
+    });
+
+    it("un valor que no es entero mayor a cero se corta antes de tocar la red", async () => {
+      const user = userEvent.setup();
+      render(<CombosDepilacionPage />, { wrapper });
+      await abrirEdicion(user, "Combo con zona archivada");
+      await user.type(await screen.findByLabelText(/días entre sesiones/i), "0");
+      await user.click(await screen.findByLabelText("Rostro completo (archivada)"));
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      expect(await screen.findByText(/días entre sesiones tienen que ser/i)).toBeInTheDocument();
+      expect(patchCalls).toHaveLength(0);
     });
   });
 });

@@ -295,3 +295,55 @@ describe("PacksAdminPage — el borrado definitivo", () => {
     expect(await screen.findByText(/2 promoción\(es\) que lo tienen en oferta/i)).toBeInTheDocument();
   });
 });
+
+describe("PacksAdminPage — días entre sesiones", () => {
+  async function abrirNuevoPack(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole("button", { name: /^agregar$/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial × 4");
+    await user.selectOptions(within(dialog).getByLabelText(/^combo/i), COMBO_FACIAL);
+    await user.clear(within(dialog).getByLabelText(/cuántas veces/i));
+    await user.type(within(dialog).getByLabelText(/cuántas veces/i), "4");
+    return dialog;
+  }
+
+  it("el formulario tiene 'Días entre sesiones' (número, opcional) y lo manda como sessionIntervalDays", async () => {
+    const enviados: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", makeFetchMock({ enviados }));
+    const user = userEvent.setup();
+    render(<PacksAdminPage area="Estética" />, { wrapper });
+    const dialog = await abrirNuevoPack(user);
+
+    expect(
+      within(dialog).getByText("Cada cuántos días se sugiere la próxima sesión al agendar"),
+    ).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText(/días entre sesiones/i), "20");
+    await user.click(within(dialog).getByRole("button", { name: /guardar/i }));
+
+    await waitFor(() => expect(enviados.length).toBeGreaterThan(0));
+    expect(enviados.at(-1)!.sessionIntervalDays).toBe(20);
+  });
+
+  it("vacío se manda null", async () => {
+    const enviados: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", makeFetchMock({ enviados }));
+    const user = userEvent.setup();
+    render(<PacksAdminPage area="Estética" />, { wrapper });
+    const dialog = await abrirNuevoPack(user);
+    await user.click(within(dialog).getByRole("button", { name: /guardar/i }));
+
+    await waitFor(() => expect(enviados.length).toBeGreaterThan(0));
+    expect(enviados.at(-1)).toHaveProperty("sessionIntervalDays", null);
+  });
+
+  it("al editar trae el valor guardado", async () => {
+    vi.stubGlobal("fetch", makeFetchMock({ packs: [{ ...PACK, sessionIntervalDays: 10 }] }));
+    const user = userEvent.setup();
+    render(<PacksAdminPage area="Estética" />, { wrapper });
+
+    await screen.findByText("Facial × 4");
+    await user.click(screen.getByRole("button", { name: /editar/i }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText(/días entre sesiones/i)).toHaveValue("10");
+  });
+});

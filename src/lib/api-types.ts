@@ -141,6 +141,8 @@ export type PromotionAdmin = {
   isVisibleWeb: boolean | null;
   usageLimit: number | null;
   notes: string | null;
+  /** 1.61.0 — Cada cuántos días se sugiere la próxima sesión. NULL = sin cargar. */
+  sessionIntervalDays?: number | null;
   destinos: PromoDestinoAdmin[];
   pagos: PromoPagoAdmin[];
 };
@@ -175,6 +177,8 @@ export type PromotionInput = {
   isVisibleWeb: boolean;
   usageLimit?: number | null;
   notes?: string | null;
+  /** 1.61.0 — Mandarlo SIEMPRE (valor o null): si no viaja, la API lo borra. */
+  sessionIntervalDays?: number | null;
   destinos: PromoDestinoInput[];
   pagos: PromoPagoInput[];
 };
@@ -196,6 +200,8 @@ export type ComboAdmin = {
   fixedPrice: number | null;
   discountPercentage: number | null;
   validityMonths: number | null;
+  /** 1.61.0 — Cada cuántos días se sugiere la próxima sesión. NULL = sin cargar. */
+  sessionIntervalDays?: number | null;
   isActive: boolean | null;
   isVisibleWeb: boolean | null;
   displayOrder: number | null;
@@ -446,6 +452,8 @@ export type ComboDepilacion = {
   /** 1.56.0 — Meses de vigencia del pack. NULL = no vence. Opcional para no
    *  romper fixtures viejos que todavía no lo declaran. */
   validityMonths?: number | null;
+  /** 1.61.0 — Días entre sesiones del pack. NULL = usa el de la config global. */
+  sessionIntervalDays?: number | null;
   isPublishedWeb: boolean;
   displayOrder: number;
   isActive: boolean;

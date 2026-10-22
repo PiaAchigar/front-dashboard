@@ -104,13 +104,13 @@ let guardado: Record<string, unknown> | null = null;
 /** Enruta por URL, igual que el mock de PreciosPage.test.tsx: `/combos`
  *  devuelve `combos`, todo lo demás es `/config` (GET la trae, PUT la
  *  captura en `guardado`). */
-function mockFetchOk(combos: ComboDepilacion[] = COMBOS) {
+function mockFetchOk(combos: ComboDepilacion[] = COMBOS, sessionIntervalDays: number | null = null) {
   return vi.fn(async (url: string, options?: RequestInit) => {
     if (url.includes("/combos")) return { ok: true, json: async () => combos };
     if ((options?.method ?? "GET").toUpperCase() === "PUT") {
       guardado = JSON.parse(String(options?.body));
     }
-    return { ok: true, json: async () => CONFIG };
+    return { ok: true, json: async () => ({ ...CONFIG, sessionIntervalDays }) };
   });
 }
 
@@ -126,7 +126,7 @@ afterEach(() => {
 describe("PacksPage", () => {
   it("muestra los tres valores por defecto", async () => {
     render(<PacksPage />, { wrapper });
-    expect(await screen.findByLabelText(/Sesiones/i)).toHaveValue("3");
+    expect(await screen.findByLabelText(/^Sesiones$/i)).toHaveValue("3");
     expect(screen.getByLabelText(/Descuento/i)).toHaveValue("15");
     expect(screen.getByLabelText(/Redondeo/i)).toHaveValue("1000");
   });
@@ -178,7 +178,7 @@ describe("PacksPage", () => {
   it("bloquea el guardado si el descuento del pack queda vacío, no manda 0 en silencio", async () => {
     const user = userEvent.setup();
     render(<PacksPage />, { wrapper });
-    await screen.findByLabelText(/Sesiones/i);
+    await screen.findByLabelText(/^Sesiones$/i);
 
     await user.clear(screen.getByLabelText(/Descuento/i));
     await user.click(screen.getByRole("button", { name: /guardar/i }));
@@ -198,7 +198,7 @@ describe("PacksPage", () => {
     async (basura) => {
       const user = userEvent.setup();
       render(<PacksPage />, { wrapper });
-      await screen.findByLabelText(/Sesiones/i);
+      await screen.findByLabelText(/^Sesiones$/i);
 
       await user.clear(screen.getByLabelText(/Descuento/i));
       await user.type(screen.getByLabelText(/Descuento/i), basura);
@@ -214,7 +214,7 @@ describe("PacksPage", () => {
   it("0 SÍ es un descuento válido: no bloquea el guardado", async () => {
     const user = userEvent.setup();
     render(<PacksPage />, { wrapper });
-    await screen.findByLabelText(/Sesiones/i);
+    await screen.findByLabelText(/^Sesiones$/i);
 
     await user.clear(screen.getByLabelText(/Descuento/i));
     await user.type(screen.getByLabelText(/Descuento/i), "0");
@@ -227,16 +227,16 @@ describe("PacksPage", () => {
   it("las sesiones y el redondeo del pack también bloquean con basura o vacío", async () => {
     const user = userEvent.setup();
     render(<PacksPage />, { wrapper });
-    await screen.findByLabelText(/Sesiones/i);
+    await screen.findByLabelText(/^Sesiones$/i);
 
-    await user.clear(screen.getByLabelText(/Sesiones/i));
+    await user.clear(screen.getByLabelText(/^Sesiones$/i));
     await user.click(screen.getByRole("button", { name: /guardar/i }));
     expect(
       await screen.findByText(/sesiones del pack tienen que ser un número entero mayor a cero/i),
     ).toBeInTheDocument();
     expect(guardado).toBeNull();
 
-    await user.type(screen.getByLabelText(/Sesiones/i), "3");
+    await user.type(screen.getByLabelText(/^Sesiones$/i), "3");
     await user.clear(screen.getByLabelText(/Redondeo/i));
     await user.type(screen.getByLabelText(/Redondeo/i), "0");
     await user.click(screen.getByRole("button", { name: /guardar/i }));
@@ -278,10 +278,10 @@ describe("PacksPage", () => {
   it("Guardar manda la config ENTERA, no sólo los tres campos de pack", async () => {
     const user = userEvent.setup();
     render(<PacksPage />, { wrapper });
-    await screen.findByLabelText(/Sesiones/i);
+    await screen.findByLabelText(/^Sesiones$/i);
 
-    await user.clear(screen.getByLabelText(/Sesiones/i));
-    await user.type(screen.getByLabelText(/Sesiones/i), "4");
+    await user.clear(screen.getByLabelText(/^Sesiones$/i));
+    await user.type(screen.getByLabelText(/^Sesiones$/i), "4");
     await user.click(screen.getByRole("button", { name: /guardar/i }));
 
     await waitFor(() => expect(guardado).not.toBeNull());
@@ -317,7 +317,51 @@ describe("PacksPage", () => {
   it("un rol sin permiso de manage no ve el botón Guardar", async () => {
     mockRole = "operator";
     render(<PacksPage />, { wrapper });
-    await screen.findByLabelText(/Sesiones/i);
+    await screen.findByLabelText(/^Sesiones$/i);
     expect(screen.queryByRole("button", { name: /guardar/i })).not.toBeInTheDocument();
+  });
+
+  describe("días entre sesiones", () => {
+    it("el formulario tiene 'Días entre sesiones' (número, opcional) y lo manda como sessionIntervalDays", async () => {
+      const user = userEvent.setup();
+      render(<PacksPage />, { wrapper });
+      const campo = await screen.findByLabelText(/días entre sesiones/i);
+      expect(
+        screen.getByText("Cada cuántos días se sugiere la próxima sesión al agendar"),
+      ).toBeInTheDocument();
+
+      await user.type(campo, "21");
+      await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+      await waitFor(() => expect(guardado).not.toBeNull());
+      expect(guardado).toMatchObject({ sessionIntervalDays: 21 });
+    });
+
+    it("vacío se manda null", async () => {
+      const user = userEvent.setup();
+      render(<PacksPage />, { wrapper });
+      expect(await screen.findByLabelText(/días entre sesiones/i)).toHaveValue("");
+      await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+      await waitFor(() => expect(guardado).not.toBeNull());
+      expect(guardado).toHaveProperty("sessionIntervalDays", null);
+    });
+
+    it("al editar trae el valor guardado", async () => {
+      vi.stubGlobal("fetch", mockFetchOk(COMBOS, 45));
+      render(<PacksPage />, { wrapper });
+      expect(await screen.findByLabelText(/días entre sesiones/i)).toHaveValue("45");
+    });
+
+    it("bloquea el guardado si los días no son un entero mayor a cero", async () => {
+      const user = userEvent.setup();
+      render(<PacksPage />, { wrapper });
+      await user.type(await screen.findByLabelText(/días entre sesiones/i), "0");
+      await user.click(screen.getByRole("button", { name: /guardar/i }));
+      expect(
+        await screen.findByText(/días entre sesiones tienen que ser un número entero mayor a cero/i),
+      ).toBeInTheDocument();
+      expect(guardado).toBeNull();
+    });
   });
 });

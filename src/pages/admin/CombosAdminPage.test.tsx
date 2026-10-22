@@ -654,3 +654,61 @@ describe("CombosAdminPage — servicio sin proveedora", () => {
     );
   });
 });
+
+describe("CombosAdminPage — días entre sesiones", () => {
+  it("el formulario tiene 'Días entre sesiones' (número, opcional) y lo manda como sessionIntervalDays", async () => {
+    const enviados: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", makeFetchMock({ enviados }));
+    const user = userEvent.setup();
+    render(<CombosAdminPage area="Estética" />, { wrapper });
+    const dialog = await armarComboDeDos(user);
+
+    expect(
+      within(dialog).getByText(
+        "Cada cuántos días se sugiere la próxima sesión al agendar",
+      ),
+    ).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial Completo");
+    await user.type(
+      within(dialog).getByLabelText(/porcentaje|precio del combo/i),
+      "10",
+    );
+    await user.type(within(dialog).getByLabelText(/días entre sesiones/i), "15");
+    await user.click(within(dialog).getByRole("button", { name: /guardar/i }));
+
+    await waitFor(() => expect(enviados.length).toBeGreaterThan(0));
+    expect(enviados[0]!.sessionIntervalDays).toBe(15);
+  });
+
+  it("vacío se manda null", async () => {
+    const enviados: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", makeFetchMock({ enviados }));
+    const user = userEvent.setup();
+    render(<CombosAdminPage area="Estética" />, { wrapper });
+    const dialog = await armarComboDeDos(user);
+
+    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial Completo");
+    await user.type(
+      within(dialog).getByLabelText(/porcentaje|precio del combo/i),
+      "10",
+    );
+    await user.click(within(dialog).getByRole("button", { name: /guardar/i }));
+
+    await waitFor(() => expect(enviados.length).toBeGreaterThan(0));
+    expect(enviados[0]).toHaveProperty("sessionIntervalDays", null);
+  });
+
+  it("al editar trae el valor guardado", async () => {
+    vi.stubGlobal(
+      "fetch",
+      makeFetchMock({ combos: [{ ...COMBO_GUARDADO, sessionIntervalDays: 28 }] }),
+    );
+    const user = userEvent.setup();
+    render(<CombosAdminPage area="Estética" />, { wrapper });
+
+    await screen.findByText("Facial Completo");
+    await user.click(screen.getByRole("button", { name: /editar/i }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText(/días entre sesiones/i)).toHaveValue("28");
+  });
+});

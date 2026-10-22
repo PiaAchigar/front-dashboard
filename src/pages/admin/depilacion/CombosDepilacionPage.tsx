@@ -1,4 +1,10 @@
 import { useMemo, useState } from "react";
+import {
+  AYUDA_DIAS_ENTRE_SESIONES,
+  diasAForm,
+  ERROR_DIAS_ENTRE_SESIONES,
+  parseDiasEntreSesiones,
+} from "../../../lib/dias-entre-sesiones";
 import { useAuth } from "../../../auth/AuthContext";
 import { can, type Role } from "../../../lib/permissions";
 import { ArmadorCombo, type ArmadorComboState } from "../../../components/depilacion/ArmadorCombo";
@@ -44,6 +50,8 @@ type Form = {
   packRoundingBase: string;
   /** Meses de vigencia del pack. "" = no vence (1.56.0). */
   validityMonths: string;
+  /** Días entre sesiones del pack. "" = sin cargar (1.61.0). */
+  sessionIntervalDays: string;
 };
 
 const EMPTY: Form = {
@@ -56,6 +64,7 @@ const EMPTY: Form = {
   packDiscountPercentage: "",
   packRoundingBase: "",
   validityMonths: "",
+  sessionIntervalDays: "",
 };
 
 /** "" es inválido (un pack fijo necesita precio). Acepta enteros >= 0 con
@@ -210,6 +219,7 @@ export function CombosDepilacionPage() {
       packDiscountPercentage: String(c.packDiscountPercentage ?? c.pack.descuentoPct),
       packRoundingBase: String(c.packRoundingBase ?? c.pack.redondeo),
       validityMonths: c.validityMonths != null ? String(c.validityMonths) : "",
+      sessionIntervalDays: diasAForm(c.sessionIntervalDays),
     });
     setFormError(null);
     setArmadorState(null);
@@ -280,6 +290,13 @@ export function CombosDepilacionPage() {
       validityMonths = parsed;
     }
 
+    // Vacío = sin cargar. Se manda SIEMPRE (valor o null): la API lo borra si no viaja.
+    const sessionIntervalDays = parseDiasEntreSesiones(form.sessionIntervalDays);
+    if (sessionIntervalDays === undefined) {
+      setFormError(ERROR_DIAS_ENTRE_SESIONES);
+      return;
+    }
+
     try {
       await guardarCombo.mutateAsync({
         id: editing?.id,
@@ -292,6 +309,7 @@ export function CombosDepilacionPage() {
         fixedPrice: esPackFijo ? fixedPrice : undefined,
         choiceZoneCount: esPackFijo ? editing.choiceZoneCount : 0,
         validityMonths,
+        sessionIntervalDays,
         ...pack,
       });
       toast.success(editing ? "Combo actualizado" : "Combo creado");
@@ -554,6 +572,14 @@ export function CombosDepilacionPage() {
             Cuántos meses tiene la clienta para usar las sesiones. Vacío = no vence.
           </span>
         </div>
+
+        <Field label="Días entre sesiones" help={AYUDA_DIAS_ENTRE_SESIONES}>
+          <TextInput
+            inputMode="numeric"
+            value={form.sessionIntervalDays}
+            onChange={(e) => setForm({ ...form, sessionIntervalDays: e.target.value })}
+          />
+        </Field>
 
         {config && (
           <div className="space-y-2 rounded-xl border border-surface-high p-3">

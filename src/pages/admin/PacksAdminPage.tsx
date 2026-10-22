@@ -1,4 +1,9 @@
 import { useMemo, useState } from "react";
+import {
+  AYUDA_DIAS_ENTRE_SESIONES,
+  diasAForm,
+  parseDiasEntreSesiones,
+} from "../../lib/dias-entre-sesiones";
 import { useAuth } from "../../auth/AuthContext";
 import { can, type Role } from "../../lib/permissions";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
@@ -177,6 +182,8 @@ type Form = {
   descuentoPropio: string;
   redondeoPropio: string;
   validityMonths: string;
+  /** "" = sin cargar, usa el de la config (1.61.0). */
+  sessionIntervalDays: string;
   isVisibleWeb: boolean;
   displayOrder: string;
 };
@@ -191,6 +198,7 @@ const EMPTY: Form = {
   descuentoPropio: "",
   redondeoPropio: "",
   validityMonths: "12",
+  sessionIntervalDays: "",
   isVisibleWeb: true,
   displayOrder: "0",
 };
@@ -347,6 +355,7 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
       descuentoPropio: p.packDiscountPercentage != null ? String(p.packDiscountPercentage) : "",
       redondeoPropio: p.packRoundingBase != null ? String(p.packRoundingBase) : "",
       validityMonths: p.validityMonths != null ? String(p.validityMonths) : "12",
+      sessionIntervalDays: diasAForm(p.sessionIntervalDays),
       isVisibleWeb: p.isVisibleWeb ?? true,
       displayOrder: p.displayOrder != null ? String(p.displayOrder) : "0",
     });
@@ -369,6 +378,8 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
       discountPercentage: 0,
       fixedPrice: null,
       validityMonths: Number(form.validityMonths) || 0,
+      // Siempre viaja (valor o null): la API borra el campo si no viene.
+      sessionIntervalDays: parseDiasEntreSesiones(form.sessionIntervalDays) ?? null,
       isVisibleWeb: form.isVisibleWeb,
       displayOrder: Number(form.displayOrder) || 0,
       areaCategoryId: areaCategoryId ?? "",
@@ -417,6 +428,9 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
   }
   if (Number(form.packSessions) < 2) faltantes.push("cuántas veces se repite (al menos 2)");
   if (Number(form.validityMonths) < 1) faltantes.push("la vigencia");
+  if (parseDiasEntreSesiones(form.sessionIntervalDays) === undefined) {
+    faltantes.push("los días entre sesiones (un entero mayor a cero, o vacío)");
+  }
   if (!areaCategoryId) faltantes.push("el área");
 
   const puedeGuardar = faltantes.length === 0;
@@ -640,6 +654,13 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
               value={form.validityMonths}
               onChange={(e) => setForm({ ...form, validityMonths: e.target.value })}
               placeholder="12"
+            />
+          </Field>
+          <Field label="Días entre sesiones" help={AYUDA_DIAS_ENTRE_SESIONES}>
+            <TextInput
+              inputMode="numeric"
+              value={form.sessionIntervalDays}
+              onChange={(e) => setForm({ ...form, sessionIntervalDays: e.target.value })}
             />
           </Field>
           <Field label="Orden en la web">

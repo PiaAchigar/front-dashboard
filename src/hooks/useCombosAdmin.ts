@@ -18,6 +18,8 @@ export type ComboInput = {
   fixedPrice?: number | null;
   discountPercentage?: number | null;
   validityMonths: number;
+  /** 1.61.0 — Mandarlo SIEMPRE (valor o null): si no viaja, la API lo borra. */
+  sessionIntervalDays?: number | null;
   isVisibleWeb?: boolean | null;
   displayOrder?: number | null;
   // ── 1.50.0 ───────────────────────────────────────────────────────────────

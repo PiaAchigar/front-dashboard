@@ -1,4 +1,10 @@
 import { useMemo, useState } from "react";
+import {
+  AYUDA_DIAS_ENTRE_SESIONES,
+  diasAForm,
+  ERROR_DIAS_ENTRE_SESIONES,
+  parseDiasEntreSesiones,
+} from "../../lib/dias-entre-sesiones";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { can, type Role } from "../../lib/permissions";
@@ -47,6 +53,8 @@ type Form = {
   isFeatured: boolean;
   isVisibleWeb: boolean;
   usageLimit: string;
+  /** "" = sin cargar (1.61.0). */
+  sessionIntervalDays: string;
   notes: string;
   destinos: DestinoDraft[];
   pagos: PagoDraft[];
@@ -63,6 +71,7 @@ const EMPTY: Form = {
   isFeatured: false,
   isVisibleWeb: false,
   usageLimit: "",
+  sessionIntervalDays: "",
   notes: "",
   destinos: [],
   pagos: [],
@@ -404,6 +413,7 @@ export function PromosAdminPage() {
       isFeatured: p.isFeatured ?? false,
       isVisibleWeb: p.isVisibleWeb ?? false,
       usageLimit: p.usageLimit != null ? String(p.usageLimit) : "",
+      sessionIntervalDays: diasAForm(p.sessionIntervalDays),
       notes: p.notes ?? "",
       destinos: p.destinos.map((d) => ({
         tipo: d.tipo,
@@ -473,6 +483,8 @@ export function PromosAdminPage() {
       isVisibleWeb: form.isVisibleWeb,
       usageLimit:
         form.usageLimit.trim() === "" ? null : Number(form.usageLimit),
+      // Siempre viaja (valor o null): la API borra el campo si no viene.
+      sessionIntervalDays: parseDiasEntreSesiones(form.sessionIntervalDays) ?? null,
       notes: form.notes.trim() || null,
       // La cantidad sólo dice algo en un paquete (cuántas unidades se lleva
       // la clienta); en una promo de descuento no se manda, aunque a la API
@@ -514,6 +526,9 @@ export function PromosAdminPage() {
         depilacion: combosDepilacion,
       },
     );
+    if (parseDiasEntreSesiones(form.sessionIntervalDays) === undefined) {
+      errores.push(ERROR_DIAS_ENTRE_SESIONES);
+    }
     if (errores.length > 0) {
       setFormError(errores.join(" "));
       return;
@@ -684,6 +699,15 @@ export function PromosAdminPage() {
               value={form.usageLimit}
               onChange={(e) => setForm({ ...form, usageLimit: e.target.value })}
               placeholder="Sin límite"
+            />
+          </Field>
+          <Field label="Días entre sesiones" help={AYUDA_DIAS_ENTRE_SESIONES}>
+            <TextInput
+              inputMode="numeric"
+              value={form.sessionIntervalDays}
+              onChange={(e) =>
+                setForm({ ...form, sessionIntervalDays: e.target.value })
+              }
             />
           </Field>
           <div className="flex flex-col justify-end gap-1 pb-2">

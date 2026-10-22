@@ -1,4 +1,9 @@
 import { useMemo, useState } from "react";
+import {
+  AYUDA_DIAS_ENTRE_SESIONES,
+  diasAForm,
+  parseDiasEntreSesiones,
+} from "../../lib/dias-entre-sesiones";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { can, type Role } from "../../lib/permissions";
@@ -65,6 +70,8 @@ type Form = {
   priceType: "fixed" | "percentage";
   priceValue: string;
   validityMonths: string;
+  /** "" = sin cargar (1.61.0). */
+  sessionIntervalDays: string;
   isVisibleWeb: boolean;
   displayOrder: string;
   /** §4.4 — los servicios se hacen en la misma visita. */
@@ -78,6 +85,7 @@ const EMPTY: Form = {
   priceType: "fixed",
   priceValue: "",
   validityMonths: "12",
+  sessionIntervalDays: "",
   isVisibleWeb: true,
   displayOrder: "0",
   // Desmarcado por decisión de Pia (2026-09-10): ante un descuido de quien
@@ -422,6 +430,7 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
           : String(c.discountPercentage ?? ""),
       validityMonths:
         c.validityMonths != null ? String(c.validityMonths) : "12",
+      sessionIntervalDays: diasAForm(c.sessionIntervalDays),
       isVisibleWeb: c.isVisibleWeb ?? true,
       displayOrder: c.displayOrder != null ? String(c.displayOrder) : "0",
       servicesTogether: c.servicesTogether,
@@ -448,6 +457,8 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
       fixedPrice: form.priceType === "fixed" ? value : null,
       discountPercentage: form.priceType === "percentage" ? value : null,
       validityMonths: Number(form.validityMonths) || 0,
+      // Siempre viaja (valor o null): la API borra el campo si no viene.
+      sessionIntervalDays: parseDiasEntreSesiones(form.sessionIntervalDays) ?? null,
       isVisibleWeb: form.isVisibleWeb,
       displayOrder: Number(form.displayOrder) || 0,
       areaCategoryId: areaCategoryId ?? "",
@@ -516,6 +527,8 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
     );
   }
   if (Number(form.validityMonths) < 1) faltantes.push("la vigencia");
+  if (parseDiasEntreSesiones(form.sessionIntervalDays) === undefined)
+    faltantes.push("los días entre sesiones (un entero mayor a cero, o vacío)");
   if (lineasValidas < 1) faltantes.push("al menos un servicio");
   if (!areaCategoryId) faltantes.push("el área");
 
@@ -683,6 +696,18 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
                 setForm({ ...form, validityMonths: e.target.value })
               }
               placeholder="12"
+            />
+          </Field>
+          <Field
+            label="Días entre sesiones"
+            help={AYUDA_DIAS_ENTRE_SESIONES}
+          >
+            <TextInput
+              inputMode="numeric"
+              value={form.sessionIntervalDays}
+              onChange={(e) =>
+                setForm({ ...form, sessionIntervalDays: e.target.value })
+              }
             />
           </Field>
           <Field label="Orden en la web">
