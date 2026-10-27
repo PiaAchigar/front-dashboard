@@ -107,33 +107,108 @@ export function FiltroDeAreas({
   );
 }
 
-/** Las áreas de una fila. Con `cantidades`, cuántos servicios hay en cada una. */
+function servicios(n: number): string {
+  return n === 1 ? "1 servicio" : `${n} servicios`;
+}
+
+/**
+ * Las áreas de una fila. Con `cantidades`, cuántos servicios de la rama caen en
+ * cada una, dicho con la palabra: un número suelto al lado del área se leía
+ * como "subcategorías". Una cantidad en cero es un área heredada por colgar de
+ * ella (Actividades, Depilación): se nombra el área sola.
+ */
 export function AreasDeFila({
   areaIds,
   areas,
   cantidades,
+  vacia = false,
 }: {
   areaIds: readonly string[];
   areas: readonly Area[];
   cantidades?: ReadonlyMap<string, number>;
+  /** Sin ningún servicio: no es "sin área" (no hay nada mal ubicado), es vacía. */
+  vacia?: boolean;
 }) {
   if (areaIds.length === 0)
     return (
-      <span className={`rounded-full border px-2 py-px text-[11px] ${GRIS.suave}`}>Sin área</span>
+      <span
+        className={`rounded-full border px-2 py-px text-[11px] ${vacia ? "border-dashed border-stone-300 text-ink-soft" : GRIS.suave}`}
+      >
+        {vacia ? "Sin servicios" : "Sin área"}
+      </span>
     );
   return (
-    <span className="flex gap-1">
+    <span className="flex flex-wrap gap-1">
       {areas
         .filter((a) => areaIds.includes(a.id))
-        .map((a) => (
-          <span
+        .map((a) => {
+          const n = cantidades?.get(a.id) ?? 0;
+          return (
+            <span
+              key={a.id}
+              className={`whitespace-nowrap rounded-full border px-2 py-px text-[11px] ${colorDe(a.id, areas).suave}`}
+            >
+              {a.name}
+              {n > 0 && <span className="opacity-75"> · {servicios(n)}</span>}
+            </span>
+          );
+        })}
+    </span>
+  );
+}
+
+/**
+ * Sumar o sacar un servicio de cada área, tocando la pastilla. La que está va
+ * rellena; la que no, suave. La última que queda no se puede sacar: un
+ * servicio sin área no aparece en ninguna pestaña (misma regla que el modal
+ * del servicio).
+ */
+export function SelectorDeAreas({
+  areas,
+  todas = areas,
+  elegidas,
+  deshabilitado = false,
+  onAlternar,
+}: {
+  areas: readonly Area[];
+  /** Todas las áreas, para el color: tiene que ser el mismo que en la tabla
+   *  aunque acá se muestren menos. */
+  todas?: readonly Area[];
+  elegidas: readonly string[];
+  deshabilitado?: boolean;
+  onAlternar: (areaId: string) => void;
+}) {
+  return (
+    <div role="group" aria-label="Áreas del servicio" className="flex flex-wrap gap-1">
+      {areas.map((a) => {
+        const esta = elegidas.includes(a.id);
+        const ultima = esta && elegidas.length === 1;
+        const color = colorDe(a.id, todas);
+        return (
+          <button
             key={a.id}
-            className={`whitespace-nowrap rounded-full border px-2 py-px text-[11px] ${colorDe(a.id, areas).suave}`}
+            type="button"
+            aria-pressed={esta}
+            disabled={deshabilitado || ultima}
+            title={
+              ultima
+                ? "Tiene que quedar en al menos un área"
+                : esta
+                  ? `Sacar de ${a.name}`
+                  : `Sumar a ${a.name}`
+            }
+            onClick={() => onAlternar(a.id)}
+            className={[
+              "rounded-full border px-2 py-px text-[11px] font-medium transition-colors",
+              "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary",
+              esta ? color.llena : `${color.suave} opacity-70 hover:opacity-100`,
+              ultima && !deshabilitado ? "cursor-not-allowed" : "",
+            ].join(" ")}
           >
             {a.name}
-            {cantidades && ` · ${cantidades.get(a.id) ?? 0}`}
-          </span>
-        ))}
-    </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }

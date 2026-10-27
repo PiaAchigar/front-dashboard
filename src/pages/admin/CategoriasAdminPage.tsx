@@ -9,16 +9,18 @@ import { ChevronRight } from "../../components/icons";
 import { contarDescendientes, filasVisibles, idsConHijas } from "../../lib/arbol-plano";
 import type { CategoryNode } from "../../lib/api-types";
 import {
+  SIN_AREA,
   TODAS,
   areasDelArbol,
   areasPorCategoria,
-  buscarEnArbol,
-  filtrarPorArea,
-  intercalarServicios,
-  type Fila,
+  areasPrendidas,
+  arbolDelArea,
+  categoriasVacias,
+  resultadosPlanos,
 } from "../../lib/categorias-por-area";
 import { AreasDeFila, FiltroDeAreas } from "../../components/PastillasDeArea";
 import { useServicesAdmin } from "../../hooks/useServicesAdmin";
+import { ServiciosDeCategoria } from "./ServiciosDeCategoria";
 import {
   useArchiveCategory,
   useCategoriesAdmin,
@@ -39,6 +41,23 @@ type FlatCat = {
   depth: number;
   parentId: string | null;
 };
+
+/**
+ * Una fila de la tabla. Sin búsqueda es el árbol de categorías; buscando o en
+ * "Sin área" es una lista plana de categorías y servicios, cada uno con su
+ * camino escrito (`camino` deja de ser null).
+ */
+type Fila =
+  | (FlatCat & { tipo: "categoria"; camino: string | null })
+  | {
+      tipo: "servicio";
+      id: string;
+      name: string | null;
+      camino: string;
+      areaIds: string[];
+      /** La categoría cuyo panel se abre al tocar el servicio. */
+      categoriaId: string | null;
+    };
 
 function flatten(
   nodes: CategoryNode[],
@@ -62,18 +81,12 @@ function flatten(
   return acc;
 }
 
-type Form = {
-  name: string;
-  description: string;
-  parentCategoryId: string;
-  displayOrder: string;
-};
-const EMPTY: Form = {
-  name: "",
-  description: "",
-  parentCategoryId: "",
-  displayOrder: "",
-};
+type Form = { name: string; description: string; parentCategoryId: string; displayOrder: string };
+const EMPTY: Form = { name: "", description: "", parentCategoryId: "", displayOrder: "" };
+
+function subcategorias(n: number): string {
+  return n === 1 ? "1 subcategoría" : `${n} subcategorías`;
+}
 
 export function CategoriasAdminPage() {
   const { role } = useAuth();
@@ -96,9 +109,13 @@ export function CategoriasAdminPage() {
   // raíces. Guardar `null` en vez de sembrar el estado con las raíces evita
   // depender de CUÁNDO llegan los datos — el árbol viene de una consulta, así
   // que en el primer render `flat` está vacío y no hay raíces que plegar.
+  const [abierta, setAbierta] = useState<string | null>(null);
+  // `useState` y no `useRef` para el hueco del botón Agregar: el portal
+  // necesita volver a dibujarse cuando el nodo existe (igual que AreaLayout).
+  const [slotAcciones, setSlotAcciones] = useState<HTMLElement | null>(null);
 
   const { data: tree = [], isLoading, error } = useCategoriesAdmin(showArchived);
-  const { data: servicios = [] } = useServicesAdmin(false);
+  const { data: todosLosServicios = [] } = useServicesAdmin(false);
   const create = useCreateCategory();
   const update = useUpdateCategory();
   const archive = useArchiveCategory();
@@ -106,18 +123,15 @@ export function CategoriasAdminPage() {
   const deleteImpact = useCategoryDeleteImpact();
   const hardDelete = useHardDeleteCategory();
 
+  // En Archivados se buscan categorías archivadas: los servicios activos
+  // ensuciarían la lista, y las pastillas no aplican.
+  const servicios = showArchived ? [] : todosLosServicios;
   const flat = useMemo(() => flatten(tree), [tree]);
   const areas = useMemo(() => areasDelArbol(flat), [flat]);
+  const idsDeArea = useMemo(() => new Set(areas.map((a) => a.id)), [areas]);
   const mapa = useMemo(() => areasPorCategoria(flat, servicios, areas), [flat, servicios, areas]);
-  // Los servicios cuelgan de sus categorías como filas más. En Archivados no:
-  // ahí se buscan categorías archivadas, y los servicios activos ensuciarían.
-  const todas = useMemo<Fila<FlatCat>[]>(
-    () => intercalarServicios(flat, showArchived ? [] : servicios, areas),
-    [flat, servicios, areas, showArchived],
-  );
-  const conHijas = useMemo(() => idsConHijas(todas), [todas]);
-  // El número de una rama plegada cuenta subcategorías, no servicios: los
-  // servicios ya se cuentan en las pastillas de la columna Áreas.
+  const vacias = useMemo(() => categoriasVacias(flat, servicios), [flat, servicios]);
+  const conHijas = useMemo(() => idsConHijas(flat), [flat]);
   const descendientes = useMemo(() => contarDescendientes(flat), [flat]);
 
   const plegadosEfectivos = useMemo(
@@ -126,21 +140,34 @@ export function CategoriasAdminPage() {
   );
 
   const buscando = search.trim() !== "";
-  const delArea = useMemo(() => filtrarPorArea(todas, mapa, area), [todas, mapa, area]);
+  // Plana cuando hay búsqueda o en Sin área: el árbol arrastraba a las madres
+  // (que sí tienen área) y mostraba pastillas de área en "Sin área".
+  const plana = buscando || area === SIN_AREA;
 
-  // Las pastillas se prenden mirando TODO, no sólo el área elegida: si Laura
-  // está en Estética y busca un masaje, la pastilla de Masajes le dice dónde.
-  const busqueda = useMemo(
-    () => (buscando ? buscarEnArbol(todas, mapa, search) : null),
-    [buscando, todas, mapa, search],
+  const prendidas = useMemo(
+    () => areasPrendidas(flat, servicios, mapa, areas, search),
+    [flat, servicios, mapa, areas, search],
   );
 
-  const rows = useMemo(() => {
-    // Buscando, el plegado se ignora: una coincidencia escondida adentro de una
-    // rama cerrada haría que la búsqueda mienta y diga que no hay resultados.
-    if (buscando) return buscarEnArbol(delArea, mapa, search).filas;
-    return filasVisibles(delArea, plegadosEfectivos);
-  }, [buscando, delArea, mapa, search, plegadosEfectivos]);
+  const rows = useMemo<Fila[]>(() => {
+    if (plana) {
+      const porId = new Map(flat.map((c) => [c.id, c]));
+      return resultadosPlanos(flat, servicios, mapa, areas, { filtro: area, texto: search }).map(
+        (f): Fila => {
+          if (f.tipo === "categoria")
+            return { ...porId.get(f.id)!, tipo: "categoria", camino: f.camino };
+          const s = servicios.find((x) => x.id === f.id);
+          const deLaWeb = s?.categories.find((c) => porId.has(c.id) && !idsDeArea.has(c.id));
+          return { ...f, categoriaId: deLaWeb?.id ?? null };
+        },
+      );
+    }
+    return filasVisibles(arbolDelArea(flat, mapa, area), plegadosEfectivos).map((c) => ({
+      ...c,
+      tipo: "categoria" as const,
+      camino: null,
+    }));
+  }, [plana, flat, servicios, mapa, areas, area, search, idsDeArea, plegadosEfectivos]);
 
   function alternarPlegado(id: string) {
     const siguiente = new Set(plegadosEfectivos);
@@ -149,35 +176,45 @@ export function CategoriasAdminPage() {
     setPlegados(siguiente);
   }
 
-  const columns: Column<Fila<FlatCat>>[] = [
+  const columns: Column<Fila>[] = [
     {
       key: "name",
       header: "Nombre",
-      width: 320,
-      render: (c) => {
-        if (c.tipo === "servicio") {
-          const encontrado = busqueda?.coincidencias.has(c.id);
+      width: 360,
+      title: (f) => (f.camino ? `${f.camino} › ${f.name ?? ""}` : (f.name ?? "")),
+      render: (f) => {
+        if (f.camino !== null) {
           return (
-            <div className="flex items-center" style={{ paddingLeft: c.depth * 16 }}>
-              <span className="mr-1 inline-block w-[22px] text-center text-ink-soft">·</span>
-              <span
-                className={`text-ink-soft ${encontrado ? "rounded bg-amber-100 px-1 font-medium text-ink" : ""}`}
-              >
-                {c.name ?? "—"}
-              </span>
+            <div className="min-w-0">
+              {f.camino && <p className="truncate text-xs text-ink-soft">{f.camino}</p>}
+              <p className="flex items-center gap-2 truncate">
+                <span className={f.tipo === "servicio" ? "text-ink" : "font-medium text-ink"}>
+                  {f.name ?? "—"}
+                </span>
+                {f.tipo === "servicio" && (
+                  <span className="rounded-full bg-surface-high px-1.5 text-[11px] text-ink-soft">
+                    servicio
+                  </span>
+                )}
+              </p>
             </div>
           );
         }
-        const tieneHijas = conHijas.has(c.id);
-        const plegada = plegadosEfectivos.has(c.id);
+        if (f.tipo !== "categoria") return null;
+        const tieneHijas = conHijas.has(f.id);
+        const plegada = plegadosEfectivos.has(f.id);
         return (
-          <div className="flex items-center" style={{ paddingLeft: c.depth * 16 }}>
-            {tieneHijas && !buscando ? (
+          <div className="flex items-center" style={{ paddingLeft: f.depth * 16 }}>
+            {tieneHijas ? (
               <button
                 type="button"
                 aria-expanded={!plegada}
-                aria-label={`${plegada ? "Desplegar" : "Plegar"} ${c.name ?? "la categoría"}`}
-                onClick={() => alternarPlegado(c.id)}
+                aria-label={`${plegada ? "Desplegar" : "Plegar"} ${f.name ?? "la categoría"}`}
+                onClick={(e) => {
+                  // Sin esto el click también abre el panel de servicios.
+                  e.stopPropagation();
+                  alternarPlegado(f.id);
+                }}
                 className="-ml-1 mr-1 rounded p-0.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-ink"
               >
                 {/* `rotate-90` escrita entera: Tailwind no compila una clase
@@ -192,10 +229,10 @@ export function CategoriasAdminPage() {
               // hojas queden alineados con los de sus hermanas con hijas.
               <span className="mr-1 inline-block w-[22px]" />
             )}
-            <span className="font-medium text-ink">{c.name ?? "—"}</span>
-            {tieneHijas && plegada && !buscando && (
-              <span className="ml-2 rounded-full bg-surface-high px-2 py-0.5 text-xs text-ink-soft">
-                {descendientes.get(c.id)}
+            <span className="font-medium text-ink">{f.name ?? "—"}</span>
+            {tieneHijas && plegada && (
+              <span className="ml-2 text-xs text-ink-soft">
+                {subcategorias(descendientes.get(f.id) ?? 0)}
               </span>
             )}
           </div>
@@ -204,30 +241,36 @@ export function CategoriasAdminPage() {
     },
     {
       key: "areas",
-      header: "Áreas",
-      width: 300,
-      render: (c) => {
-        if (c.tipo === "servicio") return <AreasDeFila areaIds={c.areaIds} areas={areas} />;
-        if (c.kind === "area" && c.parentId === null)
-          return <AreasDeFila areaIds={[c.id]} areas={areas} />;
-        const suyas = mapa.get(c.id) ?? new Map<string, number>();
-        return <AreasDeFila areaIds={[...suyas.keys()]} areas={areas} cantidades={suyas} />;
+      header: "Área",
+      width: 320,
+      render: (f) => {
+        if (f.tipo === "servicio") return <AreasDeFila areaIds={f.areaIds} areas={areas} />;
+        if (idsDeArea.has(f.id)) return <AreasDeFila areaIds={[f.id]} areas={areas} />;
+        const suyas = mapa.get(f.id) ?? new Map<string, number>();
+        return (
+          <AreasDeFila
+            areaIds={[...suyas.keys()]}
+            areas={areas}
+            cantidades={suyas}
+            vacia={!showArchived && vacias.has(f.id)}
+          />
+        );
       },
     },
     {
       key: "desc",
       header: "Descripción",
       width: 300,
-      render: (c) =>
-        c.tipo === "servicio" ? null : (
-          <span className="text-ink-soft">{c.description ?? "—"}</span>
+      render: (f) =>
+        f.tipo === "servicio" ? null : (
+          <span className="text-ink-soft">{f.description ?? "—"}</span>
         ),
     },
     {
       key: "order",
       header: "Orden",
       width: 90,
-      render: (c) => (c.tipo === "servicio" ? null : (c.displayOrder ?? "—")),
+      render: (f) => (f.tipo === "servicio" ? null : (f.displayOrder ?? "—")),
     },
   ];
 
@@ -271,85 +314,125 @@ export function CategoriasAdminPage() {
   const parentOptions = flat.filter((c) => c.id !== editing?.id);
   const saving = create.isPending || update.isPending;
 
+  const cantidadDeCategorias = rows.filter((f) => f.tipo === "categoria").length;
+  const cantidadDeServicios = rows.length - cantidadDeCategorias;
+  const panel = abierta ? (flat.find((c) => c.id === abierta) ?? null) : null;
+
   return (
-    <>
-      <ResourceManager<Fila<FlatCat>>
-        title="Categorías"
-        rows={rows}
-        columns={columns}
-        loading={isLoading}
-        error={error ? (error as Error).message : null}
-        avisoSuperior={
-          <div className="space-y-2">
-            <FiltroDeAreas
-              areas={areas}
-              elegida={area}
-              prendidas={busqueda?.areasPrendidas ?? new Set()}
-              onElegir={setArea}
-            />
-            {buscando ? null : (
-              <div className="flex items-center gap-3 text-sm text-ink-soft">
-                <span>
-                  {rows.filter((f) => f.tipo === "categoria").length} de {flat.length} categorías a
-                  la vista
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPlegados(new Set())}
-                  className="font-medium text-primary hover:underline"
-                >
-                  Desplegar todo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPlegados(new Set(conHijas))}
-                  className="font-medium text-primary hover:underline"
-                >
-                  Plegar todo
-                </button>
-              </div>
-            )}
-          </div>
-        }
-        rowKey={(c) => c.id}
-        isArchived={(c) => c.tipo === "categoria" && c.isActive === false}
-        sinAcciones={(c) => c.tipo === "servicio"}
-        search={search}
-        onSearch={setSearch}
-        searchPlaceholder="Buscar categoría o servicio…"
-        showArchived={showArchived}
-        onToggleArchived={setShowArchived}
-        canCreate={canManage}
-        canArchive={canManage}
-        onAdd={openCreate}
-        onEdit={canEdit ? (c) => c.tipo === "categoria" && openEdit(c) : undefined}
-        archiving={archive.isPending}
-        archiveName={(c) => c.name ?? "esta categoría"}
-        onArchive={(c) =>
-          archive.mutate(c.id, {
-            onSuccess: () => toast.success("Categoría archivada"),
-            onError: (e: Error) => toast.error(e.message),
-          })
-        }
-        onRestore={(c) =>
-          restore.mutate(c.id, {
-            onSuccess: () => toast.success("Categoría restaurada"),
-            onError: (e: Error) => toast.error(e.message),
-          })
-        }
-        // Sólo sobre las archivadas, y sólo admin. Una categoría activa puede
-        // estar en el menú del sitio público: borrarla lo cambiaría sin aviso.
-        // El backend lo vuelve a chequear — esto es la conveniencia, no la
-        // regla.
-        canHardDelete={(c) => isAdmin && c.tipo === "categoria" && c.isActive === false}
-        onHardDeletePreview={(c) => deleteImpact.mutateAsync(c.id)}
-        hardDeleteName={(c) => c.name ?? "esta categoría"}
-        onHardDelete={(c) =>
-          hardDelete.mutate(c.id, {
-            onSuccess: () => toast.success("Categoría eliminada definitivamente"),
-            onError: (e: Error) => toast.error(e.message),
-          })
-        }
+    // Un solo scroll, igual que en las áreas (ver AreaLayout): el título y
+    // Agregar quedan fijos y todo lo demás pasa por debajo.
+    <div className="flex h-full flex-col">
+      <div className="shrink-0 px-4 pt-5 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-display text-2xl text-ink">Categorías</h1>
+          <div ref={setSlotAcciones} className="shrink-0" />
+        </div>
+        <p className="mt-1 max-w-[75ch] text-sm text-ink-soft">
+          Ordenan el menú de la web. El área se elige en cada servicio: una categoría está en un
+          área cuando tiene servicios de ella. Tocá una categoría para ver sus servicios y
+          cambiarles el área.
+        </p>
+      </div>
+      <div className="modal-scroll min-h-0 flex-1 overflow-y-auto">
+        <ResourceManager<Fila>
+          title="Categorías"
+          rows={rows}
+          columns={columns}
+          loading={isLoading}
+          error={error ? (error as Error).message : null}
+          slotAcciones={slotAcciones}
+          alturaLibre
+          bajoElBuscador={
+            <div className="space-y-2">
+              {!showArchived && (
+                <FiltroDeAreas
+                  areas={areas}
+                  elegida={area}
+                  prendidas={prendidas}
+                  onElegir={setArea}
+                />
+              )}
+              {plana ? (
+                <p className="text-sm text-ink-soft">
+                  {cantidadDeCategorias === 1
+                    ? "1 categoría"
+                    : `${cantidadDeCategorias} categorías`}
+                  {" y "}
+                  {cantidadDeServicios === 1 ? "1 servicio" : `${cantidadDeServicios} servicios`}
+                </p>
+              ) : (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft [&>button]:whitespace-nowrap">
+                  <span>
+                    {cantidadDeCategorias} de {flat.length} categorías a la vista
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPlegados(new Set())}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    Desplegar todo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlegados(new Set(conHijas))}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    Plegar todo
+                  </button>
+                </div>
+              )}
+            </div>
+          }
+          rowKey={(f) => `${f.tipo}:${f.id}`}
+          isArchived={(f) => f.tipo === "categoria" && f.isActive === false}
+          sinAcciones={(f) => f.tipo === "servicio"}
+          onRowClick={(f) => setAbierta(f.tipo === "categoria" ? f.id : f.categoriaId)}
+          search={search}
+          onSearch={setSearch}
+          searchPlaceholder="Buscar categoría o servicio…"
+          showArchived={showArchived}
+          onToggleArchived={setShowArchived}
+          canCreate={canManage}
+          canArchive={canManage}
+          onAdd={openCreate}
+          onEdit={canEdit ? (f) => f.tipo === "categoria" && openEdit(f) : undefined}
+          archiving={archive.isPending}
+          archiveName={(f) => f.name ?? "esta categoría"}
+          onArchive={(f) =>
+            archive.mutate(f.id, {
+              onSuccess: () => toast.success("Categoría archivada"),
+              onError: (e: Error) => toast.error(e.message),
+            })
+          }
+          onRestore={(f) =>
+            restore.mutate(f.id, {
+              onSuccess: () => toast.success("Categoría restaurada"),
+              onError: (e: Error) => toast.error(e.message),
+            })
+          }
+          // Sólo sobre las archivadas, y sólo admin. Una categoría activa puede
+          // estar en el menú del sitio público: borrarla lo cambiaría sin aviso.
+          // El backend lo vuelve a chequear — esto es la conveniencia, no la
+          // regla.
+          canHardDelete={(f) => isAdmin && f.tipo === "categoria" && f.isActive === false}
+          onHardDeletePreview={(f) => deleteImpact.mutateAsync(f.id)}
+          hardDeleteName={(f) => f.name ?? "esta categoría"}
+          onHardDelete={(f) =>
+            hardDelete.mutate(f.id, {
+              onSuccess: () => toast.success("Categoría eliminada definitivamente"),
+              onError: (e: Error) => toast.error(e.message),
+            })
+          }
+        />
+      </div>
+
+      <ServiciosDeCategoria
+        categoria={panel}
+        categorias={flat}
+        servicios={todosLosServicios}
+        areas={areas}
+        puedeEditar={canEdit}
+        onClose={() => setAbierta(null)}
       />
 
       <EntityDrawer
@@ -399,6 +482,6 @@ export function CategoriasAdminPage() {
           />
         </Field>
       </EntityDrawer>
-    </>
+    </div>
   );
 }

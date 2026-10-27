@@ -141,6 +141,8 @@ type Props<T> = {
 
   /** Contenido opcional a renderizar arriba del título, dentro del contenedor con padding. */
   avisoSuperior?: ReactNode;
+  /** Lo que va pegado debajo del buscador, como filtros que lo acompañan. */
+  bajoElBuscador?: ReactNode;
 
   /** Secciones colapsables, en el orden en que se muestran. Omitir las dos
    *  props deja la tabla plana, que es como la usan el resto de las pantallas.
@@ -182,6 +184,7 @@ export function ResourceManager<T>({
   sinAcciones,
   onRowClick,
   avisoSuperior,
+  bajoElBuscador,
   groups,
   groupOf,
 }: Props<T>) {
@@ -455,6 +458,8 @@ export function ResourceManager<T>({
           ))}
         </div>
       </div>
+
+      {bajoElBuscador}
 
       {error && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
