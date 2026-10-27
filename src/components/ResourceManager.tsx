@@ -133,6 +133,9 @@ type Props<T> = {
 
   /** Acciones extra por fila (ej. "Mantenimientos"), antes de Editar/Archivar. */
   rowActions?: (row: T) => ReactNode;
+  /** Filas que se muestran pero no se tocan: sin ningún botón de acción. Las
+   *  usa Categorías para listar los servicios de cada categoría. */
+  sinAcciones?: (row: T) => boolean;
   /** Click en la fila (opcional). Los botones de acciones hacen stopPropagation. */
   onRowClick?: (row: T) => void;
 
@@ -176,6 +179,7 @@ export function ResourceManager<T>({
   onHardDelete,
   hardDeleteName,
   rowActions,
+  sinAcciones,
   onRowClick,
   avisoSuperior,
   groups,
@@ -340,47 +344,49 @@ export function ResourceManager<T>({
             }`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-end gap-1">
-              {rowActions && rowActions(row)}
-              {onEdit && !archived && (
-                <button
-                  onClick={() => onEdit(row)}
-                  title="Editar"
-                  className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-primary"
-                >
-                  <Pencil size={16} />
-                </button>
-              )}
-              {canArchive && !archived && onArchive && (
-                <button
-                  onClick={() => setToArchive(row)}
-                  title="Archivar"
-                  className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700"
-                >
-                  <Archive size={16} />
-                </button>
-              )}
-              {canArchive && archived && onRestore && (
-                <button
-                  onClick={() => onRestore(row)}
-                  title="Restaurar"
-                  aria-label="Restaurar"
-                  className={`${ACCION_RECUPERAR} p-1.5`}
-                >
-                  <RotateCcw size={16} />
-                </button>
-              )}
-              {puedeEliminar(row) && onHardDeletePreview && onHardDelete && (
-                <button
-                  onClick={() => startHardDelete(row)}
-                  disabled={previewingHardDelete && hardDeleteRow === row}
-                  title="Eliminar definitivamente"
-                  className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700 disabled:opacity-50"
-                >
-                  <Trash size={16} />
-                </button>
-              )}
-            </div>
+            {!sinAcciones?.(row) && (
+              <div className="flex justify-end gap-1">
+                {rowActions && rowActions(row)}
+                {onEdit && !archived && (
+                  <button
+                    onClick={() => onEdit(row)}
+                    title="Editar"
+                    className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-primary"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                )}
+                {canArchive && !archived && onArchive && (
+                  <button
+                    onClick={() => setToArchive(row)}
+                    title="Archivar"
+                    className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700"
+                  >
+                    <Archive size={16} />
+                  </button>
+                )}
+                {canArchive && archived && onRestore && (
+                  <button
+                    onClick={() => onRestore(row)}
+                    title="Restaurar"
+                    aria-label="Restaurar"
+                    className={`${ACCION_RECUPERAR} p-1.5`}
+                  >
+                    <RotateCcw size={16} />
+                  </button>
+                )}
+                {puedeEliminar(row) && onHardDeletePreview && onHardDelete && (
+                  <button
+                    onClick={() => startHardDelete(row)}
+                    disabled={previewingHardDelete && hardDeleteRow === row}
+                    title="Eliminar definitivamente"
+                    className="rounded p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-red-700 disabled:opacity-50"
+                  >
+                    <Trash size={16} />
+                  </button>
+                )}
+              </div>
+            )}
           </td>
         )}
       </tr>

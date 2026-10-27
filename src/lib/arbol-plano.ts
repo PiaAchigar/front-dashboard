@@ -75,3 +75,26 @@ export function filasVisibles<T extends FilaPlana>(
     return true;
   });
 }
+
+/**
+ * Las filas elegidas más todos sus antepasados, en el orden original.
+ *
+ * Es lo que necesita un filtro sobre un árbol: una hoja encontrada sin su
+ * camino aparece suelta, con la sangría de su profundidad y sin decir de
+ * dónde cuelga.
+ */
+export function conAncestros<T extends FilaPlana>(
+  filas: readonly T[],
+  elegidas: ReadonlySet<string>,
+): T[] {
+  const padreDe = new Map(filas.map((f) => [f.id, f.parentId]));
+  const quedan = new Set<string>();
+  for (const id of elegidas) {
+    let actual: string | null = id;
+    while (actual !== null && !quedan.has(actual) && padreDe.has(actual)) {
+      quedan.add(actual);
+      actual = padreDe.get(actual) ?? null;
+    }
+  }
+  return filas.filter((f) => quedan.has(f.id));
+}

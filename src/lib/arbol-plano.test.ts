@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contarDescendientes, filasVisibles, idsConHijas } from "./arbol-plano";
+import { conAncestros, contarDescendientes, filasVisibles, idsConHijas } from "./arbol-plano";
 
 const f = (id: string, parentId: string | null = null) => ({ id, parentId });
 
@@ -130,5 +130,35 @@ describe("contarDescendientes — el número de la rama plegada", () => {
 
   it("un ciclo no cuelga", () => {
     expect(() => contarDescendientes([f("a", "b"), f("b", "a")])).not.toThrow();
+  });
+});
+
+describe("conAncestros", () => {
+  it("una hoja trae todo su camino, en el orden del árbol", () => {
+    expect(ids(conAncestros(ARBOL, new Set(["acne"])))).toEqual([
+      "medicos",
+      "derma",
+      "clinica",
+      "consulta",
+      "inflamatorias",
+      "acne",
+    ]);
+  });
+
+  it("no repite los antepasados compartidos", () => {
+    expect(ids(conAncestros(ARBOL, new Set(["acne", "facial"])))).toEqual([
+      "medicos",
+      "derma",
+      "clinica",
+      "consulta",
+      "inflamatorias",
+      "acne",
+      "estetica",
+      "facial",
+    ]);
+  });
+
+  it("nada elegido, nada", () => {
+    expect(conAncestros(ARBOL, new Set())).toEqual([]);
   });
 });

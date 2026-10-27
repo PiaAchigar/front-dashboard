@@ -376,3 +376,23 @@ describe("ResourceManager — la tabla no esconde las acciones", () => {
     expect(cols(container)[0]!.style.width).toBe("200px");
   });
 });
+
+describe("ResourceManager — filas sin acciones", () => {
+  it("`sinAcciones` deja la fila a la vista pero sin ningún botón", () => {
+    render(
+      <ResourceManager
+        {...base({
+          onEdit: vi.fn(),
+          canArchive: true,
+          onArchive: vi.fn(),
+          sinAcciones: (r) => r.id === "2",
+        })}
+      />,
+    );
+
+    const fila = (nombre: string) => screen.getByText(nombre).closest("tr")!;
+    expect(within(fila("Brazos")).queryAllByRole("button")).toHaveLength(0);
+    expect(within(fila("Axila")).getByTitle("Editar")).toBeTruthy();
+    expect(within(fila("Axila")).getByTitle("Archivar")).toBeTruthy();
+  });
+});
