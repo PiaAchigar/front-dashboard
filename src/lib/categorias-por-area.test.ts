@@ -54,8 +54,28 @@ const ids = (fs: { id: string }[]) => fs.map((f) => f.id);
 const comoObjeto = (m: ReadonlyMap<string, number> | undefined) => Object.fromEntries(m ?? []);
 
 describe("areasDelArbol", () => {
-  it("son las raíces de kind area, en el orden del árbol", () => {
-    expect(AREAS.map((a) => a.name)).toEqual(["Actividades", "Estética", "Medicina"]);
+  it("son las raíces de kind area; las que no tienen pestaña van al final", () => {
+    // "Medicina" a secas no es el nombre de ninguna pestaña.
+    expect(AREAS.map((a) => a.name)).toEqual(["Estética", "Actividades", "Medicina"]);
+  });
+
+  it("van en el orden de las pestañas de Administración, no en el del árbol", () => {
+    const cats = [
+      "Actividades",
+      "Capacitaciones",
+      "Depilación Definitiva",
+      "Estética",
+      "Masajes y Bienestar",
+      "Medicina y Dermatología",
+    ].map((n) => cat(n, null, "area"));
+    expect(areasDelArbol(cats).map((a) => a.name)).toEqual([
+      "Depilación Definitiva",
+      "Estética",
+      "Medicina y Dermatología",
+      "Masajes y Bienestar",
+      "Actividades",
+      "Capacitaciones",
+    ]);
   });
 });
 

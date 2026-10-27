@@ -52,9 +52,31 @@ export type Resultado =
 
 const esRaizDeArea = (c: CategoriaPlana) => c.kind === "area" && c.parentId === null;
 
-/** Las áreas son las raíces de kind "area", en el orden del árbol. */
+/**
+ * El orden de las pestañas de Administración (`PESTANAS` en admin-nav), para
+ * que las pastillas se lean igual que las solapas de arriba (pedido de Pia,
+ * 2026-10-27). Un área nueva que no esté acá va al final.
+ */
+const ORDEN_DE_AREAS = [
+  "Depilación Definitiva",
+  "Estética",
+  "Medicina y Dermatología",
+  "Masajes y Bienestar",
+  "Actividades",
+  "Capacitaciones",
+];
+
+function lugar(nombre: string): number {
+  const i = ORDEN_DE_AREAS.indexOf(nombre);
+  return i < 0 ? ORDEN_DE_AREAS.length : i;
+}
+
+/** Las áreas son las raíces de kind "area", en el orden de las pestañas. */
 export function areasDelArbol(cats: readonly CategoriaPlana[]): Area[] {
-  return cats.filter(esRaizDeArea).map((c) => ({ id: c.id, name: c.name ?? "—" }));
+  return cats
+    .filter(esRaizDeArea)
+    .map((c) => ({ id: c.id, name: c.name ?? "—" }))
+    .sort((a, b) => lugar(a.name) - lugar(b.name));
 }
 
 function areaIdsDe(s: ServicioConCategorias, areas: readonly Area[]): string[] {
