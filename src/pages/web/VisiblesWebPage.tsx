@@ -4,6 +4,7 @@ import { Search } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
 import { useServicesAdmin, useUpdateServiceAdmin } from "../../hooks/useServicesAdmin";
 import { useTrainingsAdmin, useUpdateTrainingWeb } from "../../hooks/useTrainingsWeb";
+import { useActividadesWeb, useUpdateActividadWeb } from "../../hooks/useActividadesWeb";
 
 export function VisiblesWebPage() {
   const toast = useToast();
@@ -13,6 +14,8 @@ export function VisiblesWebPage() {
   const { data: trainings = [], isLoading: loadingTrainings } = useTrainingsAdmin();
   const updateService = useUpdateServiceAdmin();
   const updateTraining = useUpdateTrainingWeb();
+  const { data: actividades = [], isLoading: loadingActividades } = useActividadesWeb();
+  const updateActividad = useUpdateActividadWeb();
 
   const q = search.trim().toLowerCase();
   const filteredServices = useMemo(
@@ -22,6 +25,10 @@ export function VisiblesWebPage() {
   const filteredTrainings = useMemo(
     () => (q ? trainings.filter((t) => (t.name ?? "").toLowerCase().includes(q)) : trainings),
     [trainings, q],
+  );
+  const filteredActividades = useMemo(
+    () => (q ? actividades.filter((a) => (a.name ?? "").toLowerCase().includes(q)) : actividades),
+    [actividades, q],
   );
 
   return (
@@ -36,7 +43,7 @@ export function VisiblesWebPage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar servicio o capacitación…"
+            placeholder="Buscar servicio, capacitación o actividad…"
             className="w-full rounded-lg border border-surface-highest bg-white py-2 pl-9 pr-3 text-sm text-ink outline-none focus:border-primary"
           />
         </div>
@@ -78,6 +85,27 @@ export function VisiblesWebPage() {
               {
                 onSuccess: () =>
                   toast.success(visible ? "Capacitación visible" : "Capacitación oculta"),
+                onError: (e: Error) => toast.error(e.message),
+              },
+            )
+          }
+        />
+
+        <Section
+          title="Actividades"
+          subtitle="Aparecen en la sección de actividades de la web pública. Ocultarla no la saca de la agenda."
+          loading={loadingActividades}
+          rows={filteredActividades.map((a) => ({
+            id: a.id,
+            name: a.name ?? "—",
+            visible: a.isVisibleWeb,
+          }))}
+          busy={updateActividad.isPending}
+          onToggle={(id, visible) =>
+            updateActividad.mutate(
+              { id, isVisibleWeb: visible },
+              {
+                onSuccess: () => toast.success(visible ? "Actividad visible" : "Actividad oculta"),
                 onError: (e: Error) => toast.error(e.message),
               },
             )
