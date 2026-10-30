@@ -104,6 +104,8 @@ type Props<T> = {
    * dos filas más.
    */
   slotAcciones?: HTMLElement | null;
+  /** Botones extra al lado de Agregar (y por el mismo portal si hay `slotAcciones`). */
+  accionesExtra?: ReactNode;
   /**
    * La tabla crece a lo que necesite en vez de scrollear adentro de su caja.
    *
@@ -170,6 +172,7 @@ export function ResourceManager<T>({
   canArchive = false,
   onAdd,
   slotAcciones = null,
+  accionesExtra = null,
   alturaLibre = false,
   onEdit,
   onArchive,
@@ -396,7 +399,7 @@ export function ResourceManager<T>({
     );
   }
 
-  const botonAgregar = canCreate && onAdd && (
+  const agregar = canCreate && onAdd && (
     <button
       onClick={onAdd}
       className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
@@ -405,6 +408,13 @@ export function ResourceManager<T>({
       Agregar
     </button>
   );
+  const botonAgregar =
+    agregar || accionesExtra ? (
+      <div className="flex flex-wrap items-center gap-2">
+        {accionesExtra}
+        {agregar}
+      </div>
+    ) : null;
 
   return (
     <div

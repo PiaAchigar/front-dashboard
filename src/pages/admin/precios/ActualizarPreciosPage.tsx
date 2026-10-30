@@ -17,6 +17,7 @@ import { AREAS } from "../../../lib/admin-nav";
 import type { CategoryNode } from "../../../lib/api-types";
 import { money } from "../../../lib/money";
 import { SelectorDeRama } from "./SelectorDeRama";
+import { AyudaActualizarPrecios, BotonAyuda } from "./AyudaActualizarPrecios";
 
 /** Área (eje "area") por id, buscando en todo el árbol. */
 function buscarArea(nodos: CategoryNode[], id: string): CategoryNode | null {
@@ -54,6 +55,8 @@ export function ActualizarPreciosPage() {
   // Las que Laura destildó a mano. Se vacía al cambiar de categoría: otra rama, otras filas.
   const [destildadas, setDestildadas] = useState<Set<string>>(new Set());
   const [confirmando, setConfirmando] = useState(false);
+  // La ayuda ocupa el lugar de la pantalla; el estado de abajo queda cargado.
+  const [ayuda, setAyuda] = useState(false);
 
   const valor = Number(valorTxt.replace(",", "."));
   const valorOk =
@@ -152,10 +155,12 @@ export function ActualizarPreciosPage() {
     <div className="mx-auto max-w-4xl space-y-6 p-4">
       <div className="flex items-center gap-2">
         <h1 className="font-display text-2xl text-ink">Actualizar precios</h1>
-        {/* Lugar del botón (?) de ayuda: lo monta la Task 5. */}
-        <div data-slot="ayuda-precios" />
+        <BotonAyuda abierta={ayuda} onClick={() => setAyuda((a) => !a)} />
       </div>
 
+      {ayuda && <AyudaActualizarPrecios onVolver={() => setAyuda(false)} />}
+
+      <div className={ayuda ? "hidden" : "space-y-6"}>
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-ink">1. ¿Qué servicios?</h2>
         <SelectorDeRama arbol={arbol} valor={categoryId} onChange={cambiarCategoria} />
@@ -281,6 +286,7 @@ export function ActualizarPreciosPage() {
         >
           Aplicar a {plural(aAplicar.length, "servicio", "servicios")}
         </button>
+      </div>
       </div>
 
       <ConfirmDialog

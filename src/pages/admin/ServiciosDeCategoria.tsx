@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { EntityDrawer } from "../../components/EntityDrawer";
 import { SelectorDeAreas } from "../../components/PastillasDeArea";
 import { useToast } from "../../components/ui/Toast";
@@ -80,6 +81,14 @@ export function ServiciosDeCategoria({
               ? "Tocá un área para sumar o sacar el servicio de ella. Se guarda al instante."
               : "Las áreas pintadas son en las que está cada servicio."}
           </p>
+          {puedeEditar && (
+            <Link
+              to={`/admin/servicios/actualizar-precios?categoria=${encodeURIComponent(categoria.id)}`}
+              className="inline-block text-sm font-medium text-primary-dark underline underline-offset-2 hover:text-primary"
+            >
+              Actualizar precios de esta categoría
+            </Link>
+          )}
           {grupos.map((g) => (
             <section key={g.categoria.id} className="space-y-1">
               {g.camino && <h4 className="text-sm font-semibold text-ink">{g.camino}</h4>}

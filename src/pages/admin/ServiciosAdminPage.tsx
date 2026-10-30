@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { money } from "../../lib/money";
 import { filtrarServicios } from "../../lib/filtrar-servicios";
 import {
@@ -611,6 +612,16 @@ export function ServiciosAdminPage({
       <ResourceManager<Service>
         title={soloSinArea ? "Sin clasificar" : (area ?? "Servicios")}
         slotAcciones={contextoDeArea?.slotAcciones ?? null}
+        accionesExtra={
+          !area && !soloSinArea && canEdit ? (
+            <Link
+              to="/admin/servicios/actualizar-precios"
+              className="inline-flex items-center rounded-full border border-surface-highest bg-white px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface-high"
+            >
+              Actualizar precios
+            </Link>
+          ) : null
+        }
         alturaLibre={!!contextoDeArea}
         rows={rows}
         columns={columns}
