@@ -21,6 +21,7 @@ const nodo = (id: string, name: string, children: unknown[] = [], kind = "tecnic
   id, name, description: null, displayOrder: 0, isActive: true, kind, children,
 });
 const ARBOL = [
+  nodo("a-estetica", "Estética", [], "area"),
   nodo("c-facial", "Facial", [nodo("c-limpieza", "Limpieza"), nodo("c-peeling", "Peeling")]),
   nodo("c-corporal", "Corporal"),
 ];
@@ -191,5 +192,65 @@ describe("ActualizarPreciosPage", () => {
   it("muestra el texto fijo de lista y efectivo", () => {
     montar();
     expect(screen.getByText("Cambia el precio de lista y el precio en efectivo.")).toBeInTheDocument();
+  });
+
+  it("con ?categoria=<área> o un id que no existe, arranca sin categoría y no simula", async () => {
+    for (const id of ["a-estetica", "no-existe"]) {
+      fetchMock.mockClear();
+      const { unmount } = montar(`/admin/servicios/actualizar-precios?categoria=${id}`);
+      await screen.findByRole("option", { name: "Facial" });
+      escribirValor();
+      expect(screen.getByLabelText("Categoría")).toHaveDisplayValue("Elegí una categoría");
+      await new Promise((r) => setTimeout(r, 400));
+      expect(llamadas("/precios/simular")).toHaveLength(0);
+      expect(screen.getByRole("button", { name: /Aplicar a/ })).toBeDisabled();
+      unmount();
+    }
+  });
+
+  it("en $, '1.000' se lee como 1000 y '1.500' como 1500", async () => {
+    montar("/admin/servicios/actualizar-precios?categoria=c-facial");
+    fireEvent.change(screen.getByLabelText("Tipo"), { target: { value: "monto" } });
+    escribirValor("1.000");
+    fireEvent.click(await screen.findByRole("button", { name: "Aplicar a 2 servicios" }));
+    expect(screen.getByText(/suben \$\s?1\.000,/)).toBeInTheDocument();
+    expect(JSON.parse(String((llamadas("/precios/simular")[0][1] as RequestInit).body)).ajuste.valor).toBe(1000);
+  });
+
+  it("valor inválido: muestra el motivo debajo del campo", async () => {
+    montar("/admin/servicios/actualizar-precios?categoria=c-facial");
+    escribirValor("0");
+    expect(screen.getByText("El valor tiene que ser mayor que 0.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Tipo"), { target: { value: "monto" } });
+    escribirValor("500,5");
+    expect(screen.getByText("El monto va en pesos enteros, sin centavos.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Tipo"), { target: { value: "porcentaje" } });
+    fireEvent.change(screen.getByLabelText("Acción"), { target: { value: "bajar" } });
+    escribirValor("100");
+    expect(screen.getByText("Al bajar, el % tiene que ser menor que 100.")).toBeInTheDocument();
+    escribirValor("");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("el aviso manda los packs a /packs y los combos a /combos, y nombra los dos tipos", async () => {
+    simulacion = {
+      ...simulacion,
+      combos: [
+        { id: "k1", nombre: "Combo uno", areaId: "a-estetica", kind: "combo" },
+        { id: "k2", nombre: "Pack dos", areaId: "a-estetica", kind: "pack" },
+      ],
+    };
+    montar("/admin/servicios/actualizar-precios?categoria=c-facial");
+    escribirValor();
+    expect(await screen.findByText(/Estos 2 combos y packs incluyen/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Combo uno" })).toHaveAttribute("href", "/admin/estetica/combos");
+    expect(screen.getByRole("link", { name: "Pack dos" })).toHaveAttribute("href", "/admin/estetica/packs");
+  });
+
+  it("el aviso con un solo pack dice 'Este pack incluye'", async () => {
+    simulacion = { ...simulacion, combos: [{ id: "k2", nombre: "Pack dos", areaId: null, kind: "pack" }] };
+    montar("/admin/servicios/actualizar-precios?categoria=c-facial");
+    escribirValor();
+    expect(await screen.findByText(/Este pack incluye/)).toBeInTheDocument();
   });
 });

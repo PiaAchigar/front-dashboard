@@ -5,7 +5,7 @@ import type { CategoryNode } from "../../../lib/api-types";
 const hijas = (n: CategoryNode) => n.children.filter((c) => c.kind !== "area");
 
 /** Camino de la raíz hasta `id` (incluido), o [] si no está en el árbol. */
-function camino(nodos: CategoryNode[], id: string): CategoryNode[] {
+export function camino(nodos: CategoryNode[], id: string): CategoryNode[] {
   for (const n of nodos) {
     if (n.id === id) return [n];
     const sub = camino(hijas(n), id);

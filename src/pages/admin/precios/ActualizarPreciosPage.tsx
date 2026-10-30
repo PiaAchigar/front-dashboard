@@ -16,7 +16,7 @@ import { ApiError } from "../../../lib/api-client";
 import { AREAS } from "../../../lib/admin-nav";
 import type { CategoryNode } from "../../../lib/api-types";
 import { money } from "../../../lib/money";
-import { SelectorDeRama } from "./SelectorDeRama";
+import { SelectorDeRama, camino } from "./SelectorDeRama";
 import { AyudaActualizarPrecios, BotonAyuda } from "./AyudaActualizarPrecios";
 
 /** Área (eje "area") por id, buscando en todo el árbol. */
@@ -38,6 +38,15 @@ function useDebounced<T>(valor: T, ms: number): T {
   return v;
 }
 
+/** "Estos 3 combos y packs incluyen" / "Este pack incluye", según lo que haya. */
+function textoAviso(cs: { kind: "combo" | "pack" }[]): string {
+  const nCombos = cs.filter((c) => c.kind === "combo").length;
+  const nPacks = cs.length - nCombos;
+  const cosa =
+    nCombos > 0 && nPacks > 0 ? "combos y packs" : nPacks > 0 ? (nPacks === 1 ? "pack" : "packs") : nCombos === 1 ? "combo" : "combos";
+  return cs.length === 1 ? `Este ${cosa} incluye` : `Estos ${cs.length} ${cosa} incluyen`;
+}
+
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
 export function ActualizarPreciosPage() {
@@ -47,7 +56,16 @@ export function ActualizarPreciosPage() {
   const [params] = useSearchParams();
   const { data: arbol = [] } = useCategoriesAdmin(false);
 
-  const [categoryId, setCategoryId] = useState<string | null>(params.get("categoria"));
+  const [categoriaPedida, setCategoryId] = useState<string | null>(params.get("categoria"));
+  // Sólo vale una categoría que el selector pueda mostrar (árbol sin áreas): un área o un id
+  // que no existe se descarta, y hasta que el árbol cargue no hay categoría.
+  const categoryId = useMemo(
+    () =>
+      categoriaPedida && camino(arbol.filter((c) => c.kind !== "area"), categoriaPedida).length > 0
+        ? categoriaPedida
+        : null,
+    [categoriaPedida, arbol],
+  );
   const [direccion, setDireccion] = useState<Ajuste["direccion"]>("subir");
   const [modo, setModo] = useState<Ajuste["modo"]>("porcentaje");
   const [valorTxt, setValorTxt] = useState("");
@@ -58,12 +76,19 @@ export function ActualizarPreciosPage() {
   // La ayuda ocupa el lugar de la pantalla; el estado de abajo queda cargado.
   const [ayuda, setAyuda] = useState(false);
 
-  const valor = Number(valorTxt.replace(",", "."));
-  const valorOk =
-    valorTxt.trim() !== "" &&
-    Number.isFinite(valor) &&
-    valor > 0 &&
-    (modo === "porcentaje" ? direccion === "subir" || valor < 100 : Number.isInteger(valor));
+  // En $ el punto es de miles ("1.000" = 1000); en % el punto o la coma son decimales.
+  const valor = Number(modo === "monto" ? valorTxt.replace(/\./g, "").replace(",", ".") : valorTxt.replace(",", "."));
+  const motivoInvalido = (): string | null => {
+    if (valorTxt.trim() === "") return null;
+    if (!Number.isFinite(valor)) return "Escribí solo números.";
+    if (valor <= 0) return "El valor tiene que ser mayor que 0.";
+    if (modo === "porcentaje") {
+      return direccion === "bajar" && valor >= 100 ? "Al bajar, el % tiene que ser menor que 100." : null;
+    }
+    return Number.isInteger(valor) ? null : "El monto va en pesos enteros, sin centavos.";
+  };
+  const errorValor = motivoInvalido();
+  const valorOk = valorTxt.trim() !== "" && errorValor === null;
   const ajuste: Ajuste | null = valorOk ? { direccion, modo, valor, redondeo } : null;
 
   // Se recalcula mientras escribe, pero sin disparar una consulta por tecla.
@@ -100,11 +125,11 @@ export function ActualizarPreciosPage() {
       return s;
     });
 
-  const linkDeCombo = (areaId: string | null) => {
+  const linkDeCombo = (areaId: string | null, kind: "combo" | "pack") => {
     if (!areaId) return null;
     const nombre = buscarArea(arbol, areaId)?.name;
     const area = AREAS.find((a) => a.categoria === nombre);
-    return area ? `/admin/${area.path}/combos` : null;
+    return area ? `/admin/${area.path}/${kind === "pack" ? "packs" : "combos"}` : null;
   };
 
   // El resumen sale de la MISMA entrada que viaja en el body de aplicar.
@@ -201,6 +226,7 @@ export function ActualizarPreciosPage() {
             </Select>
           </Field>
         </div>
+        {errorValor && <p role="alert" className="text-sm text-red-700">{errorValor}</p>}
         <p className="text-sm text-ink-soft">Cambia el precio de lista y el precio en efectivo.</p>
       </section>
 
@@ -260,11 +286,11 @@ export function ActualizarPreciosPage() {
             {combos.length > 0 && (
               <div className="rounded-xl bg-amber-50 p-3 text-sm text-ink">
                 <p>
-                  Estos {combos.length} combos incluyen servicios que cambian de precio y no se actualizan solos:
+                  {textoAviso(combos)} servicios que cambian de precio y no se actualizan solos:
                 </p>
                 <ul className="mt-1 list-disc pl-5">
                   {combos.map((c) => {
-                    const href = linkDeCombo(c.areaId);
+                    const href = linkDeCombo(c.areaId, c.kind);
                     return (
                       <li key={c.id}>
                         {href ? <Link to={href} className="underline">{c.nombre}</Link> : c.nombre}

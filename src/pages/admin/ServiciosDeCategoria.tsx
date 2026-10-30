@@ -81,7 +81,8 @@ export function ServiciosDeCategoria({
               ? "Tocá un área para sumar o sacar el servicio de ella. Se guarda al instante."
               : "Las áreas pintadas son en las que está cada servicio."}
           </p>
-          {puedeEditar && (
+          {/* Las áreas no se ajustan de un saque: el selector de la pantalla no las ofrece. */}
+          {puedeEditar && categoria.kind !== "area" && (
             <Link
               to={`/admin/servicios/actualizar-precios?categoria=${encodeURIComponent(categoria.id)}`}
               className="inline-block text-sm font-medium text-primary-dark underline underline-offset-2 hover:text-primary"

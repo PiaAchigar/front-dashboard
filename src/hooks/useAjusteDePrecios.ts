@@ -24,7 +24,7 @@ export type FilaSimulada = {
   estado: EstadoFila;
 };
 
-export type ComboAfectado = { id: string; nombre: string; areaId: string | null };
+export type ComboAfectado = { id: string; nombre: string; areaId: string | null; kind: "combo" | "pack" };
 
 export type Simulacion = { servicios: FilaSimulada[]; combos: ComboAfectado[] };
 
