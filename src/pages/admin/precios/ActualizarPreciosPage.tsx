@@ -169,14 +169,20 @@ export function ActualizarPreciosPage() {
 
   if (!canEdit) {
     return (
-      <div className="mx-auto max-w-4xl p-4">
-        <h1 className="font-display text-2xl text-ink">Actualizar precios</h1>
-        <p className="mt-3 text-sm text-ink-soft">No tenés permiso para actualizar precios.</p>
+      <div className="modal-scroll h-full overflow-y-auto">
+        <div className="mx-auto max-w-4xl p-4">
+          <h1 className="font-display text-2xl text-ink">Actualizar precios</h1>
+          <p className="mt-3 text-sm text-ink-soft">No tenés permiso para actualizar precios.</p>
+        </div>
       </div>
     );
   }
 
+  // El scroll es de la pantalla entera, con el estilo de las demás: con
+  // muchos servicios, o con la ayuda abierta, la página es más alta que el
+  // layout (que no scrollea solo).
   return (
+    <div className="modal-scroll h-full overflow-y-auto">
     <div className="mx-auto max-w-4xl space-y-6 p-4">
       <div className="flex items-center gap-2">
         <h1 className="font-display text-2xl text-ink">Actualizar precios</h1>
@@ -324,6 +330,7 @@ export function ActualizarPreciosPage() {
         onConfirm={confirmar}
         onCancel={() => setConfirmando(false)}
       />
+    </div>
     </div>
   );
 }

@@ -81,6 +81,16 @@ const llamadas = (frag: string) => fetchMock.mock.calls.filter(([u]) => String(u
 const cuerpoAplicar = () => JSON.parse(String((llamadas("/precios/aplicar")[0][1] as RequestInit).body));
 
 describe("ActualizarPreciosPage", () => {
+  it("la pantalla scrollea entera, con el scroll de la casa (lista larga y ayuda abierta)", async () => {
+    // Pia (2026-10-30): con muchos servicios, o con la ayuda desplegada, no se
+    // podía bajar. El contenedor que scrollea es el mismo de las otras pantallas.
+    montar();
+    const titulo = await screen.findByRole("heading", { name: "Actualizar precios" });
+    const contenedor = titulo.closest(".modal-scroll");
+    expect(contenedor).not.toBeNull();
+    expect(contenedor).toHaveClass("h-full", "overflow-y-auto");
+  });
+
   it("con ?categoria=<hija> arranca con padre e hija elegidos y muestra la vista previa", async () => {
     montar("/admin/servicios/actualizar-precios?categoria=c-peeling");
     expect(await screen.findByDisplayValue("Facial")).toBeInTheDocument();
