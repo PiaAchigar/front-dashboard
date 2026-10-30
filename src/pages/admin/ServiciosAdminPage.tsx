@@ -1,3 +1,4 @@
+import { money } from "../../lib/money";
 import { filtrarServicios } from "../../lib/filtrar-servicios";
 import {
   forwardRef,
@@ -313,8 +314,6 @@ const EMPTY: Form = {
   specialAttentionNotes: "",
 };
 
-const money = (n: number | null) =>
-  n != null ? `$${n.toLocaleString("es-AR")}` : "—";
 const num = (s: string) => (s.trim() === "" ? null : Number(s));
 
 /**

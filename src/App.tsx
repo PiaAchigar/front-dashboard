@@ -13,6 +13,7 @@ import { ToastProvider } from "./components/ui/Toast";
 import { AdminLayout } from "./pages/admin/AdminLayout";
 import { CategoriasAdminPage } from "./pages/admin/CategoriasAdminPage";
 import { ServiciosAdminPage } from "./pages/admin/ServiciosAdminPage";
+import { ActualizarPreciosPage } from "./pages/admin/precios/ActualizarPreciosPage";
 import { AREAS } from "./lib/admin-nav";
 import { ProveedorasAdminPage } from "./pages/admin/ProveedorasAdminPage";
 import { InsumosAdminPage } from "./pages/admin/InsumosAdminPage";
@@ -67,6 +68,7 @@ export default function App() {
                     element={<UltimaSolapa seccion="/admin" porDefecto="/admin/promos" />}
                   />
                   <Route path="servicios" element={<ServiciosAdminPage />} />
+                  <Route path="servicios/actualizar-precios" element={<ActualizarPreciosPage />} />
                   <Route
                     path="sin-clasificar"
                     element={<ServiciosAdminPage soloSinArea />}
