@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useAuth } from "../../../auth/AuthContext";
+import { can, type Role } from "../../../lib/permissions";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { Field, TextInput, Select } from "../../../components/form";
 import { useToast } from "../../../components/ui/Toast";
@@ -39,6 +41,8 @@ const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno
 
 export function ActualizarPreciosPage() {
   const toast = useToast();
+  const { role } = useAuth();
+  const canEdit = can(role as Role | null, "catalogo", "edit");
   const [params] = useSearchParams();
   const { data: arbol = [] } = useCategoriesAdmin(false);
 
@@ -67,7 +71,9 @@ export function ActualizarPreciosPage() {
   );
   const entrada = useDebounced(entradaViva, 300);
 
-  const sim = useSimularAjuste(entrada);
+  const sim = useSimularAjuste(canEdit ? entrada : null);
+  // Mientras la entrada viva no alcanzó a la debounced (o la simulación carga) la vista previa es vieja.
+  const vistaAlDia = entradaViva === entrada && !sim.isFetching;
   const aplicar = useAplicarAjuste();
 
   const filas: FilaSimulada[] = sim.data?.servicios ?? [];
@@ -98,11 +104,13 @@ export function ActualizarPreciosPage() {
     return area ? `/admin/${area.path}/combos` : null;
   };
 
+  // El resumen sale de la MISMA entrada que viaja en el body de aplicar.
   const resumen = () => {
     const n = aAplicar.length;
-    const cuanto = modo === "porcentaje" ? `${valor}%` : money(valor);
-    const redo = redondeo === 1 ? "sin redondeo" : `redondeado a ${money(redondeo)}`;
-    const verbo = direccion === "subir" ? (n === 1 ? "sube" : "suben") : n === 1 ? "baja" : "bajan";
+    const a = entrada!.ajuste;
+    const cuanto = a.modo === "porcentaje" ? `${String(a.valor).replace(".", ",")}%` : money(a.valor);
+    const redo = a.redondeo === 1 ? "sin redondeo" : `redondeado a ${money(a.redondeo)}`;
+    const verbo = a.direccion === "subir" ? (n === 1 ? "sube" : "suben") : n === 1 ? "baja" : "bajan";
     return `${plural(n, "servicio", "servicios")} ${verbo} ${cuanto}, ${redo}. Cambia el precio de lista y el de efectivo.`;
   };
 
@@ -130,6 +138,15 @@ export function ActualizarPreciosPage() {
       },
     );
   };
+
+  if (!canEdit) {
+    return (
+      <div className="mx-auto max-w-4xl p-4">
+        <h1 className="font-display text-2xl text-ink">Actualizar precios</h1>
+        <p className="mt-3 text-sm text-ink-soft">No tenés permiso para actualizar precios.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4">
@@ -259,7 +276,7 @@ export function ActualizarPreciosPage() {
       <div className="sticky bottom-0 flex justify-end bg-surface py-3">
         <button
           onClick={() => setConfirmando(true)}
-          disabled={!sim.data || aAplicar.length === 0 || hayInvalida || aplicar.isPending}
+          disabled={!vistaAlDia || !sim.data || aAplicar.length === 0 || hayInvalida || aplicar.isPending}
           className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
         >
           Aplicar a {plural(aAplicar.length, "servicio", "servicios")}
@@ -269,7 +286,7 @@ export function ActualizarPreciosPage() {
       <ConfirmDialog
         open={confirmando}
         title="Confirmar el cambio de precios"
-        message={resumen()}
+        message={entrada ? resumen() : ""}
         confirmLabel="Aplicar"
         busy={aplicar.isPending}
         onConfirm={confirmar}

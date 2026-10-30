@@ -6,9 +6,10 @@ import type { ReactNode } from "react";
 import { ActualizarPreciosPage } from "./ActualizarPreciosPage";
 import { ToastProvider } from "../../../components/ui/Toast";
 
+let rol = "admin";
 vi.mock("../../../auth/AuthContext", () => ({
   useAuth: () => ({
-    role: "admin",
+    role: rol,
     session: { access_token: "test-token" },
     user: null,
     loading: false,
@@ -32,17 +33,23 @@ const fila = (id: string, nombre: string, estado: string, antes = 1000, despues 
   efectivoDespues: estado === "sin_precio" ? null : despues - 100,
 });
 
+let simulacionPor: ((categoryId: string) => typeof simulacion) | null = null;
 let simulacion: { servicios: ReturnType<typeof fila>[]; combos: unknown[] };
 let respuestaAplicar: { ok: boolean; status: number; body: unknown };
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  rol = "admin";
+  simulacionPor = null;
   simulacion = { servicios: [fila("s1", "Limpieza profunda", "cambia"), fila("s2", "Limpieza express", "cambia")], combos: [] };
   respuestaAplicar = { ok: true, status: 200, body: { ajusteId: "a1", aplicados: 2 } };
-  fetchMock = vi.fn(async (url: RequestInfo | URL) => {
+  fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     const u = String(url);
     if (u.includes("/api/agenda/categories")) return { ok: true, status: 200, json: async () => ARBOL };
-    if (u.includes("/precios/simular")) return { ok: true, status: 200, json: async () => simulacion };
+    if (u.includes("/precios/simular")) {
+      const cat = JSON.parse(String((init as RequestInit).body)).categoryId;
+      return { ok: true, status: 200, json: async () => (simulacionPor ? simulacionPor(cat) : simulacion) };
+    }
     if (u.includes("/precios/aplicar"))
       return { ok: respuestaAplicar.ok, status: respuestaAplicar.status, json: async () => respuestaAplicar.body };
     return { ok: true, status: 200, json: async () => ({}) };
@@ -100,14 +107,52 @@ describe("ActualizarPreciosPage", () => {
     expect(cuerpoAplicar().servicios).toEqual([{ id: "s1", listaVista: 1000, efectivoVista: 900 }]);
   });
 
-  it("cambiar de categoría después de destildar deja todas las filas nuevas tildadas", async () => {
+  it("cambiar de categoría después de destildar deja las filas nuevas tildadas y aplica solo esas", async () => {
+    simulacionPor = (cat) =>
+      cat === "c-limpieza"
+        ? { servicios: [fila("n1", "Nueva uno", "cambia"), fila("n2", "Nueva dos", "cambia")], combos: [] }
+        : simulacion;
     montar("/admin/servicios/actualizar-precios?categoria=c-facial");
     escribirValor();
     fireEvent.click(await screen.findByLabelText("Incluir Limpieza express"));
-    expect(screen.getByRole("button", { name: "Aplicar a 1 servicio" })).toBeInTheDocument();
     fireEvent.change(await screen.findByLabelText("Subcategoría 1"), { target: { value: "c-limpieza" } });
-    expect(await screen.findByRole("button", { name: "Aplicar a 2 servicios" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Incluir Limpieza express")).toBeChecked();
+    expect(await screen.findByText("Nueva uno")).toBeInTheDocument();
+    expect(screen.queryByText("Limpieza profunda")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Incluir Nueva uno")).toBeChecked();
+    expect(screen.getByLabelText("Incluir Nueva dos")).toBeChecked();
+    fireEvent.click(await screen.findByRole("button", { name: "Aplicar a 2 servicios" }));
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    await vi.waitFor(() => expect(llamadas("/precios/aplicar")).toHaveLength(1));
+    const body = cuerpoAplicar();
+    expect(body.categoryId).toBe("c-limpieza");
+    expect(body.servicios.map((x: { id: string }) => x.id).sort()).toEqual(["n1", "n2"]);
+  });
+
+  it("mientras la entrada viva no alcanzó a la debounced, Aplicar está deshabilitado", async () => {
+    montar("/admin/servicios/actualizar-precios?categoria=c-facial");
+    escribirValor("10");
+    const boton = await screen.findByRole("button", { name: "Aplicar a 2 servicios" });
+    expect(boton).toBeEnabled();
+    escribirValor("5");
+    expect(screen.getByRole("button", { name: /Aplicar a/ })).toBeDisabled();
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: /Aplicar a/ })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: /Aplicar a/ }));
+    expect(screen.getByText(/suben 5%/)).toBeInTheDocument();
+  });
+
+  it("sin permiso de edición no simula ni deja aplicar", async () => {
+    rol = "sales";
+    montar("/admin/servicios/actualizar-precios?categoria=c-facial");
+    expect(await screen.findByText("No tenés permiso para actualizar precios.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Valor")).not.toBeInTheDocument();
+    expect(llamadas("/precios/simular")).toHaveLength(0);
+  });
+
+  it("el resumen muestra el porcentaje con coma decimal", async () => {
+    montar("/admin/servicios/actualizar-precios?categoria=c-facial");
+    escribirValor("10.5");
+    fireEvent.click(await screen.findByRole("button", { name: "Aplicar a 2 servicios" }));
+    expect(screen.getByText(/suben 10,5%/)).toBeInTheDocument();
   });
 
   it("una fila inválida tildada deshabilita Aplicar; sin_precio no se puede tildar", async () => {
