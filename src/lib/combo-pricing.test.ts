@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { computeComboFinalPrice, computeComboSubtotal, precioDeServicio } from "./combo-pricing";
+import {
+  computeComboFinalPrice,
+  computeComboSubtotal,
+  precioDeServicio,
+  precioDeServicioEfectivo,
+  razonSiNoEsMenor,
+} from "./combo-pricing";
 
 describe("computeComboSubtotal", () => {
   it("multiplica el precio de cada servicio por sus sesiones", () => {
@@ -76,5 +82,22 @@ describe("precioDeServicio", () => {
 
   it("no devuelve NaN ante un valor no numérico", () => {
     expect(precioDeServicio("no es un precio", null)).toBe(0);
+  });
+});
+
+describe("precioDeServicioEfectivo", () => {
+  it("prefiere el efectivo y cae a la lista", () => {
+    expect(precioDeServicioEfectivo(10000, 8000)).toBe(8000);
+    expect(precioDeServicioEfectivo(10000, null)).toBe(10000);
+    expect(precioDeServicioEfectivo(null, null)).toBe(0);
+  });
+});
+
+describe("razonSiNoEsMenor", () => {
+  it("razonSiNoEsMenor: 88000 vs 88000 da el mensaje; 79000 vs 88000 da null", () => {
+    expect(razonSiNoEsMenor(88000, 88000)).toBe(
+      "El precio final ($88.000) tiene que ser menor que la suma de lo que incluye ($88.000).",
+    );
+    expect(razonSiNoEsMenor(79000, 88000)).toBeNull();
   });
 });

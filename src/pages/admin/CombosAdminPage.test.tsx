@@ -70,7 +70,7 @@ const COMBO_GUARDADO = {
   priceType: "percentage",
   fixedPrice: null,
   discountPercentage: 10,
-  validityMonths: 6,
+  validityWeeks: 26,
   isActive: true,
   isVisibleWeb: true,
   displayOrder: 0,
@@ -388,7 +388,7 @@ describe("CombosAdminPage — el aviso de duplicados", () => {
       "Facial Completo",
     );
     await user.type(
-      within(dialog).getByLabelText(/porcentaje|precio del combo/i),
+      within(dialog).getByLabelText(/porcentaje|precio de lista/i),
       "10",
     );
     await user.click(within(dialog).getByRole("button", { name: /guardar/i }));
@@ -419,7 +419,7 @@ describe("CombosAdminPage — el aviso de duplicados", () => {
       "Facial Completo",
     );
     await user.type(
-      within(dialog).getByLabelText(/porcentaje|precio del combo/i),
+      within(dialog).getByLabelText(/porcentaje|precio de lista/i),
       "10",
     );
     await user.click(within(dialog).getByRole("button", { name: /guardar/i }));
@@ -441,7 +441,7 @@ describe("CombosAdminPage — el aviso de duplicados", () => {
       "Facial Completo",
     );
     await user.type(
-      within(dialog).getByLabelText(/porcentaje|precio del combo/i),
+      within(dialog).getByLabelText(/porcentaje|precio de lista/i),
       "10",
     );
     await user.click(within(dialog).getByRole("button", { name: /guardar/i }));
@@ -480,7 +480,7 @@ describe("CombosAdminPage — por qué no se puede guardar", () => {
     );
 
     expect(
-      await screen.findByText(/falta el precio del combo/i),
+      await screen.findByText(/falta el precio de lista/i),
     ).toBeInTheDocument();
   });
 
@@ -493,8 +493,8 @@ describe("CombosAdminPage — por qué no se puede guardar", () => {
       "Facial Completo",
     );
     await user.type(
-      within(dialog).getByLabelText(/precio del combo/i),
-      "250000",
+      within(dialog).getByLabelText(/precio de lista/i),
+      "30000",
     );
 
     await waitFor(() =>
@@ -643,14 +643,68 @@ describe("CombosAdminPage — servicio sin proveedora", () => {
     expect(await within(dialog).findAllByText(aviso)).toHaveLength(2);
     await user.type(within(dialog).getByLabelText(/nombre/i), "Facial dúo");
     await user.type(
-      within(dialog).getByLabelText(/precio del combo/i),
-      "250000",
+      within(dialog).getByLabelText(/precio de lista/i),
+      "30000",
     );
 
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: /^guardar$/i }),
       ).not.toBeDisabled(),
+    );
+  });
+});
+
+describe("CombosAdminPage — efectivo, a mano y siempre menor", () => {
+  it("combo a mano envía fixedPrice y fixedPriceCash", async () => {
+    const enviados: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", makeFetchMock({ enviados }));
+    const user = userEvent.setup();
+    render(<CombosAdminPage area="Estética" />, { wrapper });
+    const dialog = await armarComboDeDos(user);
+
+    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial dúo");
+    await user.selectOptions(within(dialog).getByLabelText(/tipo de precio/i), "fixed");
+    await user.type(within(dialog).getByLabelText(/precio de lista/i), "30000");
+    await user.type(within(dialog).getByLabelText(/precio en efectivo/i), "27000");
+    await user.type(within(dialog).getByLabelText("Semanas para usarlo"), "{backspace}{backspace}8");
+    await user.click(within(dialog).getByRole("button", { name: /guardar/i }));
+
+    await waitFor(() => expect(enviados.length).toBeGreaterThan(0));
+    const cuerpo = enviados.find((b) => "fixedPrice" in b)!;
+    expect(cuerpo).toMatchObject({
+      priceType: "fixed",
+      fixedPrice: 30000,
+      fixedPriceCash: 27000,
+      validityWeeks: 8,
+    });
+    expect(cuerpo).not.toHaveProperty("validityMonths");
+  });
+
+  it("combo a mano igual a la suma muestra el aviso y deshabilita Guardar", async () => {
+    const user = userEvent.setup();
+    render(<CombosAdminPage area="Estética" />, { wrapper });
+    const dialog = await armarComboDeDos(user);
+
+    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial dúo");
+    await user.type(within(dialog).getByLabelText(/precio de lista/i), "35000");
+
+    expect(
+      await within(dialog).findByText(
+        "El precio final ($35.000) tiene que ser menor que la suma de lo que incluye ($35.000).",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /^guardar$/i })).toBeDisabled();
+  });
+
+  it("calculado solo muestra lista y efectivo como resultado", async () => {
+    const user = userEvent.setup();
+    render(<CombosAdminPage area="Estética" />, { wrapper });
+    const dialog = await armarComboDeDos(user);
+    await user.selectOptions(within(dialog).getByLabelText(/tipo de precio/i), "percentage");
+    await user.type(within(dialog).getByLabelText(/porcentaje/i), "10");
+    expect(within(dialog).getByTestId("precio-combo")).toHaveTextContent(
+      "Lista $31.500 · Efectivo $31.500",
     );
   });
 });
@@ -670,7 +724,7 @@ describe("CombosAdminPage — días entre sesiones", () => {
     ).toBeInTheDocument();
     await user.type(within(dialog).getByLabelText(/nombre/i), "Facial Completo");
     await user.type(
-      within(dialog).getByLabelText(/porcentaje|precio del combo/i),
+      within(dialog).getByLabelText(/porcentaje|precio de lista/i),
       "10",
     );
     await user.type(within(dialog).getByLabelText(/días entre sesiones/i), "15");
@@ -689,7 +743,7 @@ describe("CombosAdminPage — días entre sesiones", () => {
 
     await user.type(within(dialog).getByLabelText(/nombre/i), "Facial Completo");
     await user.type(
-      within(dialog).getByLabelText(/porcentaje|precio del combo/i),
+      within(dialog).getByLabelText(/porcentaje|precio de lista/i),
       "10",
     );
     await user.click(within(dialog).getByRole("button", { name: /guardar/i }));

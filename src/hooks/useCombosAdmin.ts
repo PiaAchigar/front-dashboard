@@ -16,8 +16,11 @@ export type ComboInput = {
   description?: string | null;
   priceType: "fixed" | "percentage";
   fixedPrice?: number | null;
+  /** Precio en efectivo a mano. `null` = sin precio de efectivo propio. */
+  fixedPriceCash?: number | null;
   discountPercentage?: number | null;
-  validityMonths: number;
+  /** Semanas de plazo desde la compra. `null` = no vence. */
+  validityWeeks: number | null;
   /** 1.61.0 — Mandarlo SIEMPRE (valor o null): si no viaja, la API lo borra. */
   sessionIntervalDays?: number | null;
   isVisibleWeb?: boolean | null;

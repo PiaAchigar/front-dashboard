@@ -233,8 +233,8 @@ export type ComboDepilacionInput = {
   packSessions?: number | null;
   packDiscountPercentage?: number | null;
   packRoundingBase?: number | null;
-  /** 1.56.0 — Meses de vigencia del pack. `null` = no vence. */
-  validityMonths?: number | null;
+  /** Semanas de plazo del pack. `null` = no vence. */
+  validityWeeks?: number | null;
   /** 1.61.0 — Días entre sesiones del pack. `null` = usa el de la config global.
    *  Mandarlo SIEMPRE: si no viaja, la API lo borra. */
   sessionIntervalDays?: number | null;

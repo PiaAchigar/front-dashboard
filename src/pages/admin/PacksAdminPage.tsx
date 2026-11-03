@@ -8,6 +8,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { can, type Role } from "../../lib/permissions";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
+import { CampoDePlazo } from "../../components/CampoDePlazo";
 import { Field, Select, TextArea, TextInput } from "../../components/form";
 import { useToast } from "../../components/ui/Toast";
 import { useAreas } from "../../hooks/useAreas";
@@ -30,6 +31,12 @@ import {
 } from "../../hooks/useCombosAdmin";
 import type { ComboAdmin, TarifarioDeArea } from "../../lib/api-types";
 import { listar } from "../../lib/listar";
+import { precioPack } from "../../lib/pack-pricing";
+import {
+  precioDeServicio,
+  precioDeServicioEfectivo,
+  razonSiNoEsMenor,
+} from "../../lib/combo-pricing";
 
 const money = (n: number | null | undefined) =>
   n == null ? "—" : `$${n.toLocaleString("es-AR")}`;
@@ -181,7 +188,13 @@ type Form = {
   /** Vacío = usa el descuento del área. */
   descuentoPropio: string;
   redondeoPropio: string;
-  validityMonths: string;
+  validityWeeks: string;
+  /** Cómo se fija el precio: con un % de descuento, o a mano (lista y efectivo). */
+  modoPrecio: "porcentaje" | "a_mano";
+  /** Sólo "a mano": el precio final de TODO el pack. */
+  precioLista: string;
+  /** Sólo "a mano": vacío = en efectivo se cobra la lista. */
+  precioEfectivo: string;
   /** "" = sin cargar, usa el de la config (1.61.0). */
   sessionIntervalDays: string;
   isVisibleWeb: boolean;
@@ -197,7 +210,10 @@ const EMPTY: Form = {
   packSessions: "",
   descuentoPropio: "",
   redondeoPropio: "",
-  validityMonths: "12",
+  validityWeeks: "52",
+  modoPrecio: "porcentaje",
+  precioLista: "",
+  precioEfectivo: "",
   sessionIntervalDays: "",
   isVisibleWeb: true,
   displayOrder: "0",
@@ -304,14 +320,26 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
       key: "unitario",
       header: "Por unidad",
       width: 120,
-      render: (p) => <span className="text-ink-soft">{money(p.packUnitAmount)}</span>,
+      render: (p) =>
+        p.packDiscountSource === "a_mano" ? (
+          <span className="text-ink-soft">—</span>
+        ) : (
+          <div className="leading-tight text-ink-soft">
+            {money(p.packUnitAmount)}
+            {p.packUnitAmountCash != null && (
+              <span className="block text-xs">Efectivo {money(p.packUnitAmountCash)}</span>
+            )}
+          </div>
+        ),
     },
     {
       key: "descuento",
       header: "Descuento",
       width: 130,
       render: (p) =>
-        p.packEffectiveDiscount == null ? (
+        p.packDiscountSource === "a_mano" ? (
+          <span className="text-ink-soft">A mano</span>
+        ) : p.packEffectiveDiscount == null ? (
           <span className="text-ink-soft">—</span>
         ) : (
           <span className="text-ink-soft">
@@ -325,8 +353,27 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
     {
       key: "final",
       header: "Precio del pack",
-      width: 140,
-      render: (p) => <span className="font-medium text-ink">{money(p.finalAmount)}</span>,
+      width: 160,
+      render: (p) => (
+        <div className="leading-tight">
+          <span className="font-medium text-ink">{money(p.finalAmount)}</span>
+          {p.finalAmountCash != null && (
+            <span className="block text-xs text-ink-soft">
+              Efectivo {money(p.finalAmountCash)}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "plazo",
+      header: "Plazo",
+      width: 100,
+      render: (p) => (
+        <span className="text-ink-soft">
+          {p.validityWeeks != null ? `${p.validityWeeks} semanas` : "—"}
+        </span>
+      ),
     },
   ];
 
@@ -354,7 +401,10 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
       packSessions: p.packSessions != null ? String(p.packSessions) : "",
       descuentoPropio: p.packDiscountPercentage != null ? String(p.packDiscountPercentage) : "",
       redondeoPropio: p.packRoundingBase != null ? String(p.packRoundingBase) : "",
-      validityMonths: p.validityMonths != null ? String(p.validityMonths) : "12",
+      validityWeeks: p.validityWeeks != null ? String(p.validityWeeks) : "52",
+      modoPrecio: p.priceType === "fixed" ? "a_mano" : "porcentaje",
+      precioLista: p.priceType === "fixed" && p.fixedPrice != null ? String(p.fixedPrice) : "",
+      precioEfectivo: p.fixedPriceCash != null ? String(p.fixedPriceCash) : "",
       sessionIntervalDays: diasAForm(p.sessionIntervalDays),
       isVisibleWeb: p.isVisibleWeb ?? true,
       displayOrder: p.displayOrder != null ? String(p.displayOrder) : "0",
@@ -368,16 +418,21 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
   const tieneDescuentoPropio =
     form.descuentoPropio.trim() !== "" || form.redondeoPropio.trim() !== "";
 
+  const aMano = form.modoPrecio === "a_mano";
+
   function buildPayload(): ComboInput {
     return {
       name: form.name.trim(),
       description: form.description.trim() || null,
       // El precio del pack sale de repetir lo que apunta; el descuento de
       // combo se deja en cero para no encadenar dos rebajas.
-      priceType: "percentage",
-      discountPercentage: 0,
-      fixedPrice: null,
-      validityMonths: Number(form.validityMonths) || 0,
+      // "A mano": priceType 'fixed' con el precio de TODO el pack y sin
+      // descuento ni redondeo (la API los exige en null).
+      priceType: aMano ? "fixed" : "percentage",
+      discountPercentage: aMano ? null : 0,
+      fixedPrice: aMano && form.precioLista.trim() !== "" ? Number(form.precioLista) : null,
+      fixedPriceCash: aMano && form.precioEfectivo.trim() !== "" ? Number(form.precioEfectivo) : null,
+      validityWeeks: Number(form.validityWeeks) || null,
       // Siempre viaja (valor o null): la API borra el campo si no viene.
       sessionIntervalDays: parseDiasEntreSesiones(form.sessionIntervalDays) ?? null,
       isVisibleWeb: form.isVisibleWeb,
@@ -386,8 +441,9 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
       kind: "pack",
       packOfComboId: form.repite === "combo" ? form.comboId || null : null,
       packSessions: Number(form.packSessions) || null,
-      packDiscountPercentage: tieneDescuentoPropio ? Number(form.descuentoPropio) || 0 : null,
-      packRoundingBase: tieneDescuentoPropio ? Number(form.redondeoPropio) || 1 : null,
+      packDiscountPercentage:
+        !aMano && tieneDescuentoPropio ? Number(form.descuentoPropio) || 0 : null,
+      packRoundingBase: !aMano && tieneDescuentoPropio ? Number(form.redondeoPropio) || 1 : null,
       // Un pack de un combo no lleva renglones propios; uno de un servicio
       // suelto lleva exactamente uno.
       lines: form.repite === "servicio" && form.serviceId ? [{ serviceId: form.serviceId }] : [],
@@ -426,14 +482,74 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
   if (!eligioQueRepetir) {
     faltantes.push(form.repite === "combo" ? "el combo que repite" : "el servicio que repite");
   }
+  if (aMano && form.precioLista.trim() === "") faltantes.push("el precio final de lista");
   if (Number(form.packSessions) < 2) faltantes.push("cuántas veces se repite (al menos 2)");
-  if (Number(form.validityMonths) < 1) faltantes.push("la vigencia");
+  if (!(Number(form.validityWeeks) >= 1)) faltantes.push("las semanas para usarlo");
   if (parseDiasEntreSesiones(form.sessionIntervalDays) === undefined) {
     faltantes.push("los días entre sesiones (un entero mayor a cero, o vacío)");
   }
   if (!areaCategoryId) faltantes.push("el área");
 
-  const puedeGuardar = faltantes.length === 0;
+  // Vista previa: lo que repite, por unidad, en lista y en efectivo. Un combo
+  // aporta su precio final (ya con su descuento); un servicio suelto, su precio.
+  const sesiones = Number(form.packSessions) || 0;
+  const combo = combosDelArea.find((c) => c.id === form.comboId);
+  const servicio = services.find((sv) => sv.id === form.serviceId);
+  const unidadLista =
+    form.repite === "combo"
+      ? (combo?.finalAmount ?? 0)
+      : servicio
+        ? precioDeServicio(servicio.unitPriceList, servicio.unitPriceCash)
+        : 0;
+  const unidadEfectivo =
+    form.repite === "combo"
+      ? (combo?.finalAmountCash ?? combo?.finalAmount ?? 0)
+      : servicio
+        ? precioDeServicioEfectivo(servicio.unitPriceList, servicio.unitPriceCash)
+        : 0;
+  const sumaLista = unidadLista * sesiones;
+  const sumaEfectivo = unidadEfectivo * sesiones;
+
+  // Con % : misma fórmula que la API (el propio del pack, o el del área). Sin
+  // tarifario ni descuento propio no hay precio calculado: no se inventa uno.
+  const descuentoVigente = tieneDescuentoPropio
+    ? { d: Number(form.descuentoPropio) || 0, r: Number(form.redondeoPropio) || 1 }
+    : tarifario
+      ? { d: tarifario.packDiscountPercentage, r: tarifario.packRoundingBase }
+      : null;
+  const calcular = (unidad: number) =>
+    descuentoVigente
+      ? precioPack(
+          unidad,
+          { packSesiones: sesiones, packDescuentoPct: descuentoVigente.d, packRedondeo: descuentoVigente.r },
+        )
+      : null;
+  const finalLista = aMano
+    ? form.precioLista.trim() === ""
+      ? null
+      : Number(form.precioLista)
+    : sesiones > 0 && unidadLista > 0
+      ? calcular(unidadLista)
+      : null;
+  const finalEfectivo = aMano
+    ? form.precioEfectivo.trim() === ""
+      ? finalLista
+      : Number(form.precioEfectivo)
+    : sesiones > 0 && unidadEfectivo > 0
+      ? calcular(unidadEfectivo)
+      : null;
+
+  // "Siempre menor": se avisa antes de guardar, sobre el precio de la vista
+  // previa. El efectivo sólo cuenta si se cargó a mano, igual que en la API.
+  const razonNoMenor =
+    finalLista != null && sumaLista > 0
+      ? (razonSiNoEsMenor(finalLista, sumaLista) ??
+        (aMano && form.precioEfectivo.trim() !== "" && sumaEfectivo > 0
+          ? razonSiNoEsMenor(Number(form.precioEfectivo), sumaEfectivo)
+          : null))
+      : null;
+
+  const puedeGuardar = faltantes.length === 0 && !razonNoMenor;
 
   return (
     <>
@@ -606,7 +722,43 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
         </div>
 
         <div className="space-y-3 rounded-xl border border-surface-high p-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">Descuento</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">Precio</p>
+          <Field label="Cómo se fija el precio *">
+            <Select
+              value={form.modoPrecio}
+              onChange={(e) =>
+                setForm({ ...form, modoPrecio: e.target.value as Form["modoPrecio"] })
+              }
+            >
+              <option value="porcentaje">Con % de descuento</option>
+              <option value="a_mano">A mano</option>
+            </Select>
+          </Field>
+          {aMano && (
+            <div className="flex gap-3">
+              <Field label="Precio final de lista *" help="Lo que cuesta TODO el pack, no cada sesión.">
+                <TextInput
+                  inputMode="numeric"
+                  value={form.precioLista}
+                  onChange={(e) => setForm({ ...form, precioLista: e.target.value })}
+                  placeholder={sumaLista > 0 ? String(sumaLista) : ""}
+                />
+              </Field>
+              <Field
+                label="Precio final en efectivo"
+                help="Si lo dejás vacío, en efectivo se cobra el precio de lista."
+              >
+                <TextInput
+                  inputMode="numeric"
+                  value={form.precioEfectivo}
+                  onChange={(e) => setForm({ ...form, precioEfectivo: e.target.value })}
+                  placeholder={sumaEfectivo > 0 ? String(sumaEfectivo) : ""}
+                />
+              </Field>
+            </div>
+          )}
+          {!aMano && (
+            <>
           {tarifario ? (
             <p className="text-sm text-ink-soft">
               Sin cargar nada, este pack usa el descuento del área:{" "}
@@ -642,20 +794,34 @@ export function PacksAdminPage({ area }: { area?: string } = {}) {
                 Cargá los dos o ninguno: con uno solo no hay precio que calcular.
               </p>
             )}
+            </>
+          )}
+          <div className="flex justify-between border-t border-surface-high pt-2 text-sm">
+            <span className="text-ink-soft">Suma de lo que incluye</span>
+            <span className="text-ink" data-testid="suma-pack">
+              Lista {money(sumaLista > 0 ? sumaLista : null)} · Efectivo{" "}
+              {money(sumaEfectivo > 0 ? sumaEfectivo : null)}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="font-medium text-ink">Precio del pack</span>
+            <span className="font-semibold text-ink" data-testid="precio-pack">
+              Lista {money(finalLista)} · Efectivo {money(finalEfectivo)}
+            </span>
+          </div>
+          {razonNoMenor && (
+            <p role="alert" className="text-xs font-medium text-red-700">
+              {razonNoMenor}
+            </p>
+          )}
         </div>
 
         <div className="flex gap-3">
-          <Field
-            label="Vigencia (meses) *"
-            help="Cuántos meses tiene la clienta para usar las sesiones, desde que compra."
-          >
-            <TextInput
-              inputMode="numeric"
-              value={form.validityMonths}
-              onChange={(e) => setForm({ ...form, validityMonths: e.target.value })}
-              placeholder="12"
-            />
-          </Field>
+          <CampoDePlazo
+            valor={form.validityWeeks}
+            onChange={(v) => setForm({ ...form, validityWeeks: v })}
+            obligatorio
+          />
           <Field label="Días entre sesiones" help={AYUDA_DIAS_ENTRE_SESIONES}>
             <TextInput
               inputMode="numeric"

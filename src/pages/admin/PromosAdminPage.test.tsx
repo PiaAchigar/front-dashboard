@@ -43,7 +43,7 @@ const COMBO = {
   priceType: "percentage",
   fixedPrice: null,
   discountPercentage: 10,
-  validityMonths: 6,
+  validityWeeks: 26,
   isActive: true,
   isVisibleWeb: true,
   displayOrder: 0,

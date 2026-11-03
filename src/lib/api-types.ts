@@ -190,6 +190,8 @@ export type ComboLineAdmin = {
   serviceIsActive: boolean | null;
   sessionsIncluded: number | null;
   servicePrice: number | null;
+  /** Precio en efectivo del servicio (NULL = no tiene; cuenta como la lista). */
+  servicePriceCash?: number | null;
 };
 
 export type ComboAdmin = {
@@ -198,8 +200,11 @@ export type ComboAdmin = {
   description: string | null;
   priceType: string | null; // 'fixed' | 'percentage'
   fixedPrice: number | null;
+  /** Precio en efectivo puesto a mano. NULL = se calcula o no hay. */
+  fixedPriceCash?: number | null;
   discountPercentage: number | null;
-  validityMonths: number | null;
+  /** Plazo en semanas desde la compra. NULL = no vence. */
+  validityWeeks?: number | null;
   /** 1.61.0 — Cada cuántos días se sugiere la próxima sesión. NULL = sin cargar. */
   sessionIntervalDays?: number | null;
   isActive: boolean | null;
@@ -208,6 +213,9 @@ export type ComboAdmin = {
   servicesSubtotal: number;
   /** En un PACK es el precio del pack: repetir lo que apunta, con descuento. */
   finalAmount: number;
+  /** Sumas y precio final en efectivo (lista y efectivo conviven). */
+  servicesSubtotalCash?: number;
+  finalAmountCash?: number;
   hasInactiveService: boolean;
   lines: ComboLineAdmin[];
   // ── 1.50.0 ───────────────────────────────────────────────────────────────
@@ -223,8 +231,9 @@ export type ComboAdmin = {
   // Sólo vienen en los packs, calculados al leer:
   /** Lo que se repite, por unidad. Para mostrar "4 × $12.000". */
   packUnitAmount?: number;
+  packUnitAmountCash?: number;
   /** De dónde salió el descuento que se aplicó. */
-  packDiscountSource?: "area" | "propio";
+  packDiscountSource?: "area" | "propio" | "a_mano";
   packEffectiveDiscount?: number;
 };
 
@@ -449,9 +458,9 @@ export type ComboDepilacion = {
   packSessions: number | null;
   packDiscountPercentage: number | null;
   packRoundingBase: number | null;
-  /** 1.56.0 — Meses de vigencia del pack. NULL = no vence. Opcional para no
-   *  romper fixtures viejos que todavía no lo declaran. */
-  validityMonths?: number | null;
+  /** Semanas de plazo del pack. NULL = no vence. Opcional para no romper
+   *  fixtures viejos que todavía no lo declaran. */
+  validityWeeks?: number | null;
   /** 1.61.0 — Días entre sesiones del pack. NULL = usa el de la config global. */
   sessionIntervalDays?: number | null;
   isPublishedWeb: boolean;

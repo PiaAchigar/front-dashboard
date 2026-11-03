@@ -563,4 +563,21 @@ describe("CombosDepilacionPage", () => {
       expect(patchCalls).toHaveLength(0);
     });
   });
+
+  describe("plazo en semanas", () => {
+    it("depilación guarda validityWeeks", async () => {
+      const user = userEvent.setup();
+      render(<CombosDepilacionPage />, { wrapper });
+      const fila = (await screen.findByText("Combo con zona archivada")).closest("tr");
+      await user.click(within(fila as HTMLElement).getByTitle("Editar"));
+
+      await user.type(await screen.findByLabelText("Semanas para usarlo"), "5");
+      await user.click(await screen.findByLabelText("Rostro completo (archivada)"));
+      await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+      await waitFor(() => expect(patchCalls).toHaveLength(1));
+      expect(patchCalls[0]!.body).toMatchObject({ validityWeeks: 5 });
+      expect(patchCalls[0]!.body).not.toHaveProperty("validityMonths");
+    });
+  });
 });

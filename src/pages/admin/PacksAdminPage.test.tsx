@@ -47,7 +47,7 @@ const base = {
   priceType: "percentage",
   fixedPrice: null,
   discountPercentage: 0,
-  validityMonths: 6,
+  validityWeeks: 26,
   isActive: true,
   isVisibleWeb: true,
   displayOrder: 0,
@@ -293,6 +293,71 @@ describe("PacksAdminPage — el borrado definitivo", () => {
 
     await user.click((await screen.findAllByTitle("Eliminar definitivamente"))[0]!);
     expect(await screen.findByText(/2 promoción\(es\) que lo tienen en oferta/i)).toBeInTheDocument();
+  });
+});
+
+describe("PacksAdminPage — a mano, efectivo y siempre menor", () => {
+  async function abrirNuevoPackAMano(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole("button", { name: /^agregar$/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/nombre/i), "Facial × 4");
+    await user.selectOptions(within(dialog).getByLabelText(/^combo/i), COMBO_FACIAL);
+    await user.clear(within(dialog).getByLabelText(/cuántas veces/i));
+    await user.type(within(dialog).getByLabelText(/cuántas veces/i), "4");
+    await user.selectOptions(within(dialog).getByLabelText(/cómo se fija el precio/i), "a_mano");
+    return dialog;
+  }
+
+  it("pack a mano envía priceType fixed y descuento null", async () => {
+    const enviados: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", makeFetchMock({ enviados }));
+    const user = userEvent.setup();
+    render(<PacksAdminPage area="Estética" />, { wrapper });
+    const dialog = await abrirNuevoPackAMano(user);
+    await user.type(within(dialog).getByLabelText(/precio final de lista/i), "100000");
+    await user.type(within(dialog).getByLabelText(/precio final en efectivo/i), "90000");
+    await user.click(within(dialog).getByRole("button", { name: /guardar/i }));
+
+    await waitFor(() => expect(enviados.length).toBeGreaterThan(0));
+    expect(enviados.at(-1)).toMatchObject({
+      kind: "pack",
+      priceType: "fixed",
+      fixedPrice: 100000,
+      fixedPriceCash: 90000,
+      packDiscountPercentage: null,
+      packRoundingBase: null,
+      validityWeeks: 52,
+    });
+    expect(enviados.at(-1)).not.toHaveProperty("validityMonths");
+  });
+
+  it("a mano igual a la suma muestra el aviso y deshabilita Guardar", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", makeFetchMock());
+    render(<PacksAdminPage area="Estética" />, { wrapper });
+    const dialog = await abrirNuevoPackAMano(user);
+    await user.type(within(dialog).getByLabelText(/precio final de lista/i), "120000");
+    expect(
+      await within(dialog).findByText(
+        "El precio final ($120.000) tiene que ser menor que la suma de lo que incluye ($120.000).",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /^guardar$/i })).toBeDisabled();
+  });
+
+  it("con % muestra lista y efectivo de la vista previa", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", makeFetchMock());
+    render(<PacksAdminPage area="Estética" />, { wrapper });
+    await user.click(await screen.findByRole("button", { name: /^agregar$/i }));
+    const dialog = await screen.findByRole("dialog");
+    await user.selectOptions(within(dialog).getByLabelText(/^combo/i), COMBO_FACIAL);
+    await user.clear(within(dialog).getByLabelText(/cuántas veces/i));
+    await user.type(within(dialog).getByLabelText(/cuántas veces/i), "4");
+    // 30.000 × 4 × 0,85 = 102.000 (redondeo 1.000)
+    expect(within(dialog).getByTestId("precio-pack")).toHaveTextContent(
+      "Lista $102.000 · Efectivo $102.000",
+    );
   });
 });
 

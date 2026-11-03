@@ -9,6 +9,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { can, type Role } from "../../lib/permissions";
 import { ResourceManager, type Column } from "../../components/ResourceManager";
 import { EntityDrawer } from "../../components/EntityDrawer";
+import { CampoDePlazo } from "../../components/CampoDePlazo";
 import { Field, Select, TextArea, TextInput } from "../../components/form";
 import { Plus, Trash } from "../../components/icons";
 import { useToast } from "../../components/ui/Toast";
@@ -18,6 +19,8 @@ import {
   computeComboFinalPrice,
   computeComboSubtotal,
   precioDeServicio,
+  precioDeServicioEfectivo,
+  razonSiNoEsMenor,
 } from "../../lib/combo-pricing";
 import {
   useArchiveCombo,
@@ -62,14 +65,19 @@ type DraftLine = {
    * aunque nada haya cambiado. Este valor es el respaldo para ese caso.
    */
   servicePrice: number | null;
+  /** Ídem para el precio en efectivo del servicio. */
+  servicePriceCash: number | null;
 };
 
 type Form = {
   name: string;
   description: string;
   priceType: "fixed" | "percentage";
+  /** Lista (a mano) o porcentaje (calculado solo). */
   priceValue: string;
-  validityMonths: string;
+  /** Efectivo a mano. "" = sin precio de efectivo propio: se cobra la lista. */
+  priceCash: string;
+  validityWeeks: string;
   /** "" = sin cargar (1.61.0). */
   sessionIntervalDays: string;
   isVisibleWeb: boolean;
@@ -84,7 +92,8 @@ const EMPTY: Form = {
   description: "",
   priceType: "fixed",
   priceValue: "",
-  validityMonths: "12",
+  priceCash: "",
+  validityWeeks: "52",
   sessionIntervalDays: "",
   isVisibleWeb: true,
   displayOrder: "0",
@@ -100,6 +109,7 @@ const EMPTY_LINE: DraftLine = {
   sessionsIncluded: "",
   serviceName: null,
   servicePrice: null,
+  servicePriceCash: null,
 };
 
 /** Una fila del combo: servicio + cuántas sesiones de ese servicio incluye. */
@@ -298,6 +308,13 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
     return combos.filter((c) => (c.name ?? "").toLowerCase().includes(q));
   }, [combos, search]);
 
+  const priceCashById = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of services)
+      m.set(s.id, precioDeServicioEfectivo(s.unitPriceList, s.unitPriceCash));
+    return m;
+  }, [services]);
+
   const priceById = useMemo(() => {
     const m = new Map<string, number>();
     for (const s of services)
@@ -311,12 +328,22 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
   const precioPreview = (l: DraftLine) =>
     priceById.get(l.serviceId) ?? l.servicePrice ?? 0;
 
+  // Ídem en efectivo: el efectivo del servicio, o su lista si no tiene.
+  const precioCashPreview = (l: DraftLine) =>
+    priceCashById.get(l.serviceId) ?? l.servicePriceCash ?? l.servicePrice ?? 0;
+
   // Preview en vivo: mismo cálculo que combo-pricing.ts del backend.
   // Una sesión de cada servicio (spec §4.3): el subtotal es la suma de los
   // precios, sin multiplicar por nada.
   const subtotalPreview = computeComboSubtotal(
     form.lines.map((l) => ({
       servicePrice: precioPreview(l),
+      sessionsIncluded: 1,
+    })),
+  );
+  const subtotalCashPreview = computeComboSubtotal(
+    form.lines.map((l) => ({
+      servicePrice: precioCashPreview(l),
       sessionsIncluded: 1,
     })),
   );
@@ -328,6 +355,14 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
     form.priceType === "fixed" ? priceValue : null,
     form.priceType === "percentage" ? priceValue : null,
   );
+  // En "calculado solo" el efectivo sale con el MISMO descuento; en "a mano" es
+  // lo que se tipeó, y vacío significa que se cobra la lista.
+  const finalCashPreview =
+    form.priceType === "percentage"
+      ? computeComboFinalPrice(subtotalCashPreview, "percentage", null, priceValue)
+      : form.priceCash.trim() !== ""
+        ? Number(form.priceCash)
+        : finalPreview;
 
   const columns: Column<ComboAdmin>[] = [
     {
@@ -380,9 +415,16 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
     {
       key: "final",
       header: "Precio combo",
-      width: 130,
+      width: 150,
       render: (c) => (
-        <span className="font-medium text-ink">{money(c.finalAmount)}</span>
+        <div className="leading-tight">
+          <span className="font-medium text-ink">{money(c.finalAmount)}</span>
+          {c.finalAmountCash != null && (
+            <span className="block text-xs text-ink-soft">
+              Efectivo {money(c.finalAmountCash)}
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -391,7 +433,7 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
       width: 100,
       render: (c) => (
         <span className="text-ink-soft">
-          {c.validityMonths != null ? `${c.validityMonths} meses` : "—"}
+          {c.validityWeeks != null ? `${c.validityWeeks} semanas` : "—"}
         </span>
       ),
     },
@@ -428,8 +470,8 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
         c.priceType === "fixed"
           ? String(c.fixedPrice ?? "")
           : String(c.discountPercentage ?? ""),
-      validityMonths:
-        c.validityMonths != null ? String(c.validityMonths) : "12",
+      priceCash: c.fixedPriceCash != null ? String(c.fixedPriceCash) : "",
+      validityWeeks: c.validityWeeks != null ? String(c.validityWeeks) : "52",
       sessionIntervalDays: diasAForm(c.sessionIntervalDays),
       isVisibleWeb: c.isVisibleWeb ?? true,
       displayOrder: c.displayOrder != null ? String(c.displayOrder) : "0",
@@ -440,6 +482,7 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
           l.sessionsIncluded != null ? String(l.sessionsIncluded) : "",
         serviceName: l.serviceName ?? null,
         servicePrice: l.servicePrice ?? null,
+        servicePriceCash: l.servicePriceCash ?? null,
       })),
     });
     setFormError(null);
@@ -455,8 +498,13 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
       description: form.description.trim() || null,
       priceType: form.priceType,
       fixedPrice: form.priceType === "fixed" ? value : null,
+      // Vacío = sin efectivo propio (null explícito: así se borra al editar).
+      fixedPriceCash:
+        form.priceType === "fixed" && form.priceCash.trim() !== ""
+          ? Number(form.priceCash)
+          : null,
       discountPercentage: form.priceType === "percentage" ? value : null,
-      validityMonths: Number(form.validityMonths) || 0,
+      validityWeeks: Number(form.validityWeeks) || null,
       // Siempre viaja (valor o null): la API borra el campo si no viene.
       sessionIntervalDays: parseDiasEntreSesiones(form.sessionIntervalDays) ?? null,
       isVisibleWeb: form.isVisibleWeb,
@@ -523,16 +571,29 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
   if (form.name.trim().length < 1) faltantes.push("el nombre");
   if (form.priceValue.trim() === "") {
     faltantes.push(
-      form.priceType === "fixed" ? "el precio del combo" : "el porcentaje",
+      form.priceType === "fixed" ? "el precio de lista" : "el porcentaje",
     );
   }
-  if (Number(form.validityMonths) < 1) faltantes.push("la vigencia");
+  if (!(Number(form.validityWeeks) >= 1)) faltantes.push("las semanas para usarlo");
   if (parseDiasEntreSesiones(form.sessionIntervalDays) === undefined)
     faltantes.push("los días entre sesiones (un entero mayor a cero, o vacío)");
   if (lineasValidas < 1) faltantes.push("al menos un servicio");
   if (!areaCategoryId) faltantes.push("el área");
 
-  const puedeGuardar = faltantes.length === 0;
+  // "Siempre menor": se avisa acá y no sólo con el 400 de la API, para que se
+  // vea antes de apretar Guardar. Sin suma (servicios sin precio) no hay contra
+  // qué comparar. El efectivo sólo cuenta si se cargó a mano, igual que en la API.
+  const razonNoMenor =
+    lineasValidas > 0 && form.priceValue.trim() !== "" && subtotalPreview > 0
+      ? (razonSiNoEsMenor(finalPreview, subtotalPreview) ??
+        (form.priceType === "fixed" &&
+        form.priceCash.trim() !== "" &&
+        subtotalCashPreview > 0
+          ? razonSiNoEsMenor(Number(form.priceCash), subtotalCashPreview)
+          : null))
+      : null;
+
+  const puedeGuardar = faltantes.length === 0 && !razonNoMenor;
 
   return (
     <>
@@ -646,7 +707,7 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
         <div className="flex gap-3">
           <Field
             label="Tipo de precio *"
-            help="Precio fijo: el combo cuesta ese monto. Porcentaje: se descuenta ese % del subtotal de los servicios."
+            help="A mano: escribís vos el precio de lista y el de efectivo. Calculado solo: se descuenta ese % de la suma de los servicios, en lista y en efectivo."
           >
             <Select
               value={form.priceType}
@@ -655,16 +716,17 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
                   ...form,
                   priceType: e.target.value as Form["priceType"],
                   priceValue: "",
+                  priceCash: "",
                 })
               }
             >
-              <option value="fixed">Precio fijo ($)</option>
-              <option value="percentage">% de descuento</option>
+              <option value="percentage">Calculado solo</option>
+              <option value="fixed">A mano</option>
             </Select>
           </Field>
           <Field
             label={
-              form.priceType === "fixed" ? "Precio del combo *" : "Porcentaje *"
+              form.priceType === "fixed" ? "Precio de lista *" : "Porcentaje de descuento *"
             }
           >
             <TextInput
@@ -682,22 +744,27 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
               }
             />
           </Field>
+          {form.priceType === "fixed" && (
+            <Field
+              label="Precio en efectivo"
+              help="Si lo dejás vacío, en efectivo se cobra el precio de lista."
+            >
+              <TextInput
+                inputMode="numeric"
+                value={form.priceCash}
+                onChange={(e) => setForm({ ...form, priceCash: e.target.value })}
+                placeholder={subtotalCashPreview > 0 ? String(subtotalCashPreview) : ""}
+              />
+            </Field>
+          )}
         </div>
 
         <div className="flex gap-3">
-          <Field
-            label="Vigencia (meses) *"
-            help="Cuántos meses tiene la clienta para usar las sesiones, contados desde el día que compra el combo."
-          >
-            <TextInput
-              inputMode="numeric"
-              value={form.validityMonths}
-              onChange={(e) =>
-                setForm({ ...form, validityMonths: e.target.value })
-              }
-              placeholder="12"
-            />
-          </Field>
+          <CampoDePlazo
+            valor={form.validityWeeks}
+            onChange={(v) => setForm({ ...form, validityWeeks: v })}
+            obligatorio
+          />
           <Field
             label="Días entre sesiones"
             help={AYUDA_DIAS_ENTRE_SESIONES}
@@ -817,21 +884,21 @@ export function CombosAdminPage({ area }: { area?: string } = {}) {
           </div>
           <div className="flex justify-between text-sm">
             <span className="font-medium text-ink">Precio del combo</span>
-            <span className="font-semibold text-ink">
-              {money(finalPreview)}
+            <span className="font-semibold text-ink" data-testid="precio-combo">
+              Lista {money(finalPreview)} · Efectivo {money(finalCashPreview)}
             </span>
           </div>
+          {razonNoMenor && (
+            <p role="alert" className="text-xs font-medium text-red-700">
+              {razonNoMenor}
+            </p>
+          )}
           {finalPreview < subtotalPreview && (
             <p className="text-xs text-ink-soft">
               La clienta ahorra {money(subtotalPreview - finalPreview)}.
             </p>
           )}
-          {finalPreview > subtotalPreview && (
-            <p className="text-xs text-amber-700">
-              El combo sale más caro que los servicios sueltos. Revisá el
-              precio.
-            </p>
-          )}
+
         </div>
       </EntityDrawer>
     </>

@@ -10,6 +10,7 @@ import { can, type Role } from "../../../lib/permissions";
 import { ArmadorCombo, type ArmadorComboState } from "../../../components/depilacion/ArmadorCombo";
 import { EntityDrawer } from "../../../components/EntityDrawer";
 import { Checkbox, Field, TextArea, TextInput } from "../../../components/form";
+import { CampoDePlazo } from "../../../components/CampoDePlazo";
 import { ResourceManager, type Column } from "../../../components/ResourceManager";
 import { useContextoDeArea } from "../contexto-de-area";
 import { useToast } from "../../../components/ui/Toast";
@@ -48,8 +49,8 @@ type Form = {
   packSessions: string;
   packDiscountPercentage: string;
   packRoundingBase: string;
-  /** Meses de vigencia del pack. "" = no vence (1.56.0). */
-  validityMonths: string;
+  /** Semanas de plazo del pack. "" = no vence. */
+  validityWeeks: string;
   /** Días entre sesiones del pack. "" = sin cargar (1.61.0). */
   sessionIntervalDays: string;
 };
@@ -63,7 +64,7 @@ const EMPTY: Form = {
   packSessions: "",
   packDiscountPercentage: "",
   packRoundingBase: "",
-  validityMonths: "",
+  validityWeeks: "",
   sessionIntervalDays: "",
 };
 
@@ -218,7 +219,7 @@ export function CombosDepilacionPage() {
       packSessions: String(c.packSessions ?? c.pack.sesiones),
       packDiscountPercentage: String(c.packDiscountPercentage ?? c.pack.descuentoPct),
       packRoundingBase: String(c.packRoundingBase ?? c.pack.redondeo),
-      validityMonths: c.validityMonths != null ? String(c.validityMonths) : "",
+      validityWeeks: c.validityWeeks != null ? String(c.validityWeeks) : "",
       sessionIntervalDays: diasAForm(c.sessionIntervalDays),
     });
     setFormError(null);
@@ -279,15 +280,15 @@ export function CombosDepilacionPage() {
     }
 
     // Vacío = no vence (NULL). Cualquier otra cosa tiene que ser un entero
-    // mayor a cero: no tiene sentido un pack que vence en 0 o -3 meses.
-    let validityMonths: number | null = null;
-    if (form.validityMonths.trim() !== "") {
-      const parsed = parseEntero(form.validityMonths);
+    // mayor a cero: no tiene sentido un pack que vence en 0 o -3 semanas.
+    let validityWeeks: number | null = null;
+    if (form.validityWeeks.trim() !== "") {
+      const parsed = parseEntero(form.validityWeeks);
       if (parsed === null || parsed < 1) {
-        setFormError("La vigencia tiene que ser un número entero mayor a cero, o vacía para que no venza.");
+        setFormError("El plazo tiene que ser un número entero mayor a cero, o vacía para que no venza.");
         return;
       }
-      validityMonths = parsed;
+      validityWeeks = parsed;
     }
 
     // Vacío = sin cargar. Se manda SIEMPRE (valor o null): la API lo borra si no viaja.
@@ -308,7 +309,7 @@ export function CombosDepilacionPage() {
         kind: esPackFijo ? "pack_fijo" : "guardado",
         fixedPrice: esPackFijo ? fixedPrice : undefined,
         choiceZoneCount: esPackFijo ? editing.choiceZoneCount : 0,
-        validityMonths,
+        validityWeeks,
         sessionIntervalDays,
         ...pack,
       });
@@ -560,16 +561,13 @@ export function CombosDepilacionPage() {
         />
 
         <div>
-          <Field label="Vigencia (meses)">
-            <TextInput
-              inputMode="numeric"
-              value={form.validityMonths}
-              onChange={(e) => setForm({ ...form, validityMonths: e.target.value })}
-              placeholder="12"
-            />
-          </Field>
+          <CampoDePlazo
+            valor={form.validityWeeks}
+            onChange={(v) => setForm({ ...form, validityWeeks: v })}
+            obligatorio={false}
+          />
           <span className="mt-0.5 block text-xs text-ink-soft">
-            Cuántos meses tiene la clienta para usar las sesiones. Vacío = no vence.
+            Cuántas semanas tiene la clienta para usar las sesiones. Vacío = no vence.
           </span>
         </div>
 
