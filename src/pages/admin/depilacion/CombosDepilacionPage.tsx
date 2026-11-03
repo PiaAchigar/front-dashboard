@@ -285,7 +285,7 @@ export function CombosDepilacionPage() {
     if (form.validityWeeks.trim() !== "") {
       const parsed = parseEntero(form.validityWeeks);
       if (parsed === null || parsed < 1) {
-        setFormError("El plazo tiene que ser un número entero mayor a cero, o vacía para que no venza.");
+        setFormError("El plazo tiene que ser un número entero mayor a cero, o vacío para que no venza.");
         return;
       }
       validityWeeks = parsed;
