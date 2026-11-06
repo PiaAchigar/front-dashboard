@@ -1,8 +1,13 @@
 import type { ReactNode } from "react";
+import { X } from "./icons";
 
 /**
  * Drawer lateral derecho para alta/edición de una entidad. El cuerpo (`children`)
  * son los campos del formulario, controlados por la página consumidora.
+ *
+ * Un clic afuera NO lo cierra: un clic de más le borraba a Laura lo que venía
+ * cargando (pedido de Pia, 2026-11-06). Se sale por la X, por Cancelar o
+ * guardando.
  */
 export function EntityDrawer({
   open,
@@ -54,7 +59,7 @@ export function EntityDrawer({
 }) {
   if (!open) return null;
   return (
-    <div className="modal-scroll fixed inset-0 z-50 flex justify-end bg-ink/40" onClick={onClose}>
+    <div className="modal-scroll fixed inset-0 z-50 flex justify-end bg-ink/40">
       {/* `role="dialog"` + `aria-modal`: es un modal de verdad —tapa la pantalla
           y atrapa el click— y sin el rol un lector de pantalla lo anuncia como
           un bloque más de la página, sin decir que lo de atrás quedó inerte.
@@ -64,11 +69,21 @@ export function EntityDrawer({
         aria-modal="true"
         aria-label={title}
         className={`flex h-full w-full ${widthClass} flex-col bg-surface-low shadow-xl`}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-surface-high px-6 py-4">
           <h3 className="font-display text-xl text-ink">{title}</h3>
-          {headerAction}
+          <div className="flex shrink-0 items-center gap-2">
+            {headerAction}
+            <button
+              type="button"
+              aria-label="Cerrar"
+              onClick={onClose}
+              disabled={busy}
+              className="rounded-full p-1.5 text-ink-soft transition-colors hover:bg-surface-high hover:text-ink disabled:opacity-50"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <form

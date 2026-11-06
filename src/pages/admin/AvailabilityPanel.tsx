@@ -28,10 +28,9 @@ export function AvailabilityPanel({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-ink/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-ink/40">
       <div
         className="flex h-full w-full max-w-3xl flex-col bg-surface-low shadow-xl"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-surface-high px-6 py-4">
           <h3 className="font-display text-xl text-ink">Disponibilidad — {providerName}</h3>

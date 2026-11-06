@@ -101,12 +101,11 @@ export function CobrarCuotaModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} aria-hidden />
+      <div className="fixed inset-0 z-40 bg-black/40" aria-hidden />
       <div
         role="dialog"
         aria-label="Cobrar cuota"
         className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 space-y-4 rounded-lg bg-white p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
       >
         <div>
           <h2 className="text-lg font-semibold text-ink">Cobrar cuota</h2>

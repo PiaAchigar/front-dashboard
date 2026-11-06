@@ -98,10 +98,9 @@ export function MachineLogsDrawer({
   const saving = create.isPending || update.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-ink/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-ink/40">
       <div
         className="flex h-full w-full max-w-xl flex-col bg-surface-low shadow-xl"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 border-b border-surface-high px-6 py-4">
           <h3 className="font-display text-xl text-ink">Mantenimientos</h3>

@@ -141,7 +141,7 @@ export function SubscriptionForm({ activities, onSuccess, onClose }: Subscriptio
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} aria-hidden />
+      <div className="fixed inset-0 z-40 bg-black/40" aria-hidden />
 
       {/* Drawer */}
       <div className="fixed inset-y-0 right-0 z-50 w-full max-w-xl overflow-y-auto bg-white shadow-lg">

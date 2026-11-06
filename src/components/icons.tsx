@@ -103,6 +103,13 @@ export const LayoutGrid = (p: IconProps) => (
   </Svg>
 );
 
+export const X = (p: IconProps) => (
+  <Svg {...p}>
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </Svg>
+);
+
 export const Plus = (p: IconProps) => (
   <Svg {...p}>
     <line x1="12" y1="5" x2="12" y2="19" />
