@@ -59,6 +59,21 @@ export function useUpdateCategory() {
   });
 }
 
+/** Sitio Web → Textos → Categorías. Vacía (`null`) la web no muestra nada. */
+export function useGuardarDescripcionWeb() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, webDescription }: { id: string; webDescription: string | null }) =>
+      apiFetch(`/api/agenda/categories/${id}/descripcion-web`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ webDescription }),
+      }),
+    onSuccess: invalidate,
+  });
+}
+
 export function useArchiveCategory() {
   const { session } = useAuth();
   const token = session?.access_token ?? null;

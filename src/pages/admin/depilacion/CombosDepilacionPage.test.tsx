@@ -48,12 +48,12 @@ const CONFIG: DepilationConfig = {
 // editor.
 const ZONAS: ZonasPorCategoria = {
   grande: [
-    { id: "z1", name: "Pierna entera", category: "grande", displayOrder: 1, isActive: true, exclusions: [] },
-    { id: "z3", name: "Rostro completo", category: "grande", displayOrder: 2, isActive: false, exclusions: [] },
+    { id: "z1", name: "Pierna entera", category: "grande", displayOrder: 1, isActive: true, isVisibleWeb: true, exclusions: [] },
+    { id: "z3", name: "Rostro completo", category: "grande", displayOrder: 2, isActive: false, isVisibleWeb: true, exclusions: [] },
   ],
   mediana: [],
   chica: [
-    { id: "z2", name: "Cavado", category: "chica", displayOrder: 1, isActive: true, exclusions: [] },
+    { id: "z2", name: "Cavado", category: "chica", displayOrder: 1, isActive: true, isVisibleWeb: true, exclusions: [] },
   ],
 };
 

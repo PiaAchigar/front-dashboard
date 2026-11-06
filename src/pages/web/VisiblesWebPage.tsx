@@ -5,6 +5,7 @@ import { useToast } from "../../components/ui/Toast";
 import { useServicesAdmin, useUpdateServiceAdmin } from "../../hooks/useServicesAdmin";
 import { useTrainingsAdmin, useUpdateTrainingWeb } from "../../hooks/useTrainingsWeb";
 import { useActividadesWeb, useUpdateActividadWeb } from "../../hooks/useActividadesWeb";
+import { useZonas, useZonaVisibleEnWeb } from "../../hooks/useDepilacion";
 
 export function VisiblesWebPage() {
   const toast = useToast();
@@ -16,6 +17,8 @@ export function VisiblesWebPage() {
   const updateTraining = useUpdateTrainingWeb();
   const { data: actividades = [], isLoading: loadingActividades } = useActividadesWeb();
   const updateActividad = useUpdateActividadWeb();
+  const { data: zonasPorCategoria, isLoading: loadingZonas } = useZonas();
+  const updateZona = useZonaVisibleEnWeb();
 
   const q = search.trim().toLowerCase();
   const filteredServices = useMemo(
@@ -31,6 +34,12 @@ export function VisiblesWebPage() {
     [actividades, q],
   );
 
+  const filteredZonas = useMemo(() => {
+    const { grande = [], mediana = [], chica = [] } = zonasPorCategoria ?? {};
+    const activas = [...grande, ...mediana, ...chica].filter((z) => z.isActive);
+    return q ? activas.filter((z) => z.name.toLowerCase().includes(q)) : activas;
+  }, [zonasPorCategoria, q]);
+
   return (
     <div className="modal-scroll h-full overflow-y-auto p-2 pl-4 sm:p-4">
       <div className="mx-auto max-w-3xl space-y-8">
@@ -43,7 +52,7 @@ export function VisiblesWebPage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar servicio, capacitación o actividad…"
+            placeholder="Buscar servicio, zona, capacitación o actividad…"
             className="w-full rounded-lg border border-surface-highest bg-white py-2 pl-9 pr-3 text-sm text-ink outline-none focus:border-primary"
           />
         </div>
@@ -63,6 +72,27 @@ export function VisiblesWebPage() {
               { id, isVisible: visible },
               {
                 onSuccess: () => toast.success(visible ? "Servicio visible" : "Servicio oculto"),
+                onError: (e: Error) => toast.error(e.message),
+              },
+            )
+          }
+        />
+
+        <Section
+          title="Zonas de depilación"
+          subtitle="Aparecen en Depilación Definitiva, en la web pública. Ocultarla no impide venderla desde el CRM."
+          loading={loadingZonas}
+          rows={filteredZonas.map((z) => ({
+            id: z.id,
+            name: z.name,
+            visible: z.isVisibleWeb,
+          }))}
+          busy={updateZona.isPending}
+          onToggle={(id, visible) =>
+            updateZona.mutate(
+              { id, isVisibleWeb: visible },
+              {
+                onSuccess: () => toast.success(visible ? "Zona visible" : "Zona oculta"),
                 onError: (e: Error) => toast.error(e.message),
               },
             )

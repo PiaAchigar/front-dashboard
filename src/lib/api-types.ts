@@ -88,6 +88,8 @@ export type CategoryNode = {
   id: string;
   name: string | null;
   description: string | null;
+  /** El texto debajo del título en la web. `description` es una nota interna. */
+  webDescription?: string | null;
   displayOrder: number | null;
   isActive: boolean | null;
   /** El eje al que pertenece: area | tecnica | objetivo | maquina (migración 1.37.0). */
@@ -421,6 +423,8 @@ export type ZonaDepilacion = {
   category: ZonaCategoria;
   displayOrder: number | null;
   isActive: boolean;
+  /** Si se publica en la web. Oculta se sigue pudiendo vender en el CRM. */
+  isVisibleWeb: boolean;
   /** Ids de las zonas con las que ésta no se puede combinar. */
   exclusions: string[];
 };

@@ -18,6 +18,7 @@ export type ZonaInput = {
   name: string;
   category: ZonaCategoria;
   displayOrder: number | null;
+  isVisibleWeb?: boolean;
 };
 
 function useInvalidate() {
@@ -52,6 +53,22 @@ export function useGuardarZona() {
         token,
         { method: id ? "PATCH" : "POST", body: JSON.stringify(data) },
       ),
+    onSuccess: invalidate,
+  });
+}
+
+/** Publicar u ocultar en la web, desde Sitio Web → Visibles. */
+export function useZonaVisibleEnWeb() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
+  const invalidate = useInvalidate();
+
+  return useMutation({
+    mutationFn: ({ id, isVisibleWeb }: { id: string; isVisibleWeb: boolean }) =>
+      apiFetch<ZonaDepilacion>(`/api/agenda/depilacion/zonas/${id}/visible-web`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ isVisibleWeb }),
+      }),
     onSuccess: invalidate,
   });
 }

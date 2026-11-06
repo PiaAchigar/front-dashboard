@@ -89,7 +89,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     id: "sitio-web-visibles",
     title: "Qué se muestra en el sitio web",
-    body: "En \"Sitio Web → Visibles\" elegís qué servicios y capacitaciones aparecen en la página pública. En \"Destacados\" marcás los que se muestran resaltados (por ejemplo, promos destacadas). Un servicio puede estar activo internamente pero no visible en la web.",
+    body: "En \"Sitio Web → Visibles\" elegís qué servicios, zonas de depilación, capacitaciones y actividades aparecen en la página pública. En \"Destacados\" marcás los que se muestran resaltados (por ejemplo, promos destacadas). Un servicio puede estar activo internamente pero no visible en la web. En \"Textos → Categorías\" escribís la descripción que va debajo del título de cada categoría.",
     tags: ["sitio web", "visible", "destacado", "público", "mostrar"],
     section: "Sitio Web",
   },

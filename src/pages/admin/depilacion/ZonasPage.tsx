@@ -30,10 +30,17 @@ type Form = {
   name: string;
   category: ZonaCategoria;
   displayOrder: string;
+  isVisibleWeb: boolean;
   excludes: string[];
 };
 
-const EMPTY: Form = { name: "", category: "grande", displayOrder: "0", excludes: [] };
+const EMPTY: Form = {
+  name: "",
+  category: "grande",
+  displayOrder: "0",
+  isVisibleWeb: true,
+  excludes: [],
+};
 
 /** "" cuenta como 0. Cualquier otra cosa debe ser un entero >= 0 (sin signo,
  *  sin decimales); si no, devuelve null para que el llamador muestre el error. */
@@ -100,6 +107,7 @@ export function ZonasPage() {
       name: z.name,
       category: z.category,
       displayOrder: z.displayOrder != null ? String(z.displayOrder) : "0",
+      isVisibleWeb: z.isVisibleWeb,
       excludes: [...z.exclusions],
     });
     setFormError(null);
@@ -127,6 +135,7 @@ export function ZonasPage() {
         name: form.name.trim(),
         category: form.category,
         displayOrder,
+        isVisibleWeb: form.isVisibleWeb,
       };
       const saved = await guardarZona.mutateAsync(
         editing ? { id: editing.id, ...payload } : payload,
@@ -267,6 +276,12 @@ export function ZonasPage() {
             />
           </Field>
         </div>
+
+        <Checkbox
+          label="Visible en la web"
+          checked={form.isVisibleWeb}
+          onChange={(v) => setForm({ ...form, isVisibleWeb: v })}
+        />
 
         <div className="space-y-2 rounded-xl border border-surface-high p-3">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">

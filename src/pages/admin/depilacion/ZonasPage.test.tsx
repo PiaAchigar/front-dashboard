@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,6 +28,7 @@ const ZONAS: ZonasPorCategoria = {
       category: "grande",
       displayOrder: 1,
       isActive: true,
+      isVisibleWeb: true,
       exclusions: ["z2"],
     },
     {
@@ -36,6 +37,7 @@ const ZONAS: ZonasPorCategoria = {
       category: "grande",
       displayOrder: 2,
       isActive: true,
+      isVisibleWeb: true,
       exclusions: ["z1"],
     },
   ],
@@ -46,11 +48,12 @@ const ZONAS: ZonasPorCategoria = {
       category: "mediana",
       displayOrder: 1,
       isActive: true,
+      isVisibleWeb: true,
       exclusions: [],
     },
   ],
   chica: [
-    { id: "z4", name: "Bozo", category: "chica", displayOrder: 1, isActive: true, exclusions: [] },
+    { id: "z4", name: "Bozo", category: "chica", displayOrder: 1, isActive: true, isVisibleWeb: true, exclusions: [] },
   ],
 };
 
@@ -169,5 +172,38 @@ describe("ZonasPage", () => {
     ).toBeInTheDocument();
     // Ni POST /zonas ni PUT /exclusiones: se cortó antes de tocar la red.
     expect(fetchMock.mock.calls.length).toBe(callsAntes);
+  });
+});
+
+describe("ZonasPage — Visible en la web", () => {
+  const cuerpoDelGuardado = () => {
+    const calls = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    const guardado = calls.find(([u, init]) => {
+      const metodo = (init as RequestInit | undefined)?.method;
+      return /\/zonas(\/z\d+)?$/.test(String(u)) && (metodo === "POST" || metodo === "PATCH");
+    });
+    return JSON.parse(String((guardado![1] as RequestInit).body));
+  };
+
+  it("una zona nueva arranca tildada y se guarda visible", async () => {
+    const user = userEvent.setup();
+    render(<ZonasPage />, { wrapper });
+    await screen.findByRole("button", { name: /Grande/ });
+    await user.click(screen.getByRole("button", { name: /Nueva|Agregar/ }));
+    expect(screen.getByRole("checkbox", { name: "Visible en la web" })).toBeChecked();
+    await user.type(screen.getByLabelText(/Nombre/), "Nuca");
+    await user.click(screen.getByRole("button", { name: /^(Crear|Guardar)/ }));
+    await waitFor(() => expect(cuerpoDelGuardado().isVisibleWeb).toBe(true));
+  });
+
+  it("destildarla la guarda oculta", async () => {
+    const user = userEvent.setup();
+    render(<ZonasPage />, { wrapper });
+    await screen.findByRole("button", { name: /Grande/ });
+    await user.click(screen.getByRole("button", { name: /Nueva|Agregar/ }));
+    await user.click(screen.getByRole("checkbox", { name: "Visible en la web" }));
+    await user.type(screen.getByLabelText(/Nombre/), "Nuca");
+    await user.click(screen.getByRole("button", { name: /^(Crear|Guardar)/ }));
+    await waitFor(() => expect(cuerpoDelGuardado().isVisibleWeb).toBe(false));
   });
 });

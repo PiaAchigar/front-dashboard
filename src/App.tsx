@@ -27,7 +27,9 @@ import { DepilacionRoutes } from "./pages/admin/depilacion/DepilacionRoutes";
 import { SitioWebLayout } from "./pages/web/SitioWebLayout";
 import { VisiblesWebPage } from "./pages/web/VisiblesWebPage";
 import { DestacadosWebPage } from "./pages/web/DestacadosWebPage";
+import { TextosWebLayout } from "./pages/web/TextosWebLayout";
 import { TextosWebPage } from "./pages/web/TextosWebPage";
+import { DescripcionesCategoriasPage } from "./pages/web/DescripcionesCategoriasPage";
 import { GaleriaWebPage } from "./pages/web/GaleriaWebPage";
 import { TestimoniosWebPage } from "./pages/web/TestimoniosWebPage";
 import { FaqWebPage } from "./pages/web/FaqWebPage";
@@ -117,7 +119,12 @@ export default function App() {
                   />
                   <Route path="visibles" element={<VisiblesWebPage />} />
                   <Route path="destacados" element={<DestacadosWebPage />} />
-                  <Route path="textos" element={<TextosWebPage />} />
+                  <Route path="textos" element={<TextosWebLayout />}>
+                    {/* `textos` a secas puede estar guardada como última solapa. */}
+                    <Route index element={<Navigate to="inicio" replace />} />
+                    <Route path="inicio" element={<TextosWebPage />} />
+                    <Route path="categorias" element={<DescripcionesCategoriasPage />} />
+                  </Route>
                   <Route path="galeria" element={<GaleriaWebPage />} />
                   <Route path="testimonios" element={<TestimoniosWebPage />} />
                   <Route path="faq" element={<FaqWebPage />} />

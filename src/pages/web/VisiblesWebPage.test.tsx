@@ -24,11 +24,22 @@ const ACTIVIDADES = [
   { id: "a2", name: "Thermobike - Clase suelta/prueba", activityType: "machine", isActive: true, isVisibleWeb: false },
 ];
 
+const ZONAS = {
+  grande: [],
+  mediana: [
+    { id: "z1", name: "Axila", category: "mediana", displayOrder: 0, isActive: true, isVisibleWeb: true, exclusions: [] },
+    { id: "z2", name: "Bozo", category: "mediana", displayOrder: 0, isActive: true, isVisibleWeb: false, exclusions: [] },
+    { id: "z3", name: "Archivada", category: "mediana", displayOrder: 0, isActive: false, isVisibleWeb: true, exclusions: [] },
+  ],
+  chica: [],
+};
+
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   fetchMock = vi.fn(async (url: RequestInfo | URL) => {
     const u = String(url);
+    if (u.includes("/api/agenda/depilacion/zonas")) return { ok: true, json: async () => ZONAS };
     if (u.includes("/api/activities")) return { ok: true, json: async () => ({ success: true, data: ACTIVIDADES }) };
     if (u.includes("/api/agenda/services")) return { ok: true, json: async () => [] };
     if (u.includes("/api/agenda/trainings/admin")) return { ok: true, json: async () => [] };
@@ -68,6 +79,30 @@ describe("VisiblesWebPage — actividades", () => {
     await vi.waitFor(() => {
       const patch = fetchMock.mock.calls.find(
         ([u, init]) => String(u).endsWith("/api/activities/a1") && (init as RequestInit)?.method === "PATCH",
+      );
+      expect(patch).toBeDefined();
+      expect(JSON.parse(String((patch![1] as RequestInit).body))).toEqual({ isVisibleWeb: false });
+    });
+  });
+});
+
+describe("VisiblesWebPage — zonas de depilación", () => {
+  it("lista las zonas activas con su check, publicadas o no", async () => {
+    render(<VisiblesWebPage />, { wrapper });
+    expect(screen.getByRole("heading", { name: "Zonas de depilación" })).toBeInTheDocument();
+    expect(within(await fila("Axila")).getByRole("button", { name: "Ocultar" })).toBeInTheDocument();
+    expect(within(await fila("Bozo")).getByRole("button", { name: "Mostrar" })).toBeInTheDocument();
+    expect(screen.queryByText("Archivada")).not.toBeInTheDocument();
+  });
+
+  it("ocultar una zona llama a su PATCH de visibilidad", async () => {
+    render(<VisiblesWebPage />, { wrapper });
+    fireEvent.click(within(await fila("Axila")).getByRole("button", { name: "Ocultar" }));
+    await vi.waitFor(() => {
+      const patch = fetchMock.mock.calls.find(
+        ([u, init]) =>
+          String(u).endsWith("/api/agenda/depilacion/zonas/z1/visible-web") &&
+          (init as RequestInit)?.method === "PATCH",
       );
       expect(patch).toBeDefined();
       expect(JSON.parse(String((patch![1] as RequestInit).body))).toEqual({ isVisibleWeb: false });
