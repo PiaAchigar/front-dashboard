@@ -194,10 +194,18 @@ export async function leerLibro(archivo: File | ArrayBuffer): Promise<ResultadoL
     const c = aCelda(hojaOriginal.getCell(r, 1).value);
     if (c !== null) texto += String(c);
   }
-  let guardado: { area: string; contenido: ContenidoPlanilla };
+  let guardado: { v: number; area: string; contenido: ContenidoPlanilla };
   try {
     guardado = JSON.parse(texto);
-    if (typeof guardado?.area !== "string" || !guardado.contenido || !Array.isArray(guardado.contenido.servicios)) throw new Error();
+    const c = guardado?.contenido;
+    if (
+      guardado?.v !== 1 ||
+      typeof guardado.area !== "string" ||
+      !c ||
+      !(["servicios", "acuerdos", "insumos", "categorias"] as const).every((k) => Array.isArray(c[k]))
+    ) {
+      throw new Error();
+    }
   } catch {
     return { error: ERROR_ARCHIVO_AJENO };
   }

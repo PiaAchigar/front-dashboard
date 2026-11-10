@@ -97,6 +97,24 @@ describe("planilla-excel", () => {
     expect(r).toEqual({ error: "Este archivo no es una planilla bajada del sistema. Bajá una nueva desde el botón Descargar." });
   });
 
+  it("un _original con contenido incompleto o versión distinta da el error de archivo ajeno", async () => {
+    const MSG = { error: "Este archivo no es una planilla bajada del sistema. Bajá una nueva desde el botón Descargar." };
+    const conOriginal = async (json: unknown) => {
+      const wb = await cargar(await armarLibro(datos));
+      const h = wb.getWorksheet("_original")!;
+      h.spliceRows(1, h.rowCount);
+      h.getCell(1, 1).value = JSON.stringify(json);
+      return leerLibro(await (await aBlob(wb)).arrayBuffer());
+    };
+    for (const falta of ["servicios", "acuerdos", "insumos", "categorias"] as const) {
+      const contenido: Record<string, unknown> = { ...datos.contenido };
+      delete contenido[falta];
+      expect(await conOriginal({ v: 1, area: "Estética", generadaEn: "x", contenido })).toEqual(MSG);
+    }
+    expect(await conOriginal({ v: 2, area: "Estética", generadaEn: "x", contenido: datos.contenido })).toEqual(MSG);
+    expect(await conOriginal({ area: "Estética", generadaEn: "x", contenido: datos.contenido })).toEqual(MSG);
+  });
+
   it("avisa si falta una pestaña o una columna", async () => {
     let wb = await cargar(await armarLibro(datos));
     wb.removeWorksheet(wb.getWorksheet("Insumos")!.id);
