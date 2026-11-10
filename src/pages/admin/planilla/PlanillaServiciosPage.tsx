@@ -17,6 +17,7 @@ import {
   useDescargarPlanilla,
   usePrevisualizarPlanilla,
 } from "../../../hooks/usePlanillaServicios";
+import { AyudaPlanilla, BotonAyudaPlanilla } from "./AyudaPlanilla";
 import { textoAviso } from "../precios/ActualizarPreciosPage";
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
@@ -57,6 +58,8 @@ export function PlanillaServiciosPage({ area }: { area: AreaDeCatalogo }) {
   const [entrada, setEntrada] = useState<EntradaPlanilla | null>(null);
   const [vista, setVista] = useState<Previsualizacion | null>(null);
   const [confirmando, setConfirmando] = useState(false);
+  // La ayuda ocupa el lugar de la pantalla; lo subido queda cargado detrás.
+  const [ayuda, setAyuda] = useState(false);
 
   const volver = `/admin/${area.path}/servicios`;
 
@@ -153,7 +156,12 @@ export function PlanillaServiciosPage({ area }: { area: AreaDeCatalogo }) {
         </Link>
         <div className="flex items-center gap-2">
           <h1 className="font-display text-2xl text-ink">Planilla de servicios · {area.categoria}</h1>
+          <BotonAyudaPlanilla abierta={ayuda} onClick={() => setAyuda((a) => !a)} />
         </div>
+
+        {ayuda && <AyudaPlanilla onVolver={() => setAyuda(false)} />}
+
+        <div className={ayuda ? "hidden" : "space-y-6"}>
 
         <section className="space-y-2">
           <h2 className="text-sm font-medium text-ink">1. Descargar la planilla</h2>
@@ -314,6 +322,7 @@ export function PlanillaServiciosPage({ area }: { area: AreaDeCatalogo }) {
           >
             Guardar
           </button>
+        </div>
         </div>
 
         <ConfirmDialog
