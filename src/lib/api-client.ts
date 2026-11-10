@@ -6,10 +6,13 @@ export const GENERIC_ERROR =
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** El cuerpo completo de la respuesta de error, por si trae más que `error` (ej. `errores` de la planilla). */
+  body?: unknown;
+  constructor(status: number, message: string, body?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -69,7 +72,7 @@ export async function apiFetch<T>(
     // 5xx y errores sin mensaje propio → genérico. 4xx con mensaje nuestro (validaciones,
     // permisos, 404, 503) → mostramos ese texto, que ya está pensado para el usuario.
     const useServerMsg = Boolean(body.error) && res.status < 500;
-    throw new ApiError(res.status, useServerMsg ? textoDeError(body.error) : GENERIC_ERROR);
+    throw new ApiError(res.status, useServerMsg ? textoDeError(body.error) : GENERIC_ERROR, body);
   }
   return res.json() as Promise<T>;
 }

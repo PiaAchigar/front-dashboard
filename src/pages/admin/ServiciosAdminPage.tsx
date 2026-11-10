@@ -620,6 +620,13 @@ export function ServiciosAdminPage({
             >
               Actualizar precios
             </Link>
+          ) : area && !soloSinArea && can(r, "catalogo", "manage") && can(r, "proveedoras", "manage") ? (
+            <Link
+              to="planilla"
+              className="inline-flex items-center rounded-full border border-surface-highest bg-white px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface-high"
+            >
+              Planilla Excel
+            </Link>
           ) : null
         }
         alturaLibre={!!contextoDeArea}

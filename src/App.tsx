@@ -14,6 +14,7 @@ import { AdminLayout } from "./pages/admin/AdminLayout";
 import { CategoriasAdminPage } from "./pages/admin/CategoriasAdminPage";
 import { ServiciosAdminPage } from "./pages/admin/ServiciosAdminPage";
 import { ActualizarPreciosPage } from "./pages/admin/precios/ActualizarPreciosPage";
+import { PlanillaServiciosPage } from "./pages/admin/planilla/PlanillaServiciosPage";
 import { AREAS } from "./lib/admin-nav";
 import { ProveedorasAdminPage } from "./pages/admin/ProveedorasAdminPage";
 import { InsumosAdminPage } from "./pages/admin/InsumosAdminPage";
@@ -94,6 +95,7 @@ export default function App() {
                         path="servicios"
                         element={<ServiciosAdminPage area={a.categoria} />}
                       />
+                      <Route path="servicios/planilla" element={<PlanillaServiciosPage area={a} />} />
                       <Route path="combos" element={<CombosAdminPage area={a.categoria} />} />
                       <Route path="packs" element={<PacksAdminPage area={a.categoria} />} />
                     </Route>

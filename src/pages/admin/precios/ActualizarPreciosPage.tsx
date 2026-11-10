@@ -39,7 +39,7 @@ function useDebounced<T>(valor: T, ms: number): T {
 }
 
 /** "Estos 3 combos y packs incluyen" / "Este pack incluye", según lo que haya. */
-function textoAviso(cs: { kind: "combo" | "pack" }[]): string {
+export function textoAviso(cs: { kind: "combo" | "pack" }[]): string {
   const nCombos = cs.filter((c) => c.kind === "combo").length;
   const nPacks = cs.length - nCombos;
   const cosa =
