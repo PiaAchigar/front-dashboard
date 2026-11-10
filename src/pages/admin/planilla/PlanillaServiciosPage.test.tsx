@@ -137,7 +137,7 @@ describe("PlanillaServiciosPage", () => {
     const guardar = screen.getByRole("button", { name: "Guardar" }) as HTMLButtonElement;
     expect(guardar.disabled).toBe(false);
     fireEvent.click(guardar);
-    expect(screen.getByText(/Se van a guardar 1 cambios\. Lo que borraste de la planilla no se borra del sistema\./)).toBeTruthy();
+    expect(screen.getByText(/Se van a guardar 1 cambio\. Lo que borraste de la planilla no se borra del sistema\./)).toBeTruthy();
     expect(llamadasA("/aplicar")).toHaveLength(0);
 
     fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));

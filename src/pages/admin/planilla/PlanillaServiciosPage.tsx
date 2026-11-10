@@ -328,7 +328,7 @@ export function PlanillaServiciosPage({ area }: { area: AreaDeCatalogo }) {
         <ConfirmDialog
           open={confirmando}
           title="Guardar la planilla"
-          message={`Se van a guardar ${nCambios} cambios. Lo que borraste de la planilla no se borra del sistema.`}
+          message={`Se van a guardar ${nCambios} ${nCambios === 1 ? "cambio" : "cambios"}. Lo que borraste de la planilla no se borra del sistema.`}
           confirmLabel="Guardar cambios"
           busy={aplicar.isPending}
           onConfirm={guardar}
