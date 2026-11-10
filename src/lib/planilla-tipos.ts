@@ -56,10 +56,13 @@ export type EntradaPlanilla = { area: string; original: ContenidoPlanilla; edita
 
 export type Pestana = "Servicios" | "Proveedoras" | "Insumos" | "Categorías web" | "Archivo";
 export type ErrorDePlanilla = { pestana: Pestana; fila: number | null; mensaje: string };
+/** Igual que un error pero no frena el guardado: sólo avisa. */
+export type AvisoDePlanilla = ErrorDePlanilla;
 export type Cambio = { campo: string; antes: string; despues: string }; // `campo` = encabezado de la columna
 
 export type Previsualizacion = {
   errores: ErrorDePlanilla[];
+  avisos: AvisoDePlanilla[];
   servicios: { fila: number; id: string | null; nombre: string; tipo: "nuevo" | "modificado"; cambios: Cambio[] }[];
   acuerdos: { fila: number; servicio: string; proveedora: string; tipo: "nuevo" | "cambia"; antes: string | null; despues: string }[];
   insumos: { fila: number; servicio: string; insumo: string; tipo: "nuevo" | "cambia"; antes: number | null; despues: number }[];

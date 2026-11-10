@@ -34,7 +34,7 @@ const CONTENIDO = { servicios: [], acuerdos: [], insumos: [], categorias: [] };
 const LEIDO = { area: "Estética", original: CONTENIDO, editada: CONTENIDO };
 
 const vacia = (): Previsualizacion => ({
-  errores: [], servicios: [], acuerdos: [], insumos: [], categorias: [], combosAfectados: [],
+  errores: [], avisos: [], servicios: [], acuerdos: [], insumos: [], categorias: [], combosAfectados: [],
   resumen: { serviciosNuevos: 0, serviciosModificados: 0, acuerdos: 0, insumos: 0, categorias: 0 },
 });
 const conCambio = (): Previsualizacion => ({
@@ -144,6 +144,19 @@ describe("PlanillaServiciosPage", () => {
     await waitFor(() => expect(llamadasA("/aplicar")).toHaveLength(1));
     expect(JSON.parse(llamadasA("/aplicar")[0][2].body)).toEqual({ area: "Estética", original: CONTENIDO, editada: CONTENIDO });
     expect(await screen.findByText("Lista de servicios")).toBeTruthy();
+  });
+
+  it("un nombre que ya usa otro servicio muestra el cartel de aviso y deja guardar igual", async () => {
+    respuestaPrevia = {
+      ...conCambio(),
+      avisos: [{ pestana: "Servicios", fila: 7, mensaje: "Ya existe un servicio llamado «Peeling» (está en Medicina y Dermatología)." }],
+    };
+    montar();
+    soltar(archivo());
+    expect(await screen.findByText(/Ya existe un servicio llamado «Peeling»/)).toBeTruthy();
+    expect(screen.getByText(/Servicios · fila 7/)).toBeTruthy();
+    expect(screen.getByText(/Revisá antes de guardar/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Guardar" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("sin cambios dice 'La planilla no tiene cambios' y no deja guardar", async () => {

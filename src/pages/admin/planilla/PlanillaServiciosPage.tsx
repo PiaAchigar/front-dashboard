@@ -233,6 +233,23 @@ export function PlanillaServiciosPage({ area }: { area: AreaDeCatalogo }) {
               </div>
             )}
 
+            {vista.avisos?.length > 0 && (
+              <div role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-ink">
+                <p className="font-medium">
+                  {vista.avisos.length === 1 ? "Un aviso" : `${vista.avisos.length} avisos`}. Revisá antes de guardar:
+                  no frenan el guardado.
+                </p>
+                <ul className="mt-1 list-disc pl-5">
+                  {vista.avisos.map((av, i) => (
+                    <li key={i}>
+                      {av.pestana}
+                      {av.fila !== null ? ` · fila ${av.fila}` : ""} · {av.mensaje}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {nCambios === 0 && !hayErrores ? (
               <p className="text-sm text-ink">La planilla no tiene cambios</p>
             ) : (
@@ -341,7 +358,7 @@ export function PlanillaServiciosPage({ area }: { area: AreaDeCatalogo }) {
 
 function vacia(): Previsualizacion {
   return {
-    errores: [], servicios: [], acuerdos: [], insumos: [], categorias: [], combosAfectados: [],
+    errores: [], avisos: [], servicios: [], acuerdos: [], insumos: [], categorias: [], combosAfectados: [],
     resumen: { serviciosNuevos: 0, serviciosModificados: 0, acuerdos: 0, insumos: 0, categorias: 0 },
   };
 }

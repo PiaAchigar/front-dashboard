@@ -124,7 +124,11 @@ export function AyudaPlanilla({ onVolver }: { onVolver: () => void }) {
             tiene id es un servicio que ya existe; una fila <b>sin id</b> es un servicio <b>nuevo</b>.
           </li>
           <li>
-            <b>Nombre</b>: obligatorio. No puede haber dos servicios con el mismo nombre en el archivo.
+            <b>Nombre</b>: obligatorio. No puede haber dos servicios con el mismo nombre en el archivo. Si
+            un servicio nuevo (o uno al que le cambiaste el nombre) se llama igual que otro que ya está en
+            el sistema —en esta área o en otra, incluso desactivado—, la vista previa te muestra un{" "}
+            <b>aviso</b> diciendo dónde está el otro. El aviso no frena el guardado: si es el mismo servicio,
+            no lo cargues de nuevo; si es otro, conviene ponerle un nombre que los diferencie.
           </li>
           <li>
             <b>Código</b>, <b>Unidad</b> (por ejemplo, sesión): texto libre, hasta 50 letras.
