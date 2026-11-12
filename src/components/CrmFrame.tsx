@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useAvisosEstado } from "../lib/avisos-context";
 
 /**
  * Embebe la app `front-crm` por <iframe> y le pasa el access token del staff por
@@ -8,10 +10,16 @@ import { useAuth } from "../auth/AuthContext";
  * Protocolo:
  *   iframe → host : { type: "piubella:crm:ready" }
  *   host  → iframe: { type: "piubella:crm:token", accessToken }
+ *   host  → iframe: { type: "piubella:crm:avisos-estado", silenciado }
+ *   iframe → host : { type: "piubella:crm:avisos-silenciar", silenciado }
+ *   iframe → host : { type: "piubella:crm:viendo", conversationId | null }
  */
 const CRM_URL = import.meta.env.VITE_CRM_URL as string | undefined;
 const READY_MSG = "piubella:crm:ready";
 const TOKEN_MSG = "piubella:crm:token";
+const ESTADO_MSG = "piubella:crm:avisos-estado";
+const SILENCIAR_MSG = "piubella:crm:avisos-silenciar";
+const VIENDO_MSG = "piubella:crm:viendo";
 
 function originOf(url: string | undefined): string | null {
   if (!url) return null;
@@ -28,6 +36,17 @@ export function CrmFrame() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const crmOrigin = originOf(CRM_URL);
   const readyRef = useRef(false);
+  const [params] = useSearchParams();
+  const conversacion = params.get("conversacion");
+  const { silenciado, setSilenciado, setViendo } = useAvisosEstado();
+
+  const sendEstado = useCallback(() => {
+    if (!crmOrigin || !readyRef.current) return;
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: ESTADO_MSG, silenciado },
+      crmOrigin,
+    );
+  }, [crmOrigin, silenciado]);
 
   const sendToken = useCallback(() => {
     if (!crmOrigin || !readyRef.current || !token) return;
@@ -41,19 +60,40 @@ export function CrmFrame() {
     if (!crmOrigin) return;
     function onMessage(e: MessageEvent) {
       if (e.origin !== crmOrigin) return;
-      const data = e.data as { type?: string } | null;
+      const data = e.data as
+        | { type?: string; silenciado?: unknown; conversationId?: unknown }
+        | null;
       if (data?.type === READY_MSG) {
         readyRef.current = true;
         sendToken();
+        sendEstado();
+      } else if (data?.type === SILENCIAR_MSG && typeof data.silenciado === "boolean") {
+        setSilenciado(data.silenciado);
+      } else if (data?.type === VIENDO_MSG) {
+        setViendo(typeof data.conversationId === "string" ? data.conversationId : null);
       }
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [crmOrigin, sendToken]);
+  }, [crmOrigin, sendToken, sendEstado, setSilenciado, setViendo]);
+
+  // Al salir del CRM ya no hay conversación abierta.
+  useEffect(() => () => setViendo(null), [setViendo]);
+
+  useEffect(() => {
+    sendEstado();
+  }, [sendEstado]);
 
   useEffect(() => {
     sendToken();
   }, [sendToken]);
+
+  // El src se calcula una sola vez: si cambiara con la ruta, recargaría el iframe.
+  const [src] = useState(() =>
+    conversacion
+      ? `${CRM_URL}/inbox?embed=1&conversacion=${encodeURIComponent(conversacion)}`
+      : `${CRM_URL}/?embed=1`,
+  );
 
   if (!CRM_URL || !crmOrigin) {
     return (
@@ -72,7 +112,7 @@ export function CrmFrame() {
   return (
     <iframe
       ref={iframeRef}
-      src={`${CRM_URL}/?embed=1`}
+      src={src}
       title="CRM"
       className="h-full w-full border-0"
     />

@@ -4,6 +4,9 @@ import { useAuth } from "../auth/AuthContext";
 import { CheckoutHandoffProvider } from "../lib/checkout-handoff";
 import { useAgendarHandoff } from "../lib/agendar-handoff";
 import { useRecordarSolapa } from "./UltimaSolapa";
+import { AvisosProvider, useAvisosEstado } from "../lib/avisos-context";
+import { useAvisosDeMensajes } from "../hooks/useAvisosDeMensajes";
+import { AvisoToast } from "./AvisoToast";
 import { can, type Section } from "../lib/permissions";
 import {
   Calendar,
@@ -40,7 +43,18 @@ const navItems: NavItem[] = [
 ];
 
 export function AppShell() {
+  return (
+    <AvisosProvider>
+      <AppShellInner />
+    </AvisosProvider>
+  );
+}
+
+function AppShellInner() {
   const { user, role, signOut } = useAuth();
+  const verCrm = can(role as Parameters<typeof can>[0], "crm", "view");
+  const { silenciado, setSilenciado } = useAvisosEstado();
+  const { aviso, cerrar } = useAvisosDeMensajes(verCrm);
   const navigate = useNavigate();
   // "Llevame a agendar" desde la ficha de la clienta del CRM. Va acá y no
   // dentro de CrmFrame: ese se desmonta al navegar, antes de poder hacerlo.
@@ -110,6 +124,18 @@ export function AppShell() {
           </button>
         </div>
 
+        {verCrm && silenciado && (
+          <button
+            onClick={() => setSilenciado(false)}
+            title="Notificaciones silenciadas. Tocá para activarlas"
+            aria-label="Activar notificaciones"
+            className="mx-2 mt-3 flex items-center gap-2 rounded px-3 py-1.5 font-sans text-xs text-surface/60 transition-colors hover:bg-sidebar-hover hover:text-surface/90"
+          >
+            <span aria-hidden>🔕</span>
+            <span className={labelHidden}>Silenciado</span>
+          </button>
+        )}
+
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-2 py-4">
           {visibleNavItems.map(({ to, label, icon: Icon }) => (
@@ -173,6 +199,11 @@ export function AppShell() {
           </CheckoutHandoffProvider>
         </main>
       </div>
+      <AvisoToast
+        aviso={aviso}
+        onAbrir={(id) => navigate(`/crm?conversacion=${encodeURIComponent(id)}`)}
+        onCerrar={cerrar}
+      />
     </div>
   );
 }
