@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useNavigate } from "react-router-dom";
 
 const CRM_URL = "https://crm.piubella.test";
 vi.mock("../auth/AuthContext", () => ({ useAuth: () => ({ session: { access_token: "tok" } }) }));
@@ -19,6 +19,21 @@ function montar(ruta = "/crm") {
   );
   const iframe = r.container.querySelector("iframe")!;
   const enviados: unknown[] = [];
+  Object.defineProperty(iframe, "contentWindow", {
+    value: { postMessage: (d: unknown, o: string) => enviados.push([d, o]) },
+  });
+  return { ...r, iframe, enviados };
+}
+let irA: (to: string) => void = () => {};
+function Nav() { const n = useNavigate(); irA = (to) => n(to); return null; }
+function montarConNavegacion(ruta: string) {
+  const r = render(
+    <MemoryRouter initialEntries={[ruta]}>
+      <AvisosProvider><Nav /><CrmFrame /></AvisosProvider>
+    </MemoryRouter>,
+  );
+  const iframe = r.container.querySelector("iframe")!;
+  const enviados: any[] = [];
   Object.defineProperty(iframe, "contentWindow", {
     value: { postMessage: (d: unknown, o: string) => enviados.push([d, o]) },
   });
@@ -63,5 +78,27 @@ describe("CrmFrame - avisos", () => {
     recibir({ type: "piubella:crm:viendo", conversationId: "x" }, "https://evil.test");
     expect(estado.silenciado).toBe(false);
     expect(estado.viendo).toBeNull();
+  });
+
+  it("avisos-pedir-estado responde con el estado actual", () => {
+    const { enviados } = montar();
+    recibir({ type: "piubella:crm:avisos-pedir-estado" });
+    expect(enviados).toContainEqual([{ type: "piubella:crm:avisos-estado", silenciado: false }, CRM_URL]);
+  });
+  it("pedir-estado de otro origin se ignora", () => {
+    const { enviados } = montar();
+    recibir({ type: "piubella:crm:avisos-pedir-estado" }, "https://evil.test");
+    expect(enviados).toHaveLength(0);
+  });
+  it("si ?conversacion= cambia con el CRM ya abierto, manda abrir al iframe", () => {
+    const { enviados } = montarConNavegacion("/crm");
+    recibir({ type: "piubella:crm:ready" });
+    act(() => irA("/crm?conversacion=zzz"));
+    expect(enviados).toContainEqual([{ type: "piubella:crm:abrir", conversationId: "zzz" }, CRM_URL]);
+  });
+  it("no manda abrir por la conversación inicial", () => {
+    const { enviados } = montarConNavegacion("/crm?conversacion=abc");
+    recibir({ type: "piubella:crm:ready" });
+    expect(enviados.some(([d]: any) => d.type === "piubella:crm:abrir")).toBe(false);
   });
 });

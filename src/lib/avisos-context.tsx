@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import { guardarSilenciado, leerSilenciado } from "./avisos";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { guardarSilenciado, leerSilenciado, SILENCIO_KEY } from "./avisos";
 
 type AvisosCtx = {
   silenciado: boolean;
@@ -17,6 +17,14 @@ export function AvisosProvider({ children }: { children: ReactNode }) {
   const setSilenciado = useCallback((v: boolean) => {
     guardarSilenciado(v);
     setSil(v);
+  }, []);
+  // Silenciar en una pestaña silencia las demás.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === SILENCIO_KEY) setSil(leerSilenciado());
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
   const value = useMemo(() => ({ silenciado, setSilenciado, viendo, setViendo }), [silenciado, setSilenciado, viendo]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

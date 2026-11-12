@@ -89,4 +89,40 @@ describe("useAvisosDeMensajes", () => {
     expect(apiFetch).toHaveBeenCalledTimes(2);
     expect(apiFetch.mock.calls[1][0]).toBe("/api/crm/conversations/avisos");
   });
+
+  it("con la conversación abierta y otra a la vez: el aviso nombra sólo a la otra", async () => {
+    apiFetch.mockResolvedValueOnce({ mensajes: [], hasta: "H0" }).mockResolvedValueOnce({
+      mensajes: [{ ...msg("1", "c2"), contactName: "Bea" }, msg("2", "c9"), msg("3", "c9")],
+      hasta: "H1",
+    });
+    const { result } = montar();
+    act(() => result.current.est.setViendo("c9"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    await tick();
+    expect(result.current.av.aviso).toEqual({ texto: "💬 Bea: hola", conversationId: "c2" });
+    expect(ding).toHaveBeenCalledTimes(1);
+  });
+
+  it("no solapa consultas: salta la vuelta mientras una sigue en vuelo", async () => {
+    let resolver: (v: unknown) => void = () => {};
+    apiFetch.mockReturnValueOnce(new Promise((r) => { resolver = r; })).mockResolvedValue({ mensajes: [], hasta: "H0" });
+    montar();
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    await tick();
+    await tick();
+    expect(apiFetch).toHaveBeenCalledTimes(1);
+    await act(async () => { resolver({ mensajes: [], hasta: "H0" }); });
+    await tick();
+    expect(apiFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("el silencio se sincroniza entre pestañas por el evento storage", async () => {
+    const { result } = montar();
+    expect(result.current.est.silenciado).toBe(false);
+    act(() => {
+      localStorage.setItem("piubella:avisos-silenciados", "1");
+      window.dispatchEvent(new StorageEvent("storage", { key: "piubella:avisos-silenciados", newValue: "1" }));
+    });
+    expect(result.current.est.silenciado).toBe(true);
+  });
 });

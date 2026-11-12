@@ -28,7 +28,11 @@ export function useAvisosDeMensajes(habilitado: boolean) {
     if (!habilitado || !token) return;
     let activo = true;
 
+    let enCurso = false;
+
     async function consultar() {
+      if (enCurso) return; // la consulta anterior sigue en vuelo: no mandar el mismo `desde` dos veces
+      enCurso = true;
       try {
         const desde = hastaRef.current;
         const path = desde ? `${PATH}?desde=${encodeURIComponent(desde)}` : PATH;
@@ -36,12 +40,16 @@ export function useAvisosDeMensajes(habilitado: boolean) {
         if (!activo) return;
         hastaRef.current = r.hasta;
         if (r.mensajes.length === 0 || silenciadoRef.current) return;
+        // La conversación abierta en el CRM no cuenta: ni para el texto ni para el destino.
         const abierta = viendoRef.current;
-        if (abierta && r.mensajes.every((m) => m.conversationId === abierta)) return;
-        setAviso(textoDelAviso(r.mensajes));
+        const relevantes = abierta ? r.mensajes.filter((m) => m.conversationId !== abierta) : r.mensajes;
+        if (relevantes.length === 0) return;
+        setAviso(textoDelAviso(relevantes));
         sonarDing();
       } catch {
         /* sin red o 5xx: se reintenta en la próxima vuelta con el mismo `desde` */
+      } finally {
+        enCurso = false;
       }
     }
 

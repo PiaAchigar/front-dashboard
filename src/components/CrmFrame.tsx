@@ -13,6 +13,8 @@ import { useAvisosEstado } from "../lib/avisos-context";
  *   host  → iframe: { type: "piubella:crm:avisos-estado", silenciado }
  *   iframe → host : { type: "piubella:crm:avisos-silenciar", silenciado }
  *   iframe → host : { type: "piubella:crm:viendo", conversationId | null }
+ *   iframe → host : { type: "piubella:crm:avisos-pedir-estado" }  (al montar el Inbox)
+ *   host  → iframe: { type: "piubella:crm:abrir", conversationId }  (toast con el CRM ya abierto)
  */
 const CRM_URL = import.meta.env.VITE_CRM_URL as string | undefined;
 const READY_MSG = "piubella:crm:ready";
@@ -20,6 +22,8 @@ const TOKEN_MSG = "piubella:crm:token";
 const ESTADO_MSG = "piubella:crm:avisos-estado";
 const SILENCIAR_MSG = "piubella:crm:avisos-silenciar";
 const VIENDO_MSG = "piubella:crm:viendo";
+const PEDIR_ESTADO_MSG = "piubella:crm:avisos-pedir-estado";
+const ABRIR_MSG = "piubella:crm:abrir";
 
 function originOf(url: string | undefined): string | null {
   if (!url) return null;
@@ -67,6 +71,10 @@ export function CrmFrame() {
         readyRef.current = true;
         sendToken();
         sendEstado();
+      } else if (data?.type === PEDIR_ESTADO_MSG) {
+        // Quien pregunta ya está cargado: vale como ready para el estado.
+        readyRef.current = true;
+        sendEstado();
       } else if (data?.type === SILENCIAR_MSG && typeof data.silenciado === "boolean") {
         setSilenciado(data.silenciado);
       } else if (data?.type === VIENDO_MSG) {
@@ -87,6 +95,18 @@ export function CrmFrame() {
   useEffect(() => {
     sendToken();
   }, [sendToken]);
+
+  // Toque en un aviso con el CRM ya abierto: el src no cambia, se lo pedimos al iframe.
+  const conversacionInicial = useRef(conversacion);
+  useEffect(() => {
+    if (conversacion === conversacionInicial.current) return;
+    conversacionInicial.current = conversacion;
+    if (!conversacion || !crmOrigin || !readyRef.current) return;
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: ABRIR_MSG, conversationId: conversacion },
+      crmOrigin,
+    );
+  }, [conversacion, crmOrigin]);
 
   // El src se calcula una sola vez: si cambiara con la ruta, recargaría el iframe.
   const [src] = useState(() =>

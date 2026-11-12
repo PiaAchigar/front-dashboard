@@ -8,7 +8,7 @@ export type MensajeAviso = {
 
 export type RespuestaAvisos = { mensajes: MensajeAviso[]; hasta: string };
 
-const SILENCIO_KEY = "piubella:avisos-silenciados";
+export const SILENCIO_KEY = "piubella:avisos-silenciados";
 
 /** Texto del toast según el spec: un mensaje / varios de una clienta / varias clientas. */
 export function textoDelAviso(mensajes: MensajeAviso[]): { texto: string; conversationId: string } {
@@ -38,13 +38,26 @@ export function guardarSilenciado(v: boolean): void {
   }
 }
 
+let audioCtx: AudioContext | null = null;
+
+/** Un único AudioContext para todos los dings (crear uno por aviso se filtraba). */
+function contextoDeAudio(): AudioContext | null {
+  if (audioCtx) return audioCtx;
+  const Ctx: typeof AudioContext | undefined =
+    window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!Ctx) return null;
+  audioCtx = new Ctx();
+  return audioCtx;
+}
+
 /** "Ding" corto y suave con Web Audio. Si el navegador bloquea el audio, se ignora. */
 export function sonarDing(): void {
   try {
-    const Ctx: typeof AudioContext | undefined =
-      window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
+    const ctx = contextoDeAudio();
+    if (!ctx) return;
+    void Promise.resolve(ctx.resume?.()).catch(() => {});
+    // Antes del primer gesto del usuario queda `suspended`: sin sonido, sin programar nada.
+    if (ctx.state !== "running") return;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
@@ -52,7 +65,6 @@ export function sonarDing(): void {
     gain.gain.value = 0.08;
     osc.connect(gain);
     gain.connect(ctx.destination);
-    osc.onended = () => { void ctx.close().catch(() => {}); };
     osc.start();
     osc.stop(ctx.currentTime + 0.15);
   } catch {

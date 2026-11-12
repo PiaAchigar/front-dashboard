@@ -48,4 +48,28 @@ describe("sonarDing", () => {
     expect(() => sonarDing()).not.toThrow();
     vi.unstubAllGlobals();
   });
+
+  it("reusa un único AudioContext y no programa sonido si está suspendido", () => {
+    let creados = 0;
+    let osciladores = 0;
+    let state = "suspended";
+    vi.stubGlobal("AudioContext", class {
+      constructor() { creados++; }
+      get state() { return state; }
+      currentTime = 0;
+      destination = {};
+      resume() { return Promise.resolve(); }
+      createGain() { return { gain: { value: 0 }, connect() {} }; }
+      createOscillator() { osciladores++; return { type: "", frequency: { value: 0 }, connect() {}, start() {}, stop() {} }; }
+    });
+    sonarDing();
+    sonarDing();
+    expect(osciladores).toBe(0);
+    state = "running";
+    sonarDing();
+    sonarDing();
+    expect(creados).toBe(1);
+    expect(osciladores).toBe(2);
+    vi.unstubAllGlobals();
+  });
 });
