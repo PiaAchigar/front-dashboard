@@ -4,7 +4,15 @@ import { UsuariosPage } from "./UsuariosPage";
 
 const h = vi.hoisted(() => ({
   role: "admin" as string | null,
-  users: [] as { id: string; email: string; fullName?: string | null; role: string; createdAt: null; lastSignInAt: null }[],
+  users: [] as {
+    id: string;
+    email: string;
+    fullName?: string | null;
+    createdByName?: string | null;
+    role: string;
+    createdAt: null;
+    lastSignInAt: null;
+  }[],
   create: vi.fn(),
   updateName: vi.fn(),
 }));
@@ -28,8 +36,23 @@ beforeEach(() => {
   h.create.mockReset();
   h.updateName.mockReset();
   h.users = [
-    { id: "u1", email: "laura@x.com", fullName: "Laura", role: "sales", createdAt: null, lastSignInAt: null },
-    { id: "u2", email: "sin@x.com", fullName: null, role: "sales", createdAt: null, lastSignInAt: null },
+    {
+      id: "u1",
+      email: "laura@x.com",
+      fullName: "Laura",
+      createdByName: "Lucía Ce.",
+      role: "sales",
+      createdAt: null,
+      lastSignInAt: null,
+    },
+    {
+      id: "u2",
+      email: "sin@x.com",
+      fullName: null,
+      role: "sales",
+      createdAt: null,
+      lastSignInAt: null,
+    },
   ];
 });
 
@@ -41,11 +64,19 @@ describe("UsuariosPage - nombre", () => {
     expect(screen.getByText("Sin nombre")).toBeTruthy();
   });
 
+  it("muestra 'Creado por' sólo cuando hay creador", () => {
+    render(<UsuariosPage />);
+    expect(screen.getAllByText("Creado por Lucía Ce.")).toHaveLength(1);
+  });
+
   it("el buscador matchea por nombre", () => {
     render(<UsuariosPage />);
-    fireEvent.change(screen.getByPlaceholderText("Buscar por nombre o email…"), {
-      target: { value: "laur" },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText("Buscar por nombre o email…"),
+      {
+        target: { value: "laur" },
+      },
+    );
     expect(screen.queryByText("sin@x.com")).toBeNull();
     expect(screen.getByText("laura@x.com")).toBeTruthy();
   });
@@ -64,7 +95,9 @@ describe("UsuariosPage - nombre", () => {
   it("guardar llama a la API con el nombre recortado", () => {
     render(<UsuariosPage />);
     fireEvent.click(screen.getAllByLabelText("Editar nombre")[1]);
-    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "  Ana " } });
+    fireEvent.change(screen.getByLabelText("Nombre y apellido"), {
+      target: { value: "  Ana " },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     expect(h.updateName).toHaveBeenCalledWith(
       { id: "u2", fullName: "Ana" },
@@ -77,27 +110,44 @@ describe("UsuariosPage - nombre", () => {
     fireEvent.click(screen.getAllByLabelText("Editar nombre")[0]);
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(h.updateName).not.toHaveBeenCalled();
-    expect(screen.queryByLabelText("Nombre")).toBeNull();
+    expect(screen.queryByLabelText("Nombre y apellido")).toBeNull();
   });
 
   it("'Crear usuario' queda apagado hasta cargar el nombre", () => {
     render(<UsuariosPage />);
     fireEvent.click(screen.getByRole("button", { name: /Agregar/ }));
-    const crear = screen.getByRole("button", { name: "Crear usuario" }) as HTMLButtonElement;
-    fireEvent.change(screen.getByPlaceholderText("Cómo aparece en el sistema, ej: Laura"), {
-      target: { value: "   " },
-    });
+    expect(screen.getByText("Apellido *")).toBeTruthy();
+    const crear = screen.getByRole("button", {
+      name: "Crear usuario",
+    }) as HTMLButtonElement;
+    fireEvent.change(
+      screen.getByPlaceholderText("Cómo aparece en el sistema, ej: Laura"),
+      {
+        target: { value: "   " },
+      },
+    );
     const campos = document.querySelectorAll("input");
     const email = Array.from(campos).find((i) => i.type === "email")!;
-    const pass = screen.getByPlaceholderText("La verá el nuevo usuario para ingresar");
+    const pass = screen.getByPlaceholderText(
+      "La verá el nuevo usuario para ingresar",
+    );
     fireEvent.change(email, { target: { value: "nuevo@x.com" } });
     fireEvent.change(pass, { target: { value: "12345678" } });
     expect(crear.disabled).toBe(true);
-    fireEvent.change(screen.getByPlaceholderText("Cómo aparece en el sistema, ej: Laura"), {
-      target: { value: " Rosa " },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText("Cómo aparece en el sistema, ej: Laura"),
+      {
+        target: { value: " Rosa " },
+      },
+    );
+    expect(crear.disabled).toBe(true); // falta el apellido
+    const apellido = screen.getByLabelText("Apellido *");
+    fireEvent.change(apellido, { target: { value: " Díaz " } });
     expect(crear.disabled).toBe(false);
     fireEvent.click(crear);
-    expect(h.create.mock.calls[0][0]).toMatchObject({ fullName: "Rosa", email: "nuevo@x.com" });
+    expect(h.create.mock.calls[0][0]).toMatchObject({
+      fullName: "Rosa Díaz",
+      email: "nuevo@x.com",
+    });
   });
 });

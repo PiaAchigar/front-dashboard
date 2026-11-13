@@ -25,7 +25,8 @@ export function UsuariosPage() {
   const [search, setSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState({
-    fullName: "",
+    nombre: "",
+    apellido: "",
     email: "",
     password: "",
     role: "operator" as Role,
@@ -56,14 +57,23 @@ export function UsuariosPage() {
   );
 
   function openCreate() {
-    setForm({ fullName: "", email: "", password: "", role: "operator" });
+    setForm({
+      nombre: "",
+      apellido: "",
+      email: "",
+      password: "",
+      role: "operator",
+    });
     setFormError(null);
     setDrawerOpen(true);
   }
 
   function save() {
     create.mutate(
-      { ...form, fullName: form.fullName.trim() },
+      (({ nombre, apellido, ...resto }) => ({
+        ...resto,
+        fullName: `${nombre.trim()} ${apellido.trim()}`,
+      }))(form),
       {
         onSuccess: () => {
           toast.success("Usuario creado");
@@ -168,7 +178,7 @@ export function UsuariosPage() {
                       {editing?.id === u.id ? (
                         <div className="flex items-center gap-2">
                           <input
-                            aria-label="Nombre"
+                            aria-label="Nombre y apellido"
                             value={editing.value}
                             maxLength={100}
                             autoFocus
@@ -225,6 +235,11 @@ export function UsuariosPage() {
                     </td>
                     <td className="px-4 py-3 text-ink">
                       {u.email ?? "—"}
+                      {u.createdByName && (
+                        <p className="text-xs text-ink-soft">
+                          Creado por {u.createdByName}
+                        </p>
+                      )}
                       {isSelf && (
                         <span className="ml-2 text-xs text-ink-soft">
                           (vos)
@@ -286,7 +301,8 @@ export function UsuariosPage() {
         error={formError}
         busy={create.isPending}
         canSubmit={
-          form.fullName.trim().length > 0 &&
+          form.nombre.trim().length > 0 &&
+          form.apellido.trim().length > 0 &&
           form.email.trim().length > 3 &&
           form.password.length >= 8
         }
@@ -296,11 +312,18 @@ export function UsuariosPage() {
       >
         <Field label="Nombre *">
           <TextInput
-            value={form.fullName}
-            maxLength={100}
-            onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+            value={form.nombre}
+            maxLength={49}
+            onChange={(e) => setForm({ ...form, nombre: e.target.value })}
             placeholder="Cómo aparece en el sistema, ej: Laura"
             autoFocus
+          />
+        </Field>
+        <Field label="Apellido *">
+          <TextInput
+            value={form.apellido}
+            maxLength={50}
+            onChange={(e) => setForm({ ...form, apellido: e.target.value })}
           />
         </Field>
         <Field label="Email *">
