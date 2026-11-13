@@ -32,7 +32,7 @@ export function useCreateUser() {
   const token = useToken();
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: (data: { email: string; password: string; role: Role }) =>
+    mutationFn: (data: { fullName: string; email: string; password: string; role: Role }) =>
       apiFetch("/api/users", token, { method: "POST", body: JSON.stringify(data) }),
     onSuccess: invalidate,
   });
@@ -53,6 +53,19 @@ export function useDeleteUser() {
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: (id: string) => apiFetch(`/api/users/${id}`, token, { method: "DELETE" }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateUserName() {
+  const token = useToken();
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, fullName }: { id: string; fullName: string }) =>
+      apiFetch(`/api/users/${id}/nombre`, token, {
+        method: "PATCH",
+        body: JSON.stringify({ fullName }),
+      }),
     onSuccess: invalidate,
   });
 }

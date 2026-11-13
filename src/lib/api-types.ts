@@ -330,6 +330,7 @@ export type MpAccount = {
 export type AdminUser = {
   id: string;
   email: string | null;
+  fullName?: string | null;
   role: string | null;
   createdAt: string | null;
   lastSignInAt: string | null;
