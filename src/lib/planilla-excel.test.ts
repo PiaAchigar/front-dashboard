@@ -23,10 +23,11 @@ const datos: PlanillaDescarga = {
     ],
     acuerdos: [{ fila: 2, servicio: "Limpieza facial", proveedora: "Ana Pérez", tipoDePago: "Por hora", tarifa: 5000 }],
     insumos: [{ fila: 2, servicio: "Peeling", insumo: "Ácido", cantidad: 1.5 }],
+    maquinas: [{ fila: 2, servicio: "Peeling", maquina: "Láser A" }],
     categorias: [{ fila: 2, servicio: "Limpieza facial", categoria: "Facial › Limpiezas" }],
   },
   listas: {
-    maquinas: ["Láser A"], proveedoras: ["Ana Pérez"], insumos: ["Ácido"],
+    maquinas: ["Láser A", "Mantas Térmicas"], proveedoras: ["Ana Pérez"], insumos: ["Ácido"],
     categorias: ["Facial › Limpiezas"], tiposDePago: ["Por hora", "Porcentaje (%)", "Fijo por servicio"],
   },
 };
@@ -44,7 +45,7 @@ async function aBlob(wb: { xlsx: { writeBuffer(): Promise<unknown> } }) {
 describe("planilla-excel", () => {
   it("arma las pestañas en orden, con las dos últimas escondidas", async () => {
     const wb = await cargar(await armarLibro(datos));
-    expect(wb.worksheets.map((w) => w.name)).toEqual(["Servicios", "Proveedoras", "Insumos", "Categorías web", "Listas", "_original"]);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["Servicios", "Proveedoras", "Insumos", "Máquinas", "Categorías web", "Listas", "_original"]);
     expect(wb.getWorksheet("Listas")!.state).toBe("veryHidden");
     expect(wb.getWorksheet("_original")!.state).toBe("veryHidden");
     const h = wb.getWorksheet("Servicios")!.getRow(1);
@@ -88,6 +89,48 @@ describe("planilla-excel", () => {
     const r = await leerLibro(await (await aBlob(wb)).arrayBuffer());
     if ("error" in r) throw new Error(r.error);
     expect(r.editada).toEqual(datos.contenido);
+  });
+
+  it("la pestaña Máquinas viene con las máquinas actuales y desplegables de servicio y máquina", async () => {
+    const wb = await cargar(await armarLibro(datos));
+    const h = wb.getWorksheet("Máquinas")!;
+    expect([h.getCell(1, 1).value, h.getCell(1, 2).value]).toEqual(["Servicio", "Máquina"]);
+    expect([h.getCell(2, 1).value, h.getCell(2, 2).value]).toEqual(["Peeling", "Láser A"]);
+    // desplegables en toda la columna, incluidas filas vacías para agregar
+    expect(h.getCell(2, 1).dataValidation.formulae[0]).toBe("Servicios!$B$2:$B$2000");
+    expect(h.getCell(900, 1).dataValidation.formulae[0]).toBe("Servicios!$B$2:$B$2000");
+    expect(h.getCell(2, 2).dataValidation.formulae[0]).toBe("Listas!$B$1:$B$2");
+    expect(h.getCell(2, 2).dataValidation.type).toBe("list");
+    expect(wb.getWorksheet("Listas")!.getCell(2, 2).value).toBe("Mantas Térmicas");
+  });
+
+  it("lee las filas de Máquinas que Laura agregó, y no toca el original", async () => {
+    const wb = await cargar(await armarLibro(datos));
+    const h = wb.getWorksheet("Máquinas")!;
+    h.getCell(3, 1).value = "Limpieza facial";
+    h.getCell(3, 2).value = "Electrodos Térmicos";
+    const r = await leerLibro(await (await aBlob(wb)).arrayBuffer());
+    if ("error" in r) throw new Error(r.error);
+    expect(r.editada.maquinas).toEqual([
+      { fila: 2, servicio: "Peeling", maquina: "Láser A" },
+      { fila: 3, servicio: "Limpieza facial", maquina: "Electrodos Térmicos" },
+    ]);
+    expect(r.original.maquinas).toEqual(datos.contenido.maquinas);
+  });
+
+  it("una planilla vieja sin la pestaña Máquinas se lee igual (sin maquinas)", async () => {
+    const wb = await cargar(await armarLibro(datos));
+    wb.removeWorksheet(wb.getWorksheet("Máquinas")!.id);
+    const r = await leerLibro(await (await aBlob(wb)).arrayBuffer());
+    if ("error" in r) throw new Error(r.error);
+    expect(r.editada.maquinas).toBeUndefined();
+    expect(r.editada.servicios).toHaveLength(2);
+  });
+
+  it("si la pestaña Máquinas existe pero le falta una columna, avisa", async () => {
+    const wb = await cargar(await armarLibro(datos));
+    wb.getWorksheet("Máquinas")!.getRow(1).getCell(2).value = "Otra cosa";
+    expect(await leerLibro(await (await aBlob(wb)).arrayBuffer())).toEqual({ error: "Falta la columna «Máquina» en «Máquinas»" });
   });
 
   it("un libro sin _original da el error de archivo ajeno", async () => {

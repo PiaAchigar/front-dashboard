@@ -48,6 +48,8 @@ describe("AyudaPlanilla", () => {
       "combos y packs",
       "al menos una categoría",
       "Actualizar precios",
+      "varias máquinas a un mismo servicio",
+      "Máquina nueva",
     ]) {
       expect(texto, frag).toContain(frag);
     }

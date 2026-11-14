@@ -6,6 +6,7 @@ import {
   ENCABEZADO_ID,
   ENCABEZADOS_CATEGORIAS,
   ENCABEZADOS_INSUMOS,
+  ENCABEZADOS_MAQUINAS,
   ENCABEZADOS_PROVEEDORAS,
   ENCABEZADOS_SERVICIOS,
   type Celda,
@@ -46,6 +47,7 @@ export async function armarLibro(d: PlanillaDescarga): Promise<Blob> {
   const hojaServicios = wb.addWorksheet("Servicios");
   const hojaProv = wb.addWorksheet("Proveedoras");
   const hojaIns = wb.addWorksheet("Insumos");
+  const hojaMaq = wb.addWorksheet("Máquinas");
   const hojaCat = wb.addWorksheet("Categorías web");
   const hojaListas = wb.addWorksheet("Listas", { state: "veryHidden" });
   const hojaOriginal = wb.addWorksheet("_original", { state: "veryHidden" });
@@ -110,13 +112,20 @@ export async function armarLibro(d: PlanillaDescarga): Promise<Blob> {
   desplegable(hojaIns, 1, NOMBRES_SERVICIOS);
   desplegable(hojaIns, 2, rango(4));
 
+  encabezado(hojaMaq, ENCABEZADOS_MAQUINAS);
+  (d.contenido.maquinas ?? []).forEach((f, i) => {
+    [f.servicio, f.maquina].forEach((v, j) => (hojaMaq.getCell(i + 2, j + 1).value = v));
+  });
+  desplegable(hojaMaq, 1, NOMBRES_SERVICIOS);
+  desplegable(hojaMaq, 2, rango(2));
+
   encabezado(hojaCat, ENCABEZADOS_CATEGORIAS);
   d.contenido.categorias.forEach((f, i) => {
     [f.servicio, f.categoria].forEach((v, j) => (hojaCat.getCell(i + 2, j + 1).value = v));
   });
   desplegable(hojaCat, 1, NOMBRES_SERVICIOS);
   desplegable(hojaCat, 2, rango(5));
-  [hojaProv, hojaIns, hojaCat].forEach((h) => h.columns.forEach((c) => (c.width = 30)));
+  [hojaProv, hojaIns, hojaMaq, hojaCat].forEach((h) => h.columns.forEach((c) => (c.width = 30)));
 
   // _original: lo que se bajó, en trozos (una celda de Excel admite ~32.000 caracteres).
   const json = JSON.stringify({ v: 1, area: d.area.nombre, generadaEn, contenido: d.contenido });
@@ -217,6 +226,9 @@ export async function leerLibro(archivo: File | ArrayBuffer): Promise<ResultadoL
     hojas[n] = h;
   }
 
+  // La pestaña Máquinas es opcional: las planillas bajadas antes no la tienen.
+  const hojaMaquinas = wb.getWorksheet("Máquinas");
+
   const servicios = leerHoja<FilaServicioPlanilla>(
     hojas["Servicios"],
     "Servicios",
@@ -245,7 +257,16 @@ export async function leerLibro(archivo: File | ArrayBuffer): Promise<ResultadoL
   }));
   if ("error" in categorias) return categorias;
 
-  return { area: guardado.area, original: guardado.contenido, editada: { servicios, acuerdos, insumos, categorias } };
+  const editada: ContenidoPlanilla = { servicios, acuerdos, insumos, categorias };
+  if (hojaMaquinas) {
+    const maquinas = leerHoja(hojaMaquinas, "Máquinas", ENCABEZADOS_MAQUINAS, (fila, v) => ({
+      fila, servicio: v["Servicio"], maquina: v["Máquina"],
+    }));
+    if ("error" in maquinas) return maquinas;
+    editada.maquinas = maquinas;
+  }
+
+  return { area: guardado.area, original: guardado.contenido, editada };
 }
 
 // ───────────────────────── Nombre de archivo ─────────────────────────

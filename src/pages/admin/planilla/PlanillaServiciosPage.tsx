@@ -25,7 +25,7 @@ const vacio = (t: string | number | null) => (t === null || t === "" ? "(vacío)
 
 function totalDeCambios(p: Previsualizacion): number {
   const r = p.resumen;
-  return r.serviciosNuevos + r.serviciosModificados + r.acuerdos + r.insumos + r.categorias;
+  return r.serviciosNuevos + r.serviciosModificados + r.acuerdos + r.insumos + r.categorias + (r.maquinas ?? 0);
 }
 
 function textoResumen(p: Previsualizacion): string {
@@ -36,6 +36,7 @@ function textoResumen(p: Previsualizacion): string {
     plural(r.acuerdos, "acuerdo de proveedora", "acuerdos de proveedoras"),
     plural(r.insumos, "insumo", "insumos"),
     plural(r.categorias, "categoría", "categorías"),
+    ...(r.maquinas ? [plural(r.maquinas, "máquina", "máquinas")] : []),
   ].join(" · ");
 }
 
@@ -307,6 +308,15 @@ export function PlanillaServiciosPage({ area }: { area: AreaDeCatalogo }) {
                 ))}
               </Bloque>
             )}
+            {vista.maquinas?.length > 0 && (
+              <Bloque titulo="Máquinas que se agregan (para sacar una, andá a la ficha del servicio)">
+                {porServicio(vista.maquinas).map(([servicio, maqs]) => (
+                  <li key={servicio}>
+                    {servicio}: {maqs.join(", ")}
+                  </li>
+                ))}
+              </Bloque>
+            )}
             {vista.categorias.length > 0 && (
               <Bloque titulo="Categorías web">
                 {vista.categorias.map((c) => (
@@ -358,9 +368,20 @@ export function PlanillaServiciosPage({ area }: { area: AreaDeCatalogo }) {
 
 function vacia(): Previsualizacion {
   return {
-    errores: [], avisos: [], servicios: [], acuerdos: [], insumos: [], categorias: [], combosAfectados: [],
-    resumen: { serviciosNuevos: 0, serviciosModificados: 0, acuerdos: 0, insumos: 0, categorias: 0 },
+    errores: [], avisos: [], servicios: [], acuerdos: [], insumos: [], categorias: [], maquinas: [], combosAfectados: [],
+    resumen: { serviciosNuevos: 0, serviciosModificados: 0, acuerdos: 0, insumos: 0, categorias: 0, maquinas: 0 },
   };
+}
+
+/** Las máquinas a agregar, agrupadas por servicio (la nueva lleva «(nueva)»). */
+export function porServicio(filas: Previsualizacion["maquinas"]): [string, string[]][] {
+  const m = new Map<string, string[]>();
+  for (const f of filas) {
+    const lista = m.get(f.servicio) ?? [];
+    lista.push(f.nueva ? `${f.maquina} (nueva)` : f.maquina);
+    m.set(f.servicio, lista);
+  }
+  return [...m.entries()];
 }
 
 function Bloque({ titulo, children }: { titulo: string; children: React.ReactNode }) {

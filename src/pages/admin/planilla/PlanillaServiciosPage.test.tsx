@@ -34,14 +34,14 @@ const CONTENIDO = { servicios: [], acuerdos: [], insumos: [], categorias: [] };
 const LEIDO = { area: "Estética", original: CONTENIDO, editada: CONTENIDO };
 
 const vacia = (): Previsualizacion => ({
-  errores: [], avisos: [], servicios: [], acuerdos: [], insumos: [], categorias: [], combosAfectados: [],
-  resumen: { serviciosNuevos: 0, serviciosModificados: 0, acuerdos: 0, insumos: 0, categorias: 0 },
+  errores: [], avisos: [], servicios: [], acuerdos: [], insumos: [], categorias: [], maquinas: [], combosAfectados: [],
+  resumen: { serviciosNuevos: 0, serviciosModificados: 0, acuerdos: 0, insumos: 0, categorias: 0, maquinas: 0 },
 });
 const conCambio = (): Previsualizacion => ({
   ...vacia(),
   servicios: [{ fila: 2, id: "s1", nombre: "Limpieza facial", tipo: "modificado", cambios: [{ campo: "Precio lista", antes: "45000", despues: "50000" }] }],
   combosAfectados: [{ id: "c1", nombre: "Combo verano", kind: "combo" }],
-  resumen: { serviciosNuevos: 0, serviciosModificados: 1, acuerdos: 0, insumos: 0, categorias: 0 },
+  resumen: { serviciosNuevos: 0, serviciosModificados: 1, acuerdos: 0, insumos: 0, categorias: 0, maquinas: 0 },
 });
 const conError = (): Previsualizacion => ({
   ...conCambio(),
@@ -156,6 +156,24 @@ describe("PlanillaServiciosPage", () => {
     expect(await screen.findByText(/Ya existe un servicio llamado «Peeling»/)).toBeTruthy();
     expect(screen.getByText(/Servicios · fila 7/)).toBeTruthy();
     expect(screen.getByText(/Revisá antes de guardar/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Guardar" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("muestra por servicio las máquinas a agregar y el aviso de máquina nueva", async () => {
+    respuestaPrevia = {
+      ...vacia(),
+      maquinas: [
+        { fila: 2, servicio: "Sesión 1 ESTÍMULO", maquina: "Botas de Presoterapia", nueva: false },
+        { fila: 3, servicio: "Sesión 1 ESTÍMULO", maquina: "Electrodos Térmicos", nueva: true },
+      ],
+      avisos: [{ pestana: "Máquinas", fila: 3, mensaje: "Máquina nueva: Electrodos Térmicos" }],
+      resumen: { serviciosNuevos: 0, serviciosModificados: 0, acuerdos: 0, insumos: 0, categorias: 0, maquinas: 2 },
+    };
+    montar();
+    soltar(archivo());
+    expect(await screen.findByText("Sesión 1 ESTÍMULO: Botas de Presoterapia, Electrodos Térmicos (nueva)")).toBeTruthy();
+    expect(screen.getByText(/Máquinas · fila 3 · Máquina nueva: Electrodos Térmicos/)).toBeTruthy();
+    expect(screen.getByText(/2 máquinas/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Guardar" }) as HTMLButtonElement).disabled).toBe(false);
   });
 

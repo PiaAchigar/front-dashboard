@@ -29,12 +29,15 @@ export type FilaServicioPlanilla = {
 export type FilaAcuerdoPlanilla = { fila: number; servicio: Celda; proveedora: Celda; tipoDePago: Celda; tarifa: Celda };
 export type FilaInsumoPlanilla = { fila: number; servicio: Celda; insumo: Celda; cantidad: Celda };
 export type FilaCategoriaPlanilla = { fila: number; servicio: Celda; categoria: Celda };
+export type FilaMaquinaPlanilla = { fila: number; servicio: Celda; maquina: Celda };
 
 export type ContenidoPlanilla = {
   servicios: FilaServicioPlanilla[];
   acuerdos: FilaAcuerdoPlanilla[];
   insumos: FilaInsumoPlanilla[];
   categorias: FilaCategoriaPlanilla[];
+  /** Pestaña "Máquinas". Opcional: las planillas viejas no la traen. */
+  maquinas?: FilaMaquinaPlanilla[];
 };
 
 export type ListasPlanilla = {
@@ -54,7 +57,7 @@ export type PlanillaDescarga = {
 
 export type EntradaPlanilla = { area: string; original: ContenidoPlanilla; editada: ContenidoPlanilla };
 
-export type Pestana = "Servicios" | "Proveedoras" | "Insumos" | "Categorías web" | "Archivo";
+export type Pestana = "Servicios" | "Proveedoras" | "Insumos" | "Categorías web" | "Máquinas" | "Archivo";
 export type ErrorDePlanilla = { pestana: Pestana; fila: number | null; mensaje: string };
 /** Igual que un error pero no frena el guardado: sólo avisa. */
 export type AvisoDePlanilla = ErrorDePlanilla;
@@ -67,8 +70,10 @@ export type Previsualizacion = {
   acuerdos: { fila: number; servicio: string; proveedora: string; tipo: "nuevo" | "cambia"; antes: string | null; despues: string }[];
   insumos: { fila: number; servicio: string; insumo: string; tipo: "nuevo" | "cambia"; antes: number | null; despues: number }[];
   categorias: { fila: number; servicio: string; categoria: string }[];
+  /** Máquinas que se agregan a cada servicio. `nueva` = la máquina se crea al guardar. */
+  maquinas: { fila: number; servicio: string; maquina: string; nueva: boolean }[];
   combosAfectados: { id: string; nombre: string; kind: "combo" | "pack" }[];
-  resumen: { serviciosNuevos: number; serviciosModificados: number; acuerdos: number; insumos: number; categorias: number };
+  resumen: { serviciosNuevos: number; serviciosModificados: number; acuerdos: number; insumos: number; categorias: number; maquinas: number };
 };
 
 export type ServicioNormalizado = {
@@ -114,6 +119,7 @@ export const ENCABEZADOS_SERVICIOS: Record<keyof ServicioNormalizado, string> = 
 export const ENCABEZADOS_PROVEEDORAS = ["Servicio", "Proveedora", "Tipo de pago", "Tarifa"] as const;
 export const ENCABEZADOS_INSUMOS = ["Servicio", "Insumo", "Cantidad"] as const;
 export const ENCABEZADOS_CATEGORIAS = ["Servicio", "Categoría web"] as const;
+export const ENCABEZADOS_MAQUINAS = ["Servicio", "Máquina"] as const;
 
 /** Campo normalizado -> campo de la fila de la planilla. */
 export const CAMPO_DE_FILA: Record<keyof ServicioNormalizado, keyof FilaServicioPlanilla> = {

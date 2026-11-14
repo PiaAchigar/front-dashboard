@@ -185,6 +185,16 @@ export function AyudaPlanilla({ onVolver }: { onVolver: () => void }) {
           </li>
         </ul>
 
+        <p className="font-medium">Máquinas (una fila por servicio y máquina)</p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>
+            Sirve para asociar <b>varias máquinas a un mismo servicio</b>: una fila por cada una. Elegí{" "}
+            <b>Servicio</b> y <b>Máquina</b> del desplegable. Si escribís una máquina que no existe, se crea
+            y la vista previa te avisa («Máquina nueva») por si es un error de tipeo. El servicio pasa a
+            requerir máquina. Para sacar una máquina, hacelo desde la ficha del servicio.
+          </li>
+        </ul>
+
         <p className="font-medium">Categorías web (una fila por servicio y categoría)</p>
         <ul className="list-disc space-y-1 pl-5">
           <li>
@@ -198,11 +208,11 @@ export function AyudaPlanilla({ onVolver }: { onVolver: () => void }) {
       <Tema titulo="Borrar una fila no borra nada" abierto>
         <p>
           Si sacás una fila de la planilla, el sistema <b>no borra</b> nada. Eso vale para los servicios,
-          las proveedoras, los insumos y las categorías.
+          las proveedoras, los insumos, las máquinas y las categorías.
         </p>
         <p>
           Con la planilla se puede <b>agregar</b> y <b>cambiar</b>. Para eliminar un servicio, sacarle una
-          proveedora, un insumo o una categoría, hacelo desde el sistema, en la ficha del servicio.
+          proveedora, un insumo, una máquina o una categoría, hacelo desde el sistema, en la ficha del servicio.
         </p>
       </Tema>
 
